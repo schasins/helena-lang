@@ -109,7 +109,7 @@ var ReplayScript = (function _ReplayScript() {
 
   // controls the sequence of transformations we do when we get a trace
 
-  pub.ringerTraceToHelenaProgram = function _ringerTraceToHelenaProgram(trace, windowId){
+  pub.ringerTraceToHelenaProgram = function _ringerTraceToHelenaProgram(trace, windowId, addOutputStatement){
     WALconsole.log(trace);
     trace = processTrace(trace, windowId);
     trace = prepareForDisplay(trace);
@@ -119,7 +119,7 @@ var ReplayScript = (function _ReplayScript() {
     trace = removeEventsBeforeFirstVisibleLoad(trace);
 
     var segmentedTrace = segment(trace);
-    var prog = segmentedTraceToProgram(segmentedTrace);
+    var prog = segmentedTraceToProgram(segmentedTrace, addOutputStatement);
     return prog;
   }
 
@@ -315,7 +315,7 @@ var ReplayScript = (function _ReplayScript() {
     return allSegments;
   }
 
-  function segmentedTraceToProgram(segmentedTrace){
+  function segmentedTraceToProgram(segmentedTrace, addOutputStatement){
     var statements = [];
     _.each(segmentedTrace, function(seg){
       var sType = null;
@@ -343,7 +343,7 @@ var ReplayScript = (function _ReplayScript() {
         }
       }
     });
-    return new WebAutomationLanguage.Program(statements);
+    return new WebAutomationLanguage.Program(statements, addOutputStatement);
   }
 
   return pub;

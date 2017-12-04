@@ -14,6 +14,9 @@ var StatementTypes = {
   PULLDOWNINTERACTION: 7
 };
 
+// make this call early so that the voices will be loaded early
+speechSynthesis.getVoices(); // in case we ever want to say anything
+
 // these are outside because they're useful for controling the tool via selenium and so on
 // but should really be hidden soon.  todo: hide them
 var scrapingRunsCompleted = 0;
@@ -1844,6 +1847,81 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
   };
 
+  function say(thingToSay){
+    var msg = new SpeechSynthesisUtterance(thingToSay);
+    msg.voice = speechSynthesis.getVoices().filter(function(voice) { return voice.name == 'Google US English'; })[0];
+    window.speechSynthesis.speak(msg);
+  }
+
+  pub.SayStatement = function _WaitStatement(){
+    Revival.addRevivalLabel(this);
+    setBlocklyLabel(this, "say");
+    var textToSayFieldName = 'textToSay';
+    this.textToSay = "";
+
+    this.remove = function _remove(){
+      this.parent.removeChild(this);
+    }
+
+    this.prepareToRun = function _prepareToRun(){
+      return;
+    };
+    this.clearRunningState = function _clearRunningState(){
+      return;
+    }
+
+    this.toStringLines = function _toStringLines(){
+      return ["say " + this.textToSay];
+    };
+
+    this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+      addToolboxLabel(this.blocklyLabel);
+      var handleTextToSayChange = function(newText){
+        if (this.sourceBlock_){
+          this.sourceBlock_.WALStatement.textToSay = newText;
+        }
+      };
+      Blockly.Blocks[this.blocklyLabel] = {
+        init: function() {
+          this.appendDummyInput()
+              .appendField("say")
+              .appendField(new Blockly.FieldTextInput('your text here', handleTextToSayChange), textToSayFieldName);
+          this.setPreviousStatement(true, null);
+          this.setNextStatement(true, null);
+          this.setColour(25);
+          this.WALStatement = new pub.SayStatement();
+        }
+      };
+    };
+
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
+      this.block = workspace.newBlock(this.blocklyLabel);
+      attachToPrevBlock(this.block, prevBlock);
+      this.block.WALStatement = this;
+      this.block.setFieldValue(this.textToSay, textToSayFieldName);
+      return this.block;
+    };
+
+    this.traverse = function _traverse(fn, fn2){
+      fn(this);
+      fn2(this);
+    };
+
+    this.run = function _run(runObject, rbbcontinuation, rbboptions){
+      // say the thing, then call rbbcontinuation on rbboptions
+      console.log("saying", this.textToSay);
+      say(this.textToSay);
+      rbbcontinuation(rbboptions);
+    };
+
+    this.parameterizeForRelation = function _parameterizeForRelation(relation){
+      return [];
+    };
+    this.unParameterizeForRelation = function _unParameterizeForRelation(relation){
+      return;
+    };
+  };
+
   pub.IfStatement = function _IfStatement(bodyStatements){
     Revival.addRevivalLabel(this);
     setBlocklyLabel(this, "if");
@@ -3664,7 +3742,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   // the whole program
 
-  pub.Program = function _Program(statements){
+  pub.Program = function _Program(statements, addOutputStatement){
+    if (addOutputStatement === undefined){addOutputStatement = true;}
     Revival.addRevivalLabel(this);
     if (statements){ // for revival, statements will be undefined
       this.statements = statements;
@@ -3677,7 +3756,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     // add an output statement to the end if there are any scrape statements in the program.  should have a list of all scrape statements, treat them as cells in one row
     var scrapeStatements = _.filter(this.statements, function(statement){return statement instanceof WebAutomationLanguage.ScrapeStatement;});
-    if (scrapeStatements.length > 0){ this.statements.push(new WebAutomationLanguage.OutputRowStatement(scrapeStatements));}
+    if (addOutputStatement && scrapeStatements.length > 0){ this.statements.push(new WebAutomationLanguage.OutputRowStatement(scrapeStatements));}
 
     this.removeChild = function _removeChild(childStatement){
       this.loopyStatements = _.without(this.loopyStatements, childStatement);
