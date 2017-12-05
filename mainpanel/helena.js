@@ -128,6 +128,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     return relationsDropDown;
   }
 
+  function makeVariableNamesDropdown(prog){
+    var varNames = prog.getAllVariableNames();
+    var varNamesDropDown = [];
+    for (var i = 0; i < varNames.length; i++){
+      varNamesDropDown.push([varNames[i], varNames[i]]);
+    }
+    return varNamesDropDown;
+  }
+
   function nodeRepresentation(statement, linkScraping){
     if (linkScraping === undefined){ linkScraping = false; }
     if (statement.currentNode instanceof WebAutomationLanguage.NodeVariable){
@@ -402,7 +411,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return [this.outputPageVar.toString()+" = load("+cUrl+")"];
     };
 
-    this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+    this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
       addToolboxLabel(this.blocklyLabel, "web");
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
       Blockly.Blocks[this.blocklyLabel] = {
@@ -531,7 +540,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return [outputPagesRepresentation(this)+"click("+nodeRep+")"];
     };
 
-    this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+    this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
       addToolboxLabel(this.blocklyLabel, "web");
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
       var outputOptionLabel = this.blocklyLabel+"_outputPage";
@@ -699,7 +708,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return [sString + nodeRep+", "+this.currentNode.getName()+")"];
     };
 
-    this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+    this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
       addToolboxLabel(this.blocklyLabel, "web");
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
       Blockly.Blocks[this.blocklyLabel] = {
@@ -721,7 +730,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.alternativeBlocklyLabel = "scrape_ringer"
-    this.updateAlternativeBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+    this.updateAlternativeBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
 
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
       Blockly.Blocks[this.alternativeBlocklyLabel] = {
@@ -1041,7 +1050,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
 
-    this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+    this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
       addToolboxLabel(this.blocklyLabel, "web");
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
       Blockly.Blocks[this.blocklyLabel] = {
@@ -1198,7 +1207,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return ["pulldown interaction"];
     };
 
-    this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+    this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
       addToolboxLabel(this.blocklyLabel, "web");
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
@@ -1395,7 +1404,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return ["addOutputRow(["+allNames.join(", ")+"])"];
     };
 
-    this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+    this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
       addToolboxLabel(this.blocklyLabel);
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
@@ -1525,7 +1534,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return [];
     };
 
-    this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+    this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
       // we don't display back presses for now
     };
 
@@ -1598,7 +1607,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return [];
     };
 
-    this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+    this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
       return;
     };
 
@@ -1672,7 +1681,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return ["continue"];
     };
 
-    this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+    this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
       addToolboxLabel(this.blocklyLabel);
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
       Blockly.Blocks[this.blocklyLabel] = {
@@ -1733,7 +1742,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return ["wait " + this.wait.toString() + " seconds"];
     };
 
-    this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+    this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
       addToolboxLabel(this.blocklyLabel);
       var handleWaitChange = function(newWait){
         console.log("newWait", newWait);
@@ -1804,7 +1813,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return ["wait until user ready"];
     };
 
-    this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+    this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
       addToolboxLabel(this.blocklyLabel);
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
@@ -1853,7 +1862,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     window.speechSynthesis.speak(msg);
   }
 
-  pub.SayStatement = function _WaitStatement(){
+  pub.SayStatement = function _SayStatement(){
     Revival.addRevivalLabel(this);
     setBlocklyLabel(this, "say");
     var textToSayFieldName = 'textToSay';
@@ -1874,7 +1883,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return ["say " + this.textToSay];
     };
 
-    this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+    this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
       addToolboxLabel(this.blocklyLabel);
       var handleTextToSayChange = function(newText){
         if (this.sourceBlock_){
@@ -1911,6 +1920,91 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // say the thing, then call rbbcontinuation on rbboptions
       console.log("saying", this.textToSay);
       say(this.textToSay);
+      rbbcontinuation(rbboptions);
+    };
+
+    this.parameterizeForRelation = function _parameterizeForRelation(relation){
+      return [];
+    };
+    this.unParameterizeForRelation = function _unParameterizeForRelation(relation){
+      return;
+    };
+  };
+
+
+  pub.SayNodeStatement = function _SayNodeStatement(){
+    Revival.addRevivalLabel(this);
+    setBlocklyLabel(this, "sayNode");
+    var textToSayFieldName = 'nodeName';
+    this.varName = null;
+
+    this.remove = function _remove(){
+      this.parent.removeChild(this);
+    }
+
+    this.prepareToRun = function _prepareToRun(){
+      return;
+    };
+    this.clearRunningState = function _clearRunningState(){
+      return;
+    }
+
+    this.toStringLines = function _toStringLines(){
+      if (this.varName){
+        return ["say " + varName];
+      }
+      else{
+        return ["say nothing -- no node chosen"];
+      }
+    };
+
+    this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
+      addToolboxLabel(this.blocklyLabel);
+      var handleTextToSayChange = function(newVarName){
+        if (this.sourceBlock_){
+          console.log("updating node to say to", newVarName);
+          this.sourceBlock_.WALStatement.varName = newVarName;
+        }
+      };
+      Blockly.Blocks[this.blocklyLabel] = {
+        init: function() {
+          var varNamesDropDown = makeVariableNamesDropdown(program);
+          this.appendDummyInput()
+              .appendField("say")
+              .appendField(new Blockly.FieldDropdown(varNamesDropDown, handleTextToSayChange), textToSayFieldName);
+          this.setPreviousStatement(true, null);
+          this.setNextStatement(true, null);
+          this.setColour(25);
+          this.WALStatement = new pub.SayNodeStatement();
+          this.WALStatement.varName = varNamesDropDown[0][0]; // since this is what it'll show by default, better act as though that's true
+        }
+      };
+    };
+
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
+      this.block = workspace.newBlock(this.blocklyLabel);
+      attachToPrevBlock(this.block, prevBlock);
+      this.block.WALStatement = this;
+      this.block.setFieldValue(this.varName, textToSayFieldName);
+      return this.block;
+    };
+
+    this.traverse = function _traverse(fn, fn2){
+      fn(this);
+      fn2(this);
+    };
+
+    this.run = function _run(runObject, rbbcontinuation, rbboptions){
+      // say the thing, then call rbbcontinuation on rbboptions
+      var textToSay = runObject.environment.envLookup(this.varName);
+      // the only thing we put in env now is our weird representation of nodes.  not even a nodeVariable rep, but something else that we get from scraping
+      // todo: might want to fix what we store.  but eh, this is fine for now
+      if (textToSay.text){
+        textToSay = textToSay.text;
+        // if we don't have a text field, then we'll just go with the default and it'll probably be [object object]
+      }
+      console.log("saying", textToSay);
+      say(textToSay);
       rbbcontinuation(rbboptions);
     };
 
@@ -1962,7 +2056,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return ["if"]; // todo: when we have the real if statements, do the right thing
     };
 
-    this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+    this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
       addToolboxLabel(this.blocklyLabel);
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
@@ -2124,7 +2218,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
 
     var color = 7;
-    this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+    this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
     };
 
     var TimeUnits = {
@@ -2544,7 +2638,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.toStringLines = function _toStringLines(){
       var relation = this.relation;
       var varNames = this.relation.scrapedColumnNames();
-      var additionalVarNames = this.relation.columnNames(this.relationColumnUsed);
+      var additionalVarNames = this.relation.columnName(this.relationColumnUsed);
       varNames = _.union(varNames, additionalVarNames);
       WALconsole.log("loopstatement", varNames, additionalVarNames);
       var prefix = "";
@@ -2559,7 +2653,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return [prefix].concat(statementStrings).concat(["}"]);
     };
 
-    this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+    this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
       if (relations.length < 1){
         WALconsole.log("no relations yet, so can't have any loops in blockly.");
         return;
@@ -2720,8 +2814,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return _.map(_.filter(this.columns, function(colObj){return colObj.scraped;}), function(colObj){return colObj.name;});
     };
 
-    this.columnNames = function _columnNames(colObj){
+    this.columnName = function _columnName(colObj){
       return _.map(colObj, function(colObj){return colObj.name;});
+    };
+    this.columnNames = function _columnNames(){
+      return _.map(this.columns, function(colObj){return colObj.name;});
     };
 
     this.demonstrationTimeRelationText = function _demonstrationTimeRelationText(){
@@ -2931,8 +3028,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return _.map(_.filter(this.columns, function(colObj){return colObj.scraped;}), function(colObj){return colObj.name;});
     };
 
-    this.columnNames = function _columnNames(colObj){
+    this.columnName = function _columnName(colObj){
       return _.map(colObj, function(colObj){return colObj.name;});
+    };
+    this.columnNames = function _columnNames(){
+      return _.map(this.columns, function(colObj){return colObj.name;});
     };
 
     function domain(url){
@@ -3799,7 +3899,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           try{
             var obj = new pub[prop]();
             if (obj.updateBlocklyBlock){
-              obj.updateBlocklyBlock(program.pageVars, program.relations)
+              obj.updateBlocklyBlock(program, program.pageVars, program.relations)
             };
           }
           catch(err){
@@ -3811,7 +3911,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return;
 
       WALconsole.log("Running updateBlocklyBlocks", this, this.loopyStatements);
-      var updateFunc = function(statement){statement.updateBlocklyBlock(program.pageVars, program.relations);};
+      var updateFunc = function(statement){statement.updateBlocklyBlock(program, program.pageVars, program.relations);};
       if (this.loopyStatements.length > 0){
         this.traverse(updateFunc); // so let's call updateBlocklyBlock on all statements
       }
@@ -4702,6 +4802,20 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       _.each(this.relations, function(relation){relation.clearRunningState();});
       _.each(this.pageVars, function(pageVar){pageVar.clearRunningState();});
       this.traverse(function(statement){statement.clearRunningState();});
+    };
+
+    this.getAllVariableNames = function _getAllVariables(){
+      var variableNames = [];
+      this.traverse(function(statement){
+        if (statement instanceof WebAutomationLanguage.LoopStatement){
+          variableNames = variableNames.concat(statement.relation.columnNames());
+        }
+        else if (statement instanceof WebAutomationLanguage.ScrapeStatement){
+          variableNames.push(statement.currentNode.getName());
+        }
+      });
+      var uniqueVariableNames = _.uniq(variableNames);
+      return uniqueVariableNames;
     };
 
     this.prepareToRun = function _prepareToRun(){
