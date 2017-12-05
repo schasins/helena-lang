@@ -3959,7 +3959,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.saveToServer = function _saveToServer(progName, postIdRetrievalContinuation, saveStartedHandler, saveCompletedHandler){
       var prog = this;
       prog.name = progName;
-      var msg = {id: prog.id, name: name};
+      var msg = {id: prog.id, name: prog.name};
       WALconsole.log("about to post", (new Date().getTime()/1000));
       // this first request is just to get us the right program id to associate any later stuff with.  it won't actually save the program
       // saving the program takes a long time, so we don't want other stuff to wait on it, will do it in background
@@ -3974,7 +3974,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             _.filter(prog.relations, function(rel){return rel instanceof WebAutomationLanguage.Relation;}), // todo: in future, don't filter.  actually save textrelations too
             ServerTranslationUtilities.JSONifyRelation);
           var serializedProg = ServerTranslationUtilities.JSONifyProgram(prog);
-          var msg = {id: progId, serialized_program: serializedProg, relation_objects: relationObjsSerialized, name: name};
+          var msg = {id: progId, serialized_program: serializedProg, relation_objects: relationObjsSerialized, name: prog.name};
           MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/saveprogram', msg, function(){
             // we've finished the save thing, so tell the user
             saveCompletedHandler();
