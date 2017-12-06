@@ -152,9 +152,6 @@ var HelenaUIBase = (function () {
     workspace = Blockly.inject(blocklyDiv, {toolbox: toolboxDiv});
     console.log("Updated workspace to:", workspace);
     handleNewWorkspace(workspace);
-    if (updateToolbox){
-      pub.updateBlocklyToolbox(toolboxDiv);
-    }
 
     window.addEventListener('resize', function(){pub.blocklyReadjustFunc();}, false);
     pub.blocklyReadjustFunc();
@@ -169,6 +166,11 @@ var HelenaUIBase = (function () {
     });
 
     Blockly.svgResize(workspace);
+
+
+    if (updateToolbox){
+      pub.updateBlocklyToolbox(toolboxDiv);
+    }
   };
 
   pub.displayBlockly = function _displayBlockly(program){
