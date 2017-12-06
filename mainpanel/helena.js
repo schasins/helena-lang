@@ -737,6 +737,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.alternativeBlocklyLabel = "scrape_ringer"
     this.updateAlternativeBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
+      // uses the program obj, so only makes sense if we have one
+      if (!program){return;}
 
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
       Blockly.Blocks[this.alternativeBlocklyLabel] = {
