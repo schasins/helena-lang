@@ -412,6 +412,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
+      // uses the program obj, so only makes sense if we have one
+      if (!program){return;}
       addToolboxLabel(this.blocklyLabel, "web");
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
       Blockly.Blocks[this.blocklyLabel] = {
@@ -541,6 +543,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
+      // uses the program obj, so only makes sense if we have one
+      if (!program){return;}
       addToolboxLabel(this.blocklyLabel, "web");
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
       var outputOptionLabel = this.blocklyLabel+"_outputPage";
@@ -709,6 +713,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
+      // uses the program obj, so only makes sense if we have one
+      if (!program){return;}
       addToolboxLabel(this.blocklyLabel, "web");
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
       Blockly.Blocks[this.blocklyLabel] = {
@@ -1051,6 +1057,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
+      // uses the program obj, so only makes sense if we have one
+      if (!program){return;}
       addToolboxLabel(this.blocklyLabel, "web");
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
       Blockly.Blocks[this.blocklyLabel] = {
@@ -1208,6 +1216,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
+      // uses the program obj, so only makes sense if we have one
+      if (!program){return;}
       addToolboxLabel(this.blocklyLabel, "web");
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
@@ -1683,7 +1693,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
       addToolboxLabel(this.blocklyLabel);
-      var pageVarsDropDown = makePageVarsDropdown(pageVars);
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
           this.appendDummyInput()
@@ -1959,6 +1968,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
+      // uses the program obj, so only makes sense if we have one
+      if (!program){return;}
       addToolboxLabel(this.blocklyLabel);
       var handleTextToSayChange = function(newVarName){
         if (this.sourceBlock_){
@@ -1968,7 +1979,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       };
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
-          var varNamesDropDown = makeVariableNamesDropdown(program);
+          var varNamesDropDown = null;
+          if (program){
+            varNamesDropDown = makeVariableNamesDropdown(program);
+          }
+          else{
+            varNamesDropDown = [];
+          }
           this.appendDummyInput()
               .appendField("say")
               .appendField(new Blockly.FieldDropdown(varNamesDropDown, handleTextToSayChange), textToSayFieldName);
@@ -2654,6 +2671,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
+      // uses the program obj, so only makes sense if we have one
+      if (!program){return;}
       if (relations.length < 1){
         WALconsole.log("no relations yet, so can't have any loops in blockly.");
         return;
@@ -3887,37 +3906,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           scriptString += strLines.join("<br>") + "<br>";
         }});
       return scriptString;
-    };
-
-    this.updateBlocklyBlocks = function _updateBlocklyBlocks(){
-      // have to update the current set of blocks based on our pageVars, relations, so on
-
-      // this is silly, but just making a new object for each of our statements is an easy way to get access to
-      // the updateBlocklyBlock function and still keep it an instance method/right next to the genBlockly function
-      for (var prop in pub){
-        if (typeof pub[prop] === "function"){
-          try{
-            var obj = new pub[prop]();
-            if (obj.updateBlocklyBlock){
-              obj.updateBlocklyBlock(program, program.pageVars, program.relations)
-            };
-          }
-          catch(err){
-            WALconsole.namedLog("updateblocklyblock func creation err", err);
-          }
-        }
-      }
-
-      return;
-
-      WALconsole.log("Running updateBlocklyBlocks", this, this.loopyStatements);
-      var updateFunc = function(statement){statement.updateBlocklyBlock(program, program.pageVars, program.relations);};
-      if (this.loopyStatements.length > 0){
-        this.traverse(updateFunc); // so let's call updateBlocklyBlock on all statements
-      }
-      else{
-        _.each(this.statements, updateFunc);
-      }
     };
 
     this.displayBlockly = function _displayBlockly(workspace){
@@ -5533,6 +5521,34 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
 
   }
+
+  pub.updateBlocklyBlocks = function _updateBlocklyBlocks(program){
+    // have to update the current set of blocks based on our pageVars, relations, so on
+
+    // this is silly, but just making a new object for each of our statements is an easy way to get access to
+    // the updateBlocklyBlock function and still keep it an instance method/right next to the genBlockly function
+    for (var prop in pub){
+      if (typeof pub[prop] === "function"){
+          try{
+            var obj = new pub[prop]();
+          }
+          catch(err){
+            WALconsole.log("Couldn't create new object for prop:", prop, "probably by design.");
+            WALconsole.log(err);
+          }
+          if (obj.updateBlocklyBlock){
+            if (program){
+              obj.updateBlocklyBlock(program, program.pageVars, program.relations)
+            }
+            else{
+              obj.updateBlocklyBlock();
+            }
+          };
+      }
+    }
+
+    return;
+  };
 
   // time to apply labels for revival purposes
   for (var prop in pub){

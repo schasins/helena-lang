@@ -56,8 +56,8 @@ var HelenaUIBase = (function () {
     var $toolboxDiv = $(toolboxDiv);
 
     // before we can use the toolbox, we have to actually have all the relevant blocks
-    helenaProg.updateBlocklyBlocks();
-
+    WebAutomationLanguage.updateBlocklyBlocks(helenaProg);
+    
     $toolboxDiv.html("");
     for (var key in WebAutomationLanguage.blocklyLabels){
       var bls = WebAutomationLanguage.blocklyLabels[key];
@@ -67,8 +67,13 @@ var HelenaUIBase = (function () {
       }
       $toolboxDiv.append($categoryDiv);
     }
-  
-    workspace.updateToolbox($toolboxDiv[0]);
+    
+    if (workspace){
+      workspace.updateToolbox($toolboxDiv[0]);
+    }
+    else{
+      WALconsole.warn("Tried to update toolbox before the workspace was initialized (should be done with setUpBlocklyEditor).");
+    }
   }
 
   function handleNewWorkspace(){
@@ -126,6 +131,8 @@ var HelenaUIBase = (function () {
     blocklyDiv.style.height = blocklyArea.offsetHeight + 'px';
   };
 
+  var maxWaitsForDivAppearance = 10;
+  var currWaitsForDivAppearance = 0;
   pub.setUpBlocklyEditor = function _setUpBlocklyEditor(){
     WALconsole.log("handleBlocklyEditorResizing");
     var toolboxDiv = retrieveBlocklyComponent(toolboxId);
@@ -133,6 +140,11 @@ var HelenaUIBase = (function () {
     var blocklyDiv = retrieveBlocklyComponent(blocklyDivId);
     if (!blocklyArea || !blocklyDiv){
       WALconsole.warn("Tried to set up the blockly editor display, but the blockly area or div not present now.");
+      console.log(blocklyArea, blocklyDiv);
+      if (currWaitsForDivAppearance < maxWaitsForDivAppearance){
+        setTimeout(pub.setUpBlocklyEditor, 100);
+        currWaitsForDivAppearance += 1;
+      }
       return;
     }
 
@@ -158,7 +170,12 @@ var HelenaUIBase = (function () {
 
   pub.displayBlockly = function _displayBlockly(program){
     pub.updateBlocklyToolbox();
-    program.displayBlockly(workspace);
+    if (program){
+      program.displayBlockly(workspace);
+    }
+    else{
+      WALconsole.warn("Called displayBlockly, but no program to display yet.  Should be set with setBlocklyProgram.");
+    }
   };
 
   return pub;
