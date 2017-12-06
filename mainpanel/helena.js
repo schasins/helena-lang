@@ -3880,6 +3880,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.relations = [];
       this.pageVars = _.uniq(_.map(_.filter(statements, function(s){return s.pageVar;}), function(statement){return statement.pageVar;}));                                                                                                                                                                                 
       this.loopyStatements = statements;  
+      this.name = "";
       this.associatedString = null; // one of the things we're allowed to save to server is an associated string, can be used for different things
     }
 
@@ -3906,6 +3907,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.updateChildStatements(newChildStatements);
     };
 
+    this.setName = function _setName(str){
+      this.name = str;
+    }
+    this.getName = function _getName(){
+      return this.name;
+    }
     this.setAssociatedString = function _setAssociatedString(str){
       this.associatedString = str;
     }
@@ -3963,10 +3970,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     // saveStartedHandler ... if you want to give some UI feedback about having started the save, here's the spot
     // saveCompletedHandler ... if you want to give some UI feedback about having completed the full save (including
     //    the full program, not just having retrieved the correct program id), here's the spot
-    this.saveToServer = function _saveToServer(progName, postIdRetrievalContinuation, saveStartedHandler, saveCompletedHandler){
+    this.saveToServer = function _saveToServer(postIdRetrievalContinuation, saveStartedHandler, saveCompletedHandler){
       var prog = this;
-      prog.name = progName;
-      var msg = {id: prog.id, name: prog.name, tool_id: toolId, associated_string: prog.associated_string};
+      var msg = {id: prog.id, name: prog.name, tool_id: toolId, associated_string: prog.associatedString};
       WALconsole.log("about to post", (new Date().getTime()/1000));
       // this first request is just to get us the right program id to associate any later stuff with.  it won't actually save the program
       // saving the program takes a long time, so we don't want other stuff to wait on it, will do it in background
