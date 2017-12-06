@@ -732,7 +732,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
       // now any blockly blocks we'll need but don't want to have in the toolbox for whatever reason
       // (usually because we can only get the statement from ringer)
-      this.updateAlternativeBlocklyBlock(pageVars, relations);
+      this.updateAlternativeBlocklyBlock(program, pageVars, relations);
     };
 
     this.alternativeBlocklyLabel = "scrape_ringer"
