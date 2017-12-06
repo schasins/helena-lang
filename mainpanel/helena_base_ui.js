@@ -133,7 +133,8 @@ var HelenaUIBase = (function () {
 
   var maxWaitsForDivAppearance = 10;
   var currWaitsForDivAppearance = 0;
-  pub.setUpBlocklyEditor = function _setUpBlocklyEditor(){
+  pub.setUpBlocklyEditor = function _setUpBlocklyEditor(updateToolbox){
+    if (updateToolbox === undefined){updateToolbox = true;}
     WALconsole.log("handleBlocklyEditorResizing");
     var toolboxDiv = retrieveBlocklyComponent(toolboxId);
     var blocklyArea = retrieveBlocklyComponent(blocklyAreaId);
@@ -151,7 +152,9 @@ var HelenaUIBase = (function () {
     workspace = Blockly.inject(blocklyDiv, {toolbox: toolboxDiv});
     console.log("Updated workspace to:", workspace);
     handleNewWorkspace(workspace);
-    pub.updateBlocklyToolbox(toolboxDiv);
+    if (updateToolbox){
+      pub.updateBlocklyToolbox(toolboxDiv);
+    }
 
     window.addEventListener('resize', function(){pub.blocklyReadjustFunc();}, false);
     pub.blocklyReadjustFunc();
