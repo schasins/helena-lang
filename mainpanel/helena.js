@@ -50,6 +50,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
   };
 
+  var toolId = null; // it's ok to just run with this unless you want to only load programs associated with your own helena-using tool
+  pub.setHelenaToolId = function _setHelenaToolId(tid){
+    toolId = tid;
+    console.log("Setting toolId", toolId);
+  };
+  pub.getHelenaToolId = function _getHelenaToolId(){
+    return toolId;
+  };
+
   var statementToEventMapping = {
     mouse: ['click','dblclick','mousedown','mousemove','mouseout','mouseover','mouseup'],
     keyboard: ['keydown','keyup','keypress','textinput','paste','input'],
@@ -3871,6 +3880,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.relations = [];
       this.pageVars = _.uniq(_.map(_.filter(statements, function(s){return s.pageVar;}), function(statement){return statement.pageVar;}));                                                                                                                                                                                 
       this.loopyStatements = statements;  
+      this.associatedString = null; // one of the things we're allowed to save to server is an associated string, can be used for different things
     }
 
     var program = this;
@@ -3895,6 +3905,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       newChildStatements.splice(index, 0, childStatement);
       this.updateChildStatements(newChildStatements);
     };
+
+    this.setAssociatedString = function _setAssociatedString(str){
+      this.associatedString = str;
+    }
+    this.getAssociatedString = function _getAssociatedString(){
+      return this.associatedString;
+    }
 
     this.toString = function _toString(){
       var statementLs = this.loopyStatements;
@@ -3949,7 +3966,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.saveToServer = function _saveToServer(progName, postIdRetrievalContinuation, saveStartedHandler, saveCompletedHandler){
       var prog = this;
       prog.name = progName;
-      var msg = {id: prog.id, name: prog.name};
+      var msg = {id: prog.id, name: prog.name, tool_id: toolId, associated_string: prog.associated_string};
       WALconsole.log("about to post", (new Date().getTime()/1000));
       // this first request is just to get us the right program id to associate any later stuff with.  it won't actually save the program
       // saving the program takes a long time, so we don't want other stuff to wait on it, will do it in background
@@ -5527,10 +5544,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   pub.updateBlocklyBlocks = function _updateBlocklyBlocks(program){
     // have to update the current set of blocks based on our pageVars, relations, so on
 
+    var blackList = ["updateBlocklyBlocks", "setHelenaToolId", "setUIObject", "getHelenaToolId", "statementType"];
+    // todo: might want a better approach than this
+
     // this is silly, but just making a new object for each of our statements is an easy way to get access to
     // the updateBlocklyBlock function and still keep it an instance method/right next to the genBlockly function
     for (var prop in pub){
-      if (typeof pub[prop] === "function"){
+      if (typeof pub[prop] === "function" && blackList.indexOf(prop) < 0){
           try{
             var obj = new pub[prop]();
           }

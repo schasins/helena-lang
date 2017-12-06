@@ -9,7 +9,9 @@ var HelenaServerInteractions = (function () {
 
   pub.loadSavedPrograms = function _loadSavedPrograms(handler){
     WALconsole.log("loading programs");
-    $.get('http://kaofang.cs.berkeley.edu:8080/programs/', {}, function(response){
+    var toolId = WebAutomationLanguage.getHelenaToolId();
+    console.log("toolId", toolId);
+    $.get('http://kaofang.cs.berkeley.edu:8080/programs/', {tool_id: toolId}, function(response){
       handler(response);
     });
   };
