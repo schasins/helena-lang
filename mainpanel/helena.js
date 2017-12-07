@@ -3987,7 +3987,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             _.filter(prog.relations, function(rel){return rel instanceof WebAutomationLanguage.Relation;}), // todo: in future, don't filter.  actually save textrelations too
             ServerTranslationUtilities.JSONifyRelation);
           var serializedProg = ServerTranslationUtilities.JSONifyProgram(prog);
-          var msg = {id: progId, serialized_program: serializedProg, relation_objects: relationObjsSerialized, name: prog.name};
+          var msg = {id: progId, serialized_program: serializedProg, relation_objects: relationObjsSerialized, name: prog.name, associated_string: prog.associatedString};
           MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/saveprogram', msg, function(){
             // we've finished the save thing, so tell the user
             saveCompletedHandler();
@@ -4757,8 +4757,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     var internalOptions = ["skipMode", "breakMode", "skipCommitInThisIteration"]; // wonder if these shouldn't be moved to runObject instead of options.  yeah.  should do that.
     var recognizedOptions = ["dataset_id", "ignoreEntityScope", "breakAfterXDuplicatesInARow", "nameAddition", "simulateError", "parallel", "hashBasedParallel"];
-    this.run = function _run(options, continuation){
+    this.run = function _run(options, continuation, requireDataset){
       if (options === undefined){options = {};}
+      if (requireDataset === undefined){requireDataset = true;} // you should only have false requireDataset if you're positive your users shouldn't be putting in output rows...
       for (var prop in options){
         if (recognizedOptions.indexOf(prop) < 0){
           // woah, bad, someone thinks they're providing an option that will affect us, but we don't know what to do with it
@@ -4783,15 +4784,24 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // ok, have to make a new dataset
         var dataset = new OutputHandler.Dataset(program);
         // it's really annoying to go on without having an id, so let's wait till we have one
-        MiscUtilities.repeatUntil(
-          function(){}, 
-    		  function(){return dataset.isReady();},
-    		  function(){
-    		      adjustDatasetNameForOptions(dataset, options);
-    		      runInternals(program, dataset, options, continuation);
-    		  },
-    		  1000, true
-        );
+        function continueWork(){
+          adjustDatasetNameForOptions(dataset, options);
+          runInternals(program, dataset, options, continuation);       
+        }
+
+        if (requireDataset){
+          MiscUtilities.repeatUntil(
+            function(){}, 
+            function(){return dataset.isReady();},
+            function(){
+              continueWork();
+            },
+            1000, true
+          );
+        }
+        else{
+          continueWork();
+        }
       }
     };
 
