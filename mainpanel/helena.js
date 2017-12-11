@@ -685,8 +685,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
       // actually we want the currentNode to be a nodeVariable so we have a name for the scraped node
       this.currentNode = makeNodeVariableForTrace(trace);
-      this.varName = this.currentNode.getName();
-      this.defaultVarNameText = this.varName;
     }
 
     this.remove = function _remove(){
@@ -765,8 +763,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         },
         onchange: function(ev) {
             var newName = this.getFieldValue("name");
-            if (newName !== this.WALStatement.defaultVarNameText){
-              this.WALStatement.varName = newName;
+            if (newName !== this.WALStatement.currentNode.getName()){
               this.WALStatement.currentNode.setName(newName);
               // new name so update all our program display stuff
               UIObject.updateDisplayedScript(false);
@@ -783,12 +780,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       else{
         // ah, a ringer-scraped node
         this.block = workspace.newBlock(this.alternativeBlocklyLabel);
-        if (this.varName){
-          this.block.setFieldValue(this.varName, "name")
-        }
-        else{
-          this.block.setFieldValue(this.defaultVarNameText, "name");
-        }
+        this.block.setFieldValue(this.currentNode.getName(), "name");
       }
       this.block.setFieldValue(nodeRepresentation(this), "node");
       this.block.setFieldValue(this.pageVar.toString(), "page");
@@ -3049,7 +3041,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // this way is bad, bc keeping node variables aligned is bad : 
         // todo, factor out
         nodeVariables[i].setCurrentNodeRep(environment, currNodeRep);
-        environment.envBind(columns[i].name, currNodeRep);
       }
       WALconsole.log("updateNodeVariables Relation completed");
     }
@@ -3622,8 +3613,23 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   var nodeVariablesCounter = 0;
 
+  var allNodeVariablesSeenSoFar = [];
+
   pub.NodeVariable = function _NodeVariable(name, recordedNodeRep, recordedNodeSnapshot, imgData, source){
     Revival.addRevivalLabel(this);
+
+    // ok, node variables are a little weird, because we have a special interest in making sure that
+    // every place where the same node is used in the script is also represented by the same object
+    // in the prog (so that we can rename in one place and have it propogate all over the program, not
+    // confuse the user into thinking a single node could be multiple)
+    this.recordedNodeRep = recordedNodeRep;
+    for (var i = 0; i < allNodeVariablesSeenSoFar; i++){
+      if (this.sameNode(allNodeVariablesSeenSoFar[i])){
+        // ok, we already have a node variable for representing this.  just return that
+        return allNodeVariablesSeenSoFar[i];
+      }
+    }
+    // ok, this is our first time seeing the node.  go ahead and build it in the normal way
 
     if (!name){
       nodeVariablesCounter += 1;
@@ -3631,10 +3637,18 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
 
     this.name = name;
-    this.recordedNodeRep = recordedNodeRep;
     this.recordedNodeSnapshot = recordedNodeSnapshot;
     this.imgData = imgData;
     this.nodeSource = source;
+
+    // and let's put this in our allNodeVariablesSeenSoFar record of all our nvs
+    allNodeVariablesSeenSoFar.push(this);
+
+    this.sameNode = function _sameNode(otherNodeVariable){
+      var nr1 = this.recordedNodeRep;
+      var nr2 = otherNodeVariable.recordedNodeRep;
+      return nr1.xpath === nr2.xpath && nr1.text === nr2.text && nr1.source_url === nr2.source_url;
+    }
 
     this.toString = function _toString(alreadyBound, pageVar){
       if (alreadyBound === undefined){ alreadyBound = true;} 

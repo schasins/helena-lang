@@ -15,8 +15,8 @@ var Environment = (function _Environment() { var pub = {};
     this.envBind = function _envBind(name, value) {
       if (name in this.map) {
         // Don't bind names twice --- you should never be doing this.
-        throw new ExecError(name + ' is already declared');
         alert("The variable " + name + " was defined twice.  Please rename one.");
+        throw new ExecError(name + ' is already declared');
       }
       this.map[name] = value;
     };
