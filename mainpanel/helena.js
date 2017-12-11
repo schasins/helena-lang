@@ -1122,12 +1122,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         var components = [];
         var left = string.slice(0, startIndex);
         if (left.length > 0){
-          components.push(left)
+          components.push(left);
         }
         components.push(new WebAutomationLanguage.NodeVariable(column.name, nodeRep, null, null, NodeSources.RELATIONEXTRACTOR));
         var right = string.slice(startIndex + this.typedString.length, string.length);
         if (right.length > 0){
-          components.push(right)
+          components.push(right);
         }
         this.currentTypedString = new WebAutomationLanguage.Concatenate(components);
         this.typedStringParameterizationRelation = relation;
@@ -3623,31 +3623,39 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     // in the prog (so that we can rename in one place and have it propogate all over the program, not
     // confuse the user into thinking a single node could be multiple)
     this.recordedNodeRep = recordedNodeRep;
-    for (var i = 0; i < allNodeVariablesSeenSoFar; i++){
-      if (this.sameNode(allNodeVariablesSeenSoFar[i])){
-        // ok, we already have a node variable for representing this.  just return that
-        return allNodeVariablesSeenSoFar[i];
-      }
-    }
-    // ok, this is our first time seeing the node.  go ahead and build it in the normal way
-
-    if (!name){
-      nodeVariablesCounter += 1;
-      name = "thing_" + nodeVariablesCounter;
-    }
-
-    this.name = name;
-    this.recordedNodeSnapshot = recordedNodeSnapshot;
-    this.imgData = imgData;
-    this.nodeSource = source;
-
-    // and let's put this in our allNodeVariablesSeenSoFar record of all our nvs
-    allNodeVariablesSeenSoFar.push(this);
-
     this.sameNode = function _sameNode(otherNodeVariable){
       var nr1 = this.recordedNodeRep;
       var nr2 = otherNodeVariable.recordedNodeRep;
       return nr1.xpath === nr2.xpath && nr1.text === nr2.text && nr1.source_url === nr2.source_url;
+    }
+
+    if (recordedNodeRep){
+      // actually go through and compare to all prior nodes
+      for (var i = 0; i < allNodeVariablesSeenSoFar.length; i++){
+        if (this.sameNode(allNodeVariablesSeenSoFar[i])){
+          // ok, we already have a node variable for representing this.  just return that
+          var theRightNode = allNodeVariablesSeenSoFar[i];
+          // first update all the attributes based on how we now want to use the node
+          theRightNode.name = name;
+          theRightNode.source = source;
+          if (recordedNodeSnapshot){ theRightNode.recordedNodeSnapshot = recordedNodeSnapshot; }
+          if (imgData){ theRightNode.imgData = imgData; }
+        }
+      }
+      // ok, this is our first time seeing the node.  go ahead and build it in the normal way
+
+      if (!name){
+        nodeVariablesCounter += 1;
+        name = "thing_" + nodeVariablesCounter;
+      }
+
+      this.name = name;
+      this.recordedNodeSnapshot = recordedNodeSnapshot;
+      this.imgData = imgData;
+      this.nodeSource = source;
+
+      // and let's put this in our allNodeVariablesSeenSoFar record of all our nvs
+      allNodeVariablesSeenSoFar.push(this);
     }
 
     this.toString = function _toString(alreadyBound, pageVar){
