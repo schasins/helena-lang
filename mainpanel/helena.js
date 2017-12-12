@@ -2916,6 +2916,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     // user can give us better names
     this.setColumnName = function _setColumnName(columnObj, v){
       columnObj.name = v;
+      var nodeVariables = this.nodeVariables();
+      nodeVariables[columnObj.index].setName(v);
+      UIObject.updateDisplayedScript();
     };
 
     this.usedByStatement = function _usedByStatement(statement){
@@ -3230,6 +3233,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     // user can give us better names
     this.setColumnName = function _setColumnName(columnObj, v){
       columnObj.name = v;
+      var nodeVariables = this.nodeVariables();
+      nodeVariables[columnObj.index].setName(v);
+      UIObject.updateDisplayedScript();
     };
 
     function usedByPulldownStatement(statement, firstRowXPaths){
