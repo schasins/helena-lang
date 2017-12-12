@@ -748,6 +748,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (!program){return;}
 
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
+      var defaultName = "name";
+      var lastUpdateTime = 0;
       Blockly.Blocks[this.alternativeBlocklyLabel] = {
         init: function() {
           this.appendDummyInput()
@@ -756,18 +758,26 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               .appendField("in")
               .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page")
               .appendField("and call it")
-              .appendField(new Blockly.FieldTextInput("name"), "name");
+              .appendField(new Blockly.FieldTextInput(defaultName), "name");
           this.setPreviousStatement(true, null);
           this.setNextStatement(true, null);
           this.setColour(280);
         },
         onchange: function(ev) {
-            var newName = this.getFieldValue("name");
-            if (newName !== this.WALStatement.currentNode.getName()){
-              this.WALStatement.currentNode.setName(newName);
-              // new name so update all our program display stuff
-              UIObject.updateDisplayedScript(false);
+          console.log("ev in blockly scrape", ev);
+          var newName = this.getFieldValue("name");
+          var currentName = this.WALStatement.currentNode.getName();
+          if (newName !== defaultName && (newName !== currentName)){
+            this.WALStatement.currentNode.setName(newName);
+            // new name so update all our program display stuff
+            UIObject.updateDisplayedScript(false); // update without updating how blockly appears
+          }
+          if (ev instanceof Blockly.Events.Ui){
+            if (ev.element === "selected" && ev.oldValue === this.id){
+              console.log("UNSELECTED");
+              UIObject.updateDisplayedScript(true);
             }
+          }
         }
       };
     };
@@ -3636,10 +3646,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // ok, we already have a node variable for representing this.  just return that
           var theRightNode = allNodeVariablesSeenSoFar[i];
           // first update all the attributes based on how we now want to use the node
-          theRightNode.name = name;
-          theRightNode.source = source;
+          if (name) {theRightNode.name = name;}
+          if (source) {theRightNode.nodeSource = source;}
           if (recordedNodeSnapshot){ theRightNode.recordedNodeSnapshot = recordedNodeSnapshot; }
           if (imgData){ theRightNode.imgData = imgData; }
+          return theRightNode;
         }
       }
       // ok, this is our first time seeing the node.  go ahead and build it in the normal way
