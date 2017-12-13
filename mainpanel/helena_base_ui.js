@@ -85,7 +85,7 @@ var HelenaUIBase = (function () {
     // and should keep in mind that the blocks mostly move in groupings, not just singly.  will have to test that
 
     function onBlockMove(event) {
-      if (event.type == Blockly.Events.MOVE) {
+      if (event.type === Blockly.Events.MOVE){
         console.log("move event", event);
         if (event.newParentId && event.newParentId !== event.oldParentId){
           // ok, it's an insertion
@@ -104,6 +104,10 @@ var HelenaUIBase = (function () {
             helenaProg.insertAfter(newStatement, precedingStatement);
           }
         }
+      }
+      if (event.type === Blockly.Events.CREATE){
+        var createdBlock = workspace.getBlockById(event.blockId);
+        pub.newBlocklyBlockDraggedIn(createdBlock);
       }
     }
     workspace.addChangeListener(onBlockMove);
