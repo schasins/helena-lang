@@ -1992,21 +1992,19 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       };
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
-          var varNamesDropDown = null;
           if (program){
-            varNamesDropDown = makeVariableNamesDropdown(program);
+            var varNamesDropDown = makeVariableNamesDropdown(program);
+            if (varNamesDropDown.length > 0){
+              this.appendDummyInput()
+                  .appendField("say")
+                  .appendField(new Blockly.FieldDropdown(varNamesDropDown, handleTextToSayChange), textToSayFieldName);
+              this.setPreviousStatement(true, null);
+              this.setNextStatement(true, null);
+              this.setColour(25);
+              this.WALStatement = new pub.SayNodeStatement();
+              this.WALStatement.varName = varNamesDropDown[0][0]; // since this is what it'll show by default, better act as though that's true
+            }
           }
-          else{
-            varNamesDropDown = [];
-          }
-          this.appendDummyInput()
-              .appendField("say")
-              .appendField(new Blockly.FieldDropdown(varNamesDropDown, handleTextToSayChange), textToSayFieldName);
-          this.setPreviousStatement(true, null);
-          this.setNextStatement(true, null);
-          this.setColour(25);
-          this.WALStatement = new pub.SayNodeStatement();
-          this.WALStatement.varName = varNamesDropDown[0][0]; // since this is what it'll show by default, better act as though that's true
         }
       };
     };
