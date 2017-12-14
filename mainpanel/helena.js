@@ -4870,8 +4870,16 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.traverse(function(statement){statement.clearRunningState();});
     };
 
+    this.parameterNames = []; // by default, no parameters
+    this.setParameterNames = function _setParameterNames(paramNamesLs){
+      this.parameterNames = paramNamesLs;
+    }
+    this.getParameterNames = function _getParameterNames(){
+      return this.parameterNames;
+    }
+
     this.getAllVariableNames = function _getAllVariables(){
-      var variableNames = [];
+      var variableNames = this.getParameterNames(); // start with the parameters to the program
       this.traverse(function(statement){
         if (statement instanceof WebAutomationLanguage.LoopStatement){
           variableNames = variableNames.concat(statement.relation.columnNames());
