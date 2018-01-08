@@ -4775,6 +4775,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             if (continuation){
               continuation(runObject.dataset, timeScraped);
             }
+            // ok, we finished the run; is this one of those cases where we're supposed to go back and run again?
+            if (program.restartOnFinish){
+              runInternals(program, dataset, options, continuation); // todo: is it always going to be ok to pass in the options?  after a run already happend?
+            }
           }
 
           runObject.dataset.closeDatasetWithCont(whatToDoWhenWereDone);
