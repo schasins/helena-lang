@@ -4743,7 +4743,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
     }
 
-    function runInternals(program, dataset, options, continuation){
+    function runInternals(program, parameters, dataset, options, continuation){
 
       // first let's make the runObject that we'll use for all the rest
       // for now the below is commented out to save memory, since only running one per instance
@@ -4752,6 +4752,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       currentRunObjects.push(runObject);
       var tab = UIObject.newRunTab(runObject); // the mainpanel tab in which we'll preview stuff
       runObject.tab = tab;
+
+      // let's add the intput parameters to our environment.  todo: in future, should probably make sure we only use params that are associated with prog (store param names with prog...)
+      for (var key in parameters){
+        runObject.environment.envBind(key, parameters[key]);
+      }
 
       runObject.program.clearRunningState();
       runObject.program.prepareToRun();
@@ -4798,8 +4803,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     var internalOptions = ["skipMode", "breakMode", "skipCommitInThisIteration"]; // wonder if these shouldn't be moved to runObject instead of options.  yeah.  should do that.
     var recognizedOptions = ["dataset_id", "ignoreEntityScope", "breakAfterXDuplicatesInARow", "nameAddition", "simulateError", "parallel", "hashBasedParallel"];
-    this.run = function _run(options, continuation, requireDataset){
+    this.run = function _run(options, continuation, parameters, requireDataset){
       if (options === undefined){options = {};}
+      if (parameters === undefined){parameters = {};}
       if (requireDataset === undefined){requireDataset = true;} // you should only have false requireDataset if you're positive your users shouldn't be putting in output rows...
       for (var prop in options){
         if (recognizedOptions.indexOf(prop) < 0){
@@ -4819,7 +4825,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (options.dataset_id){
         // no need to make a new dataset
         var dataset = new OutputHandler.Dataset(program, options.dataset_id);
-        runInternals(this, dataset, options, continuation);
+        runInternals(this, parameters, dataset, options, continuation);
       }
       else{
         // ok, have to make a new dataset
@@ -4827,7 +4833,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // it's really annoying to go on without having an id, so let's wait till we have one
         function continueWork(){
           adjustDatasetNameForOptions(dataset, options);
-          runInternals(program, dataset, options, continuation);       
+          runInternals(program, parameters, dataset, options, continuation);       
         }
 
         if (requireDataset){
@@ -4868,8 +4874,16 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.traverse(function(statement){statement.clearRunningState();});
     };
 
+    this.parameterNames = []; // by default, no parameters
+    this.setParameterNames = function _setParameterNames(paramNamesLs){
+      this.parameterNames = paramNamesLs;
+    }
+    this.getParameterNames = function _getParameterNames(){
+      return this.parameterNames;
+    }
+
     this.getAllVariableNames = function _getAllVariables(){
-      var variableNames = [];
+      var variableNames = this.getParameterNames(); // start with the parameters to the program
       this.traverse(function(statement){
         if (statement instanceof WebAutomationLanguage.LoopStatement){
           variableNames = variableNames.concat(statement.relation.columnNames());
