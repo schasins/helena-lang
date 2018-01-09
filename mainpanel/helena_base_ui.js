@@ -105,7 +105,7 @@ var HelenaUIBase = (function () {
           }
         }
       }
-      if (event.type === Blockly.Events.CREATE){
+      if (pub.newBlocklyBlockDraggedIn && event.type === Blockly.Events.CREATE){
         var createdBlock = workspace.getBlockById(event.blockId);
         pub.newBlocklyBlockDraggedIn(createdBlock);
       }
