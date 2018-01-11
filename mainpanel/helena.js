@@ -4780,10 +4780,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             if (continuation){
               continuation(runObject.dataset, timeScraped);
             }
-            // ok, we finished the run; is this one of those cases where we're supposed to go back and run again?
-            if (program.restartOnFinish){
-              runInternals(program, dataset, options, continuation); // todo: is it always going to be ok to pass in the options?  after a run already happend?
-            }
           }
 
           runObject.dataset.closeDatasetWithCont(whatToDoWhenWereDone);
@@ -4815,17 +4811,30 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           if (internalOptions.indexOf(prop) > -1){
             // ok, well an internal prop sneaking in is ok, so we'll just provide a warning.  otherwise we're actually going to stop
             WALconsole.warn("Ok, we're allowing it because it's an internal option, but we're not happy about it and we're setting it to false.");
-	    options.prop = false;
+	    options[prop] = false;
           }
           else{
             return;
           }
         }
       }
+
+      // before we start running, let's check if we need to update the continuation in order to make it loop on this script forever
+      // (if it's one of those programs where we're supposed to go back and run again as soon as we finish)
+      var fullContinuation = continuation;
+      if (program.restartOnFinish){
+        // yep, we want to repeat.  time to make a new continuation that, once it finishes the original coninutation
+        // will make a new dataset and start over.
+        fullContinuation = function(dataset, timeScraped){
+          if (continuation) {continuation(dataset, timeScraped);}
+          program.run(options, continuation, parameters, requireDataset);
+        }
+      }
+
       if (options.dataset_id){
         // no need to make a new dataset
         var dataset = new OutputHandler.Dataset(program, options.dataset_id);
-        runInternals(this, parameters, dataset, options, continuation);
+        runInternals(this, parameters, dataset, options, fullContinuation);
       }
       else{
         // ok, have to make a new dataset
@@ -4833,7 +4842,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // it's really annoying to go on without having an id, so let's wait till we have one
         function continueWork(){
           adjustDatasetNameForOptions(dataset, options);
-          runInternals(program, parameters, dataset, options, continuation);       
+          runInternals(program, parameters, dataset, options, fullContinuation);       
         }
 
         if (requireDataset){
