@@ -410,6 +410,10 @@ function updateDeltas(target) {
  */
 function checkTimeout(events, startIndex) {
   var timeout = params.replay.targetTimeout;
+  if (events[startIndex].targetTimeout){
+    timeout = events[startIndex].targetTimeout;
+  }
+  console.log("Checking for timeout:", timeout);
   if (timeout != null && timeout > 0) {
     var curTime = new Date().getTime();
 
