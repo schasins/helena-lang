@@ -5619,7 +5619,23 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return outputStatements;
     }
 
+    // by default, we'll wait up to 15 seconds for the target node to appear (see ringer/common/common_params.js)
+    // for static pages, this is silly
+    // user may want to provide a custom timeout
+    // this particular function resets the wait for all events in the program, which is easy but not always a good idea
+    this.setCustomTargetTimeout = function _setCustomTargetTimeout(timeoutSeconds){
+      this.traverse(function(statement){
+        if (statement.cleanTrace){
+          for (var i = 0; i < statement.cleanTrace.length; i++){
+            statement.cleanTrace[i].targetTimeout = timeoutSeconds;
+          }
+        }
+      });
+    };
+
   }
+
+  // END of Program
 
   pub.updateBlocklyBlocks = function _updateBlocklyBlocks(program){
     // have to update the current set of blocks based on our pageVars, relations, so on
