@@ -1515,7 +1515,7 @@ var Controller = (function ControllerClosure() {
 
       /* Update the UI */
       chrome.browserAction.setBadgeBackgroundColor({color: [255, 0, 0, 64]});
-      chrome.browserAction.setBadgeText({text: 'ON'});
+      // chrome.browserAction.setBadgeText({text: 'ON'});
     },
     stop: function() {
       ctlLog.log('stop');
@@ -1523,7 +1523,7 @@ var Controller = (function ControllerClosure() {
 
       /* Update the UI */
       chrome.browserAction.setBadgeBackgroundColor({color: [0, 0, 0, 0]});
-      chrome.browserAction.setBadgeText({text: 'OFF'});
+      // chrome.browserAction.setBadgeText({text: 'OFF'});
     },
     reset: function() {
       ctlLog.log('reset');
