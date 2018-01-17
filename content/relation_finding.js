@@ -278,6 +278,27 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     return [];
   }
 
+  function onlyDisplayedCellsAndRows(rows){
+    var outputRows = [];
+    for (var i = 0; i < rows.length; i++){
+      var cells = rows[i];
+      var allCellsInvisible = true;
+      for (var j = 0; j < cells.length; j++){
+        if ($(cells[j]).is(":visible")){
+          allCellsInvisible = false;
+        }
+        else{
+          // huh, it is invisible.  ok, null it out
+          cells[j] = null;
+        }
+      }
+      if (!allCellsInvisible){
+        outputRows.push(cells);
+      }
+    }
+    return outputRows;
+  }
+
   pub.interpretRelationSelector = function _interpretRelationSelector(selector){
     if (selector.selector_version === 1 || selector.selector_version === undefined){ // should really get rid of undefined, probably...
       var rowNodeLists = pub.interpretRelationSelectorRowNodes(selector);
@@ -285,6 +306,8 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       // ok, now that we have some row nodes, time to extract the individual cells
       var cells = pub.interpretRelationSelectorCellNodes(selector, rowNodeLists);
       WALconsole.log("cells", cells);
+      // a wrapper function that goes through and tosses cells/rows that are display:none
+      cells = onlyDisplayedCellsAndRows(cells);
       return cells;      
     }
     else if (selector.selector_version === 2){
@@ -292,6 +315,8 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       console.log("selector.exclude_first", selector.exclude_first);
       optionNodes = optionNodes.splice(selector.exclude_first, optionNodes.length);
       var cells = _.map(optionNodes, function(o){return [o];});
+      // a wrapper function that goes through and tosses cells/rows that are display:none
+      cells = onlyDisplayedCellsAndRows(cells);
       return cells;
     }
     else{
