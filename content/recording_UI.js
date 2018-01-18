@@ -81,7 +81,7 @@ var RecordingHandlers = (function _RecordingHandlers() { var pub = {};
       var overlay = $("<div style='position: fixed; width: 100%; height: 100%; \
                                     top: 0; left: 0; right: 0; bottom: 0; \
                                     background-color: rgba(0,0,0,0); \
-                                    z-index: 2; cursor: pointer;'></div>");
+                                    z-index: 2147483647; cursor: pointer;'></div>");
       var messageDiv = $("<div style='background-color: rgba(0,255,0,0.85); padding: 10px;'>\
         <div style='font-size:20px'>This page is being controlled by Helena.</div>\
         If you want to interact with this page anyway, click here to remove the overlay.  Keep in mind that navigating away from the current page may disrupt the Helena process.\
