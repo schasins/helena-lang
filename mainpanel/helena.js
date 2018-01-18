@@ -23,6 +23,10 @@ var scrapingRunsCompleted = 0;
 var datasetsScraped = [];
 var currentRunObjects = [];
 var recordingWindowIds = [];
+var currentReplayWindowId = null;
+
+utilities.listenForMessage("content", "mainpanel", "currentReplayWindowId", 
+  function(){utilities.sendMessage("mainpanel", "content", "currentReplayWindowId", {window: currentReplayWindowId});});
 
 var WebAutomationLanguage = (function _WebAutomationLanguage() {
   var pub = {};
@@ -4765,6 +4769,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // now let's actually run
         recordingWindowIds.push(windowId);
         runObject.window = windowId;
+        currentReplayWindowId = windowId;
         datasetsScraped.push(runObject.dataset.id);
         runObject.program.runBasicBlock(runObject, runObject.program.loopyStatements, function(){
 
