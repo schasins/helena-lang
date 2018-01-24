@@ -2274,15 +2274,19 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         init: function() {
           console.log("in init", ancestorAnnotations, requiredAncestorAnnotations);
           var fieldsSoFar = this.appendDummyInput()
-              .appendField("entity scope ")
+              .appendField("entity name: ")
               .appendField(new Blockly.FieldTextInput(name), "name");
           if (availableAnnotationItems.length > 0){
-            fieldsSoFar = this.appendDummyInput().appendField("attributes: ");
+            fieldsSoFar = this.appendDummyInput().appendField("attributes:");
           }
           for (var i = 0; i < availableAnnotationItems.length; i++){
             var onNow = annotationItems.indexOf(availableAnnotationItems[i]) > -1;
             onNow = MiscUtilities.toBlocklyBoolString(onNow);
-            fieldsSoFar = fieldsSoFar.appendField(annotationItemToString(availableAnnotationItems[i]) + ":")
+            var extra = "";
+            if (i > 0){
+              extra = ",  ";
+            }
+            fieldsSoFar = fieldsSoFar.appendField(extra + annotationItemToString(availableAnnotationItems[i]) + ":")
             .appendField(new Blockly.FieldCheckbox(onNow), annotationItemToString(availableAnnotationItems[i]));
           }
           if (ancestorAnnotations.length > 0){
