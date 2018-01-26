@@ -415,7 +415,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
       else {
         // else it's a string
-        return '"'+this.currentUrl+'"';
+        return this.currentUrl;
       }
     }
 
@@ -445,7 +445,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       this.block = workspace.newBlock(this.blocklyLabel);
-      this.block.setFieldValue(encodeURIComponent(this.cUrlString()), "url");
+      this.block.setFieldValue(this.cUrlString(), "url");
       this.block.setFieldValue(this.outputPageVar.toString(), "page");
       attachToPrevBlock(this.block, prevBlock);
       this.block.WALStatement = this;
