@@ -2689,6 +2689,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return [prefix].concat(statementStrings).concat(["}"]);
     };
 
+    function defined(v){
+      return (v !== null && v !== undefined);
+    }
+
+    var maxRowsFieldName = "maxRows";
     this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
       // uses the program obj, so only makes sense if we have one
       if (!program){return;}
@@ -2697,16 +2702,50 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         return;
       }
 
+      var handleMaxRowsChange = function(newMaxRows){
+        if (this.sourceBlock_ && this.sourceBlock_.WALStatement){
+          this.sourceBlock_.WALStatement.maxRows = newMaxRows;
+          // if you changed the maxRows and it's actually defined, should make sure the max rows actually used...
+          if (defined(newMaxRows)){
+            dontUseInfiniteRows.bind(this)();
+          }
+        }
+      };
+      var useInfiniteRows = function(){
+        var block = this.sourceBlock_;
+        setTimeout(function(){
+          block.setFieldValue("TRUE", "infiniteRowsCheckbox");
+          block.setFieldValue("FALSE", "limitedRowsCheckbox");
+        }, 0);
+        block.WALStatement.maxRows = null;
+      };
+      var dontUseInfiniteRows = function(){
+        var block = this.sourceBlock_;
+        setTimeout(function(){
+          block.setFieldValue("FALSE", "infiniteRowsCheckbox");
+          block.setFieldValue("TRUE", "limitedRowsCheckbox");
+        }, 0);
+        block.WALStatement.maxRows = this.sourceBlock_.getFieldValue(maxRowsFieldName);
+      }
+
       addToolboxLabel(this.blocklyLabel);
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
       var relationsDropDown = makeRelationsDropdown(relations);
+      var statement = this;
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
           this.appendDummyInput()
               .appendField("for each row in")
               .appendField(new Blockly.FieldDropdown(relationsDropDown), "list")        
               .appendField("in")
-              .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
+              .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page")        
+              .appendField("(")
+              .appendField(new Blockly.FieldCheckbox("TRUE", useInfiniteRows), 'infiniteRowsCheckbox')
+              .appendField("for all rows,")
+              .appendField(new Blockly.FieldCheckbox("TRUE", dontUseInfiniteRows), 'limitedRowsCheckbox')
+              .appendField("for the first")
+              .appendField(new Blockly.FieldNumber(20, 0, null, null, handleMaxRowsChange), maxRowsFieldName)      
+              .appendField("rows)");
           this.appendStatementInput("statements")
               .setCheck(null)
               .appendField("do");
@@ -2724,6 +2763,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.block.setFieldValue(this.relation.name, "list");
       if (this.pageVar){
         this.block.setFieldValue(this.pageVar.toString(), "page");
+      }
+      if (this.maxRows){
+        this.block.setFieldValue(this.maxRows, maxRowsFieldName);
+        this.block.setFieldValue("FALSE", "infiniteRowsCheckbox");
+      }
+      else{
+        // we're using infinite rows
+        this.block.setFieldValue("FALSE", "limitedRowsCheckbox");
       }
       attachToPrevBlock(this.block, prevBlock);
 
