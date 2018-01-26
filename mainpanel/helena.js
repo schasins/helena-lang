@@ -768,6 +768,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.updateAlternativeBlocklyBlock(program, pageVars, relations);
     };
 
+    var maxDim = 50;
+    var maxHeight = 20;
     this.alternativeBlocklyLabel = "scrape_ringer"
     this.updateAlternativeBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
       // uses the program obj, so only makes sense if we have one
@@ -780,7 +782,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         init: function() {
           this.appendDummyInput()
               .appendField("scrape")
-              .appendField(new Blockly.FieldTextInput("node"), "node") // switch to pulldown
+              .appendField(new Blockly.FieldImage("node", maxDim, maxHeight, "node image"), "node") // switch to pulldown
               .appendField("in")
               .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page")
               .appendField("and call it")
@@ -812,13 +814,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (this.relation){
         // scrapes a relation node, so don't let the user name the node here probably?
         this.block = workspace.newBlock(this.blocklyLabel);
+        this.block.setFieldValue(nodeRepresentation(this), "node");
       }
       else{
         // ah, a ringer-scraped node
         this.block = workspace.newBlock(this.alternativeBlocklyLabel);
         this.block.setFieldValue(this.currentNode.getName(), "name");
+        console.log("nodeRepresentation", nodeRepresentation(this));
+        this.block.setFieldValue(nodeRepresentation(this), "node", maxDim, maxHeight, "node image");
       }
-      this.block.setFieldValue(nodeRepresentation(this), "node");
       this.block.setFieldValue(this.pageVar.toString(), "page");
       attachToPrevBlock(this.block, prevBlock);
       this.block.WALStatement = this;
@@ -3863,7 +3867,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (alreadyBound){
         return this.name;
       }
-      return pageVar.toString()+".<img src='"+this.imgData+"' style='max-height: 150px; max-width: 350px;'>";
+      return this.imgData;
     };
 
     this.getName = function _getName(){
