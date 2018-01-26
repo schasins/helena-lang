@@ -100,9 +100,11 @@ var HelenaUIBase = (function () {
           // program in the workspace.  which means it's not a real insertion.  The way we're going to figuer that out
           // is we'll just see if the 'new' statement is actually already in there
 
-          if (!helenaProg.containsStatement(newStatement)){
+          /*
+          if (!helenaProg.containsBlock(newStatement)){
             helenaProg.insertAfter(newStatement, precedingStatement);
           }
+          */
         }
       }
       if (pub.newBlocklyBlockDraggedIn && event.type === Blockly.Events.CREATE){

@@ -213,8 +213,20 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           statement.relation = relation;
           var name = relation.columns[i].name;
           var nodeRep = nodeRepresentations[i];
-          statement.currentNode = new WebAutomationLanguage.NodeVariable(name, nodeRep, null, null, NodeSources.RELATIONEXTRACTOR); // note that this means the elements in the firstRowXPaths and the elements in columns must be aligned!
-          
+
+          // not ok to just overwrite currentNode, because there may be multiple statements using the old
+          // currentNode, and becuase we're interested in keeping naming consistent, they should keep using it
+          // so...just overwrite some things
+          statement.currentNode.name = name;
+          statement.currentNode.nodeRep = nodeRep;
+          statement.currentNode.setSource(NodeSources.RELATIONEXTRACTOR);
+          // statement.currentNode = new WebAutomationLanguage.NodeVariable(name, nodeRep, null, null, NodeSources.RELATIONEXTRACTOR); // note that this means the elements in the firstRowXPaths and the elements in columns must be aligned!
+          // ps. in theory the above commented out line should have just worked
+          // because we could search all prior nodes to see if any is the same
+          // but we just extracted the relation from a fresh run of the script, so any of the attributes we use
+          // (xpath, text, or even in some cases url) could have changed, and we'd try to make a new node, and mess it up
+          // since we know we want to treat this as the same as a prior one, better to just do this
+
           // the statement should track whether it's currently parameterized for a given relation and column obj
           statement.relation = relation;
           statement.columnObj = relation.columns[i];
@@ -333,6 +345,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     var parentConnection = wrapperBlock.getInput('statements').connection;
     var childConnection = fistNestedBlock.previousConnection;
     parentConnection.connect(childConnection);
+  }
+
+  function attachInputToOutput(leftBlock, rightBlock){
+    var outputBlockConnection = rightBlock.outputConnection;
+    var inputBlockConnection = leftBlock.inputList[0].connection;
+    outputBlockConnection.connect(inputBlockConnection);
+    console.log(inputBlockConnection.isConnected());
+    console.log(outputBlockConnection.isConnected());
+    return;
   }
 
   function genBlocklyBlocksSeq(statements, workspace){
@@ -646,6 +667,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
   };
 
+  // todo: get rid of this
   pub.ScrapeStatementFromRelationCol = function _ScrapeStatementFromRelationCol(relation, colObj, pageVar){
     var statement = new pub.ScrapeStatement([]);
     statement.currentNode = new WebAutomationLanguage.NodeVariable(colObj.name, relation.firstRowNodeRepresentation(colObj), null, null, NodeSources.RELATIONEXTRACTOR);
@@ -1385,6 +1407,91 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   };
 
 
+  pub.NodeVariableUse = function _VariableUse(scrapeStatement){
+    Revival.addRevivalLabel(this);
+    setBlocklyLabel(this, "variableUse");
+    var varNameFieldName = 'varNameFieldName';
+    this.nodeVar = null;
+    if (scrapeStatement){
+      this.nodeVar = scrapeStatement.currentNode;
+    }
+
+    this.remove = function _remove(){
+      this.parent.removeChild(this);
+    }
+
+    this.prepareToRun = function _prepareToRun(){
+      return;
+    };
+    this.clearRunningState = function _clearRunningState(){
+      return;
+    }
+
+    this.toStringLines = function _toStringLines(){
+      if (this.nodeVar){
+        return [this.nodeVar.getName()];
+      }
+      else{
+        return [""];
+      }
+    };
+
+    this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
+      // uses the program obj, so only makes sense if we have one
+      if (!program){return;}
+      addToolboxLabel(this.blocklyLabel);
+      var handleVarChange = function(newVarName){
+        if (this.sourceBlock_){
+          console.log("updating node to ", newVarName);
+          this.sourceBlock_.WALStatement.nodeVar = getNodeVariableByName(newVarName);
+        }
+      };
+      Blockly.Blocks[this.blocklyLabel] = {
+        init: function() {
+          if (program){
+            var varNamesDropDown = makeVariableNamesDropdown(program);
+            if (varNamesDropDown.length > 0){
+              this.appendValueInput('NodeVariableUse')
+                  .appendField(new Blockly.FieldDropdown(varNamesDropDown, handleVarChange), varNameFieldName);
+              
+              this.setOutput(true, 'NodeVariableUse');
+              this.setColour(25);
+              this.WALStatement = new pub.NodeVariableUse();
+              var name = varNamesDropDown[0][0];
+              this.WALStatement.nodeVar = getNodeVariableByName(name); // since this is what it'll show by default, better act as though that's true
+            }
+          }
+        }
+      };
+    };
+
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
+      this.block = workspace.newBlock(this.blocklyLabel);
+      // nope!  this one doesn't attach to prev! attachToPrevBlock(this.block, prevBlock);
+      this.block.WALStatement = this;
+      this.block.setFieldValue(this.nodeVar.getName(), varNameFieldName);
+      return this.block;
+    };
+
+    this.traverse = function _traverse(fn, fn2){
+      fn(this);
+      fn2(this);
+    };
+
+    this.run = function _run(runObject, rbbcontinuation, rbboptions){
+      // just retrieve the val
+      this.val = runObject.environment.envLookup(this.nodeVar.getName());
+      rbbcontinuation(rbboptions);
+    };
+
+    this.parameterizeForRelation = function _parameterizeForRelation(relation){
+      return [];
+    };
+    this.unParameterizeForRelation = function _unParameterizeForRelation(relation){
+      return;
+    };
+  };
+
   pub.OutputRowStatement = function _OutputRowStatement(scrapeStatements){
     Revival.addRevivalLabel(this);
     setBlocklyLabel(this, "output");
@@ -1395,8 +1502,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.trace = []; // no extra work to do in r+r layer for this
       this.cleanTrace = [];
       this.scrapeStatements = [];
+      this.variableUseNodes = [];
       for (var i = 0; i < scrapeStatements.length; i++){
         this.addAssociatedScrapeStatement(scrapeStatements[i]);
+        this.variableUseNodes.push(new WebAutomationLanguage.NodeVariableUse(scrapeStatements[i]));
       }
       this.relations = [];
     }
@@ -1435,11 +1544,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       addToolboxLabel(this.blocklyLabel);
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
-          this.appendDummyInput()
+          this.appendValueInput('NodeVariableUse')
               .appendField("output");
+          this.setColour(25);
           this.setPreviousStatement(true, null);
           this.setNextStatement(true, null);
-          this.setColour(25);
         }
       };
     };
@@ -1448,11 +1557,22 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.block = workspace.newBlock(this.blocklyLabel);
       attachToPrevBlock(this.block, prevBlock);
       this.block.WALStatement = this;
+      var priorBlock = this.block;
+      for (var i = 0; i < this.variableUseNodes.length; i++){
+        var vun = this.variableUseNodes[i];
+        var block = vun.genBlocklyNode(this.block, workspace);
+        attachInputToOutput(priorBlock, block);
+        priorBlock = block;
+      }
       return this.block;
     };
 
     this.traverse = function _traverse(fn, fn2){
       fn(this);
+      for (var i = 0; i < this.variableUseNodes.length; i++){
+        var e = this.variableUseNodes[i];
+        e.traverse(fn, fn2);
+      }
       fn2(this);
     };
 
@@ -3684,6 +3804,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   var allNodeVariablesSeenSoFar = [];
 
+  function getNodeVariableByName(name){
+    for (var i = 0; i < allNodeVariablesSeenSoFar.length; i++){
+      if (allNodeVariablesSeenSoFar[i].name === name){
+        return allNodeVariablesSeenSoFar;
+      }
+    }
+  }
+
   pub.NodeVariable = function _NodeVariable(name, recordedNodeRep, recordedNodeSnapshot, imgData, source){
     Revival.addRevivalLabel(this);
 
@@ -3695,7 +3823,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.sameNode = function _sameNode(otherNodeVariable){
       var nr1 = this.recordedNodeRep;
       var nr2 = otherNodeVariable.recordedNodeRep;
-      return nr1.xpath === nr2.xpath && nr1.text === nr2.text && nr1.source_url === nr2.source_url;
+      var ans = nr1.xpath === nr2.xpath && nr1.text === nr2.text && nr1.source_url === nr2.source_url;
+      // console.log("sameNode", nr1, nr2, ans);
+      return ans;
     }
 
     if (recordedNodeRep){
@@ -3776,6 +3906,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return this.currentNodeRep(environment).xpath;
     };
 
+    this.setSource = function _setSource(src){
+      this.nodeSource = src;
+    };
     this.getSource = function _getSource(){
       return this.nodeSource;
     };
@@ -4942,7 +5075,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.parameterNames = []; // by default, no parameters
+    console.log("parameterNames", this.parameterNames);
     this.setParameterNames = function _setParameterNames(paramNamesLs){
+      console.log("setParameterNames", paramNamesLs);
       this.parameterNames = paramNamesLs;
     }
     this.getParameterNames = function _getParameterNames(){
@@ -4955,7 +5090,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         if (statement instanceof WebAutomationLanguage.LoopStatement){
           variableNames = variableNames.concat(statement.relation.columnNames());
         }
-        else if (statement instanceof WebAutomationLanguage.ScrapeStatement){
+        else if (statement instanceof WebAutomationLanguage.ScrapeStatement && !statement.scrapingRelationItem()){
           variableNames.push(statement.currentNode.getName());
         }
       });
