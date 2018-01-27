@@ -150,6 +150,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     return varNamesDropDown;
   }
 
+  function makeOpsDropdown(ops){
+    var opsDropdown = [];
+    for (var key in ops){
+      opsDropdown.push([key, key]);
+    }
+    return opsDropdown;
+  }
+
   function nodeRepresentation(statement, linkScraping){
     if (linkScraping === undefined){ linkScraping = false; }
     if (statement.currentNode instanceof WebAutomationLanguage.NodeVariable){
@@ -1484,8 +1492,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.run = function _run(runObject, rbbcontinuation, rbboptions){
       // just retrieve the val
-      this.val = runObject.environment.envLookup(this.nodeVar.getName());
+      this.currentVal = runObject.environment.envLookup(this.nodeVar.getName());
       rbbcontinuation(rbboptions);
+    };
+
+    this.getCurrentVal = function _getCurrentVal(){
+      return this.currentVal;
     };
 
     this.parameterizeForRelation = function _parameterizeForRelation(relation){
@@ -2216,11 +2228,16 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       addToolboxLabel(this.blocklyLabel);
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
-          this.appendDummyInput()
+          this.appendValueInput('NodeVariableUse')
               .appendField("if");
           this.setPreviousStatement(true, null);
           this.setNextStatement(true, null);
+          this.appendStatementInput("statements")
+              .setCheck(null)
+              .appendField("do");
           this.setColour(25);
+
+          this.WALStatement = new pub.IfStatement();
         }
       };
     };
@@ -2234,6 +2251,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.traverse = function _traverse(fn, fn2){
       fn(this);
+      this.condition.traverse(fn, fn2);
       for (var i = 0; i < this.bodyStatements.length; i++){
         this.bodyStatements[i].traverse(fn, fn2);
       }
@@ -2245,7 +2263,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       for (var i = 0; i < this.bodyStatements.length; i++){
         this.bodyStatements[i].parent = this;
       }
-    }
+    };
 
     this.run = function _run(runObject, rbbcontinuation, rbboptions){
       // todo: the condition is hard-coded for now, but obviously we should ultimately have real conds
@@ -2287,6 +2305,94 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
     this.parameterizeForRelation = function _parameterizeForRelation(relation){
       // todo: once we have real conditions may need to do something here
+      return [];
+    };
+    this.unParameterizeForRelation = function _unParameterizeForRelation(relation){
+      return;
+    };
+  };
+
+  pub.BinOpNum = function _BinOpNum(){
+    Revival.addRevivalLabel(this);
+    setBlocklyLabel(this, "binopnum");
+    this.left = null;
+    this.right = null;
+    this.operator = null;
+
+    this.remove = function _remove(){
+      this.parent.removeChild(this);
+    }
+
+    this.prepareToRun = function _prepareToRun(){
+      return;
+    };
+    this.clearRunningState = function _clearRunningState(){
+      return;
+    }
+
+    this.toStringLines = function _toStringLines(){
+      return ["binopnum"];
+    };
+
+    var operators = {
+       '>': function(a, b){ return a>b},
+       '>=': function(a, b){ return a>=b},
+       '==': function(a, b){ return a===b},
+       '<': function(a, b){ return a<b},
+       '<=': function(a, b){ return a<=b}
+    }
+    var handleOpChange = function(newOp){
+        if (this.sourceBlock_ && this.sourceBlock_.WALStatement){
+          this.sourceBlock_.WALStatement.operator = newOp;
+        }
+    };
+
+    this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
+      var dropdown = makeOpsDropdown(operators);
+      addToolboxLabel(this.blocklyLabel);
+      Blockly.Blocks[this.blocklyLabel] = {
+        init: function() {
+          this.appendValueInput("left");
+          this.appendDummyInput().appendField(new Blockly.FieldDropdown(dropdown, handleOpChange), "op");
+          this.appendValueInput("right");
+          this.setInputsInline(true);
+          this.setOutput(true, 'Bool');
+          this.setColour(25);
+
+          this.WALStatement = new pub.BinOpNum();
+          var op = dropdown[0][0];
+          this.WALStatement.operator = op; // since this is what it'll show by default, better act as though that's true
+        }
+      };
+    };
+
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
+      this.block = workspace.newBlock(this.blocklyLabel);
+      this.block.WALStatement = this;
+      this.block.setFieldValue(this.operator, "op");
+      attachInputToOutput(this.left, this.right);
+      return this.block;
+    };
+
+    this.traverse = function _traverse(fn, fn2){
+      fn(this);
+      this.left.traverse(fn, fn2);
+      this.right.traverse(fn, fn2);
+      fn2(this);
+    };
+
+    this.run = function _run(runObject, rbbcontinuation, rbboptions){
+      // todo: the condition is hard-coded for now, but obviously we should ultimately have real conds
+      var leftVal = parseInt(this.left.getCurrentVal()); // todo: make this float not int
+      var rightVal = parseInt(this.right.getCurrentVal());
+      this.currentVal = this.operators(this.operator)(leftVal, rightVal);
+      // now carry on with continuation
+      rbbcontinuation(rbboptions);
+    };
+    this.getCurrentVal = function _getCurrentVal(){
+      return this.currentVal;
+    };
+    this.parameterizeForRelation = function _parameterizeForRelation(relation){
       return [];
     };
     this.unParameterizeForRelation = function _unParameterizeForRelation(relation){
