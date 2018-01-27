@@ -1508,6 +1508,76 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
   };
 
+
+  pub.Number = function _Number(){
+    Revival.addRevivalLabel(this);
+    setBlocklyLabel(this, "num");
+    var numberFieldName = 'numberFieldName';
+    this.currentValue = null;
+
+    this.remove = function _remove(){
+      this.parent.removeChild(this);
+    }
+
+    this.prepareToRun = function _prepareToRun(){
+      return;
+    };
+    this.clearRunningState = function _clearRunningState(){
+      return;
+    }
+
+    this.toStringLines = function _toStringLines(){
+      if (this.nodeVar){
+        return [this.currentVal];
+      }
+      else{
+        return [""];
+      }
+    };
+
+    this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
+      var defaultNum = 100;
+      Blockly.Blocks[this.blocklyLabel] = {
+        init: function() {
+          this.appendDummyInput()
+              .appendField(new Blockly.FieldNumber(defaultNum, null, null, null, function(newNum){this.currentValue = newNum;}), numberFieldName);
+
+          this.WALStatement = new pub.Number();
+          this.WALStatement.currentValue = defaultNum;
+        }
+      };
+    };
+
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
+      this.block = workspace.newBlock(this.blocklyLabel);
+      this.block.WALStatement = this;
+      if (this.currrentValue){
+        this.block.setFieldValue(this.currentValue, numberFieldName);
+      }
+      return this.block;
+    };
+
+    this.traverse = function _traverse(fn, fn2){
+      fn(this);
+      fn2(this);
+    };
+
+    this.run = function _run(runObject, rbbcontinuation, rbboptions){
+      rbbcontinuation(rbboptions);
+    };
+
+    this.getCurrentVal = function _getCurrentVal(){
+      return this.currentVal;
+    };
+
+    this.parameterizeForRelation = function _parameterizeForRelation(relation){
+      return [];
+    };
+    this.unParameterizeForRelation = function _unParameterizeForRelation(relation){
+      return;
+    };
+  };
+
   pub.OutputRowStatement = function _OutputRowStatement(scrapeStatements){
     Revival.addRevivalLabel(this);
     setBlocklyLabel(this, "output");
