@@ -84,27 +84,62 @@ var HelenaUIBase = (function () {
     // eventually should handle the case where existing blocks are being rearranged
     // and should keep in mind that the blocks mostly move in groupings, not just singly.  will have to test that
 
+    // todo: reminder that the below (for now) still doesn't handle adding a new statement to the beginning of a program
+    // because we focus on the block that moved rather than on the block towards which it moved...
+    // todo: also, what will happen when someone moves out a big slice, then tries to move out a smaller slice and add
+    // it to the already-taken-out slice?  it won't be in the root Helena program, so...we'll look for it and not find it
+    // probably should have a list of other segments?  yeah, let's do that?
+
     function onBlockMove(event) {
       if (event.type === Blockly.Events.MOVE){
         console.log("move event", event);
-        if (event.newParentId && event.newParentId !== event.oldParentId){
-          // ok, it's an insertion
-          console.log("move event is an insertion");
+        var removedSeq = null;
+        // if we go from having a parent id to not having a parentId or having a different one, we need to pop some statements out
+        // but if this thing was an input, not a following node, we'll do diff processing below
+        if (event.oldParentId && event.oldParentId !== event.newParentId && !event.oldInputName){
+          var movedBlock = workspace.getBlockById(event.blockId);
+          var oldPriorBlock = workspace.getBlockById(event.oldParentId);
+          // if for some reason, the movedBlock doesn't have a wal statement, we're in trouble
+          var movedStatement = movedBlock.WALStatement;
+          var oldPriorStatement = oldPriorBlock.WALStatement;
+          removedSeq = helenaProg.statementRemovedByUI(movedStatement, oldPriorStatement);
+        }
+        // if we go from no parent id or one parentId to different parent id, have to pop some statements in
+        // remember, the below is not an else if, because we could be popping off one parent and onto the next in a single move
+        // also, remember this isn't what we should do if we're adding to an input rather than dealing with sequences
+        if (event.newParentId && event.newParentId !== event.oldParentId && !event.newInputName){
+          // ok, a new connection has been made
+          console.log("move event is new connection");
           var movedBlock = workspace.getBlockById(event.blockId);
           var priorStatementBlock = workspace.getBlockById(event.newParentId);
           // if for some reason, the movedBlock doesn't have a wal statement, we're in trouble
-          var newStatement = movedBlock.WALStatement;
+          var movedStatement = movedBlock.WALStatement;
           var precedingStatement = priorStatementBlock.WALStatement;
-
+          helenaProg.statementAddedByUI(movedStatement, precedingStatement, event.newInputName);
           // ok, sometimes this is going to be raised because we're programmatically constructing the right
           // program in the workspace.  which means it's not a real insertion.  The way we're going to figuer that out
           // is we'll just see if the 'new' statement is actually already in there
-
-          /*
-          if (!helenaProg.containsBlock(newStatement)){
-            helenaProg.insertAfter(newStatement, precedingStatement);
-          }
-          */
+        }
+        // now the same deal for inputs
+        // remember, it might have moved to a new input slot by switching to a new parent or to a new input of the same parent
+        if (event.oldInputName && (event.oldParentId !== event.newParentId || event.oldInputName !== event.newInputName)){
+          var movedBlock = workspace.getBlockById(event.blockId);
+          var oldParentBlock = workspace.getBlockById(event.oldParentId);
+          // if for some reason, the movedBlock doesn't have a wal statement, we're in trouble
+          var movedBlockWAL = movedBlock.WALStatement; // not really necessarilty a statment, but..
+          var oldParentBlockWAL = oldParentBlock.WALStatement;
+          removedSeq = helenaProg.inputRemovedByUI(movedStatement, oldParentBlockWAL, event.oldInputName);
+        }
+        // if we go from no parent id or one parentId to different parent id, have to pop some statements in
+        // remember, the below is not an else if, because we could be popping off one parent and onto the next in a single move
+        // remember, it might have moved to a new input slot by switching to a new parent or to a new input of the same parent
+        if (event.newParentId && (event.oldParentId !== event.newParentId || event.oldInputName !== event.newInputName)){
+          var movedBlock = workspace.getBlockById(event.blockId);
+          var newStatementBlock = workspace.getBlockById(event.newParentId);
+          // if for some reason, the movedBlock doesn't have a wal statement, we're in trouble
+          var movedBlockWAL = movedBlock.WALStatement; // not really necessarilty a statment, but..
+          var newStatementBlockWAL = newStatementBlock.WALStatement;
+          helenaProg.inputAddedByUI(movedBlockWAL, newStatementBlockWAL, event.newInputName);
         }
       }
       if (pub.newBlocklyBlockDraggedIn && event.type === Blockly.Events.CREATE){

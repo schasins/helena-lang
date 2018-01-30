@@ -2302,7 +2302,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               .appendField("if");
           this.setPreviousStatement(true, null);
           this.setNextStatement(true, null);
-          this.appendStatementInput("statements")
+          this.appendStatementInput("statements") // important for our processing that we always call this statements
               .setCheck(null)
               .appendField("do");
           this.setColour(25);
@@ -3046,7 +3046,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               .appendField("for the first")
               .appendField(new Blockly.FieldNumber(20, 0, null, null, handleMaxRowsChange), maxRowsFieldName)      
               .appendField("rows)");
-          this.appendStatementInput("statements")
+          this.appendStatementInput("statements") // important for our processing that we always call this statements
               .setCheck(null)
               .appendField("do");
           this.setPreviousStatement(true, null);
@@ -4448,7 +4448,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     function insertAfterHelper(listOfStatements, statementToInsert, statementAfterWhichToInsert){
       for (var i = 0; i < listOfStatements.length; i++){
         if (listOfStatements[i] === statementAfterWhichToInsert){
-          listOfStatements.splice(i + 1, 0, statementToInsert);
+          listOfStatements.splice(i + 1, 0, statementToInsert); // remember, overwrites the original array bc splice
           return listOfStatements;
         }
         else{
@@ -4476,6 +4476,109 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         this.loopyStatements = possibleNewLoopyStatements;
       }
     };
+
+    function removeStatementAndFollowing(listOfStatements, statement){
+      for (var i = 0; i < listOfStatements.length; i++){
+        if (listOfStatements[i] === statement){
+          var removedSeq = listOfStatements.splice(i); // remember, overwrites the original array bc splice
+          return removedSeq;
+        }
+        else{
+          // ok, haven't found it yet.  mayhaps it belongs in the body statements of this very statement?
+          if (listOfStatements[i].bodyStatements){
+            // ok, this one has bodyStatements to check
+            var removedSeq = removeStatementAndFollowing(listOfStatements[i].bodyStatements, statement);
+            if (removedSeq){
+              // awesome, we're done
+              return removedSeq;
+            }
+          }
+        }
+      }
+      return null;
+    }
+
+    // go through the program, look for the movedStatement and any statements/blocks that the Blockly UI would attach to it
+    // then remove those from the program
+    this.statementRemovedByUI = function(movedStatement, oldPriorStatement){
+      console.log("statementRemovedByUI", movedStatement, oldPriorStatement);
+      var seq = removeStatementAndFollowing(this.loopyStatements, movedStatement);
+      console.log("removed the seq:". removedSeq);
+      if (!seq){
+        WALconsole.warn("Woah, tried to remove a particular WALStatement, but that statement wasn't in our prog.");
+      }
+
+      // now, if we end up pulling this same seq back in...better know about the seq
+      movedStatement.associatedStatementSequence = seq;
+      return seq;
+    };
+
+    function insertArrayAt(array, index, arrayToInsert) {
+      Array.prototype.splice.apply(array, [index, 0].concat(arrayToInsert));
+    }
+
+    function addSeq(listOfStatements, statementSeq, blocklyParentStatement, inputName){
+      for (var i = 0; i < listOfStatements.length; i++){
+        if (listOfStatements[i] === blocklyParentStatement){
+          // awesome, found the new parent.  now the questions is: is this the parent because the new statementSeq
+          // comes immediately after it in the listOfStatements?  or because it's the new first
+          // seq in the body statements?  blockly does it both ways
+          // we'll use inputName to find out
+          var s = listOfStatements[i];
+          if (inputName === "statements"){
+            // ok.  the new seq is going in the body statements, right at the head
+            insertArrayAt(s.bodyStatements, 0, statementSeq); // in place, so overwriting the original
+          }
+          else{
+            // ok, not going in the body statements
+            // going after this statement in the current listOfStatements
+            insertArrayAt(listOfStatements, i + 1, statementSeq); // in place, again, so overwriting the original
+          }
+          return true;
+        }
+        else{
+          // ok, haven't found it yet.  mayhaps it belongs in the body statements of this very statement?
+          if (listOfStatements[i].bodyStatements){
+            // ok, this one has bodyStatements to check
+            var res = addSeq(listOfStatements[i].bodyStatements, statementSeq, blocklyParentStatement, inputName);
+            if (res){
+              // awesome, we're done
+              return res;
+            }
+          }
+        }
+      }
+      return false;
+    }
+
+    this.statementAddedByUI = function(movedStatement, precedingStatement, inputName){
+      // a quick precaution.  it's not ok for statements to appear in the same program twice.  so make sure it's not already in there...
+      // (this comes up when we're programmatically producing the blockly rep for an existing program)
+      if (this.containsStatement(movedStatement)){
+        return;
+      }
+
+      // ok, we know which block is coming in, but don't necessarily know whether there's a sequence of blocks that should come with it
+      // if there's one associated with the block, we'll use that.  otherwise we'll assume it's just the block itself
+      // (as when the user has dragged in a brand new block, or even when we're programmatically buidling up the displayed program)
+      var addedSeq = movedStatement.seq;
+      if (!addedSeq){
+        addedSeq = [movedStatement];
+      }
+
+      var added = addSeq(this.loopyStatements, addedSeq, precedingStatement, inputName);
+      if (!added){
+        WALconsole.warn("Woah, tried to insert after a particular WALStatement, but that statement wasn't in our prog.");
+      }
+      return added;
+    }
+
+    this.inputRemovedByUI = function(){
+
+    }
+    this.inputAddedByUI = function(){
+
+    }
 
     this.getDuplicateDetectionData = function _getDuplicateDetectionData(){
       var loopData = [];
