@@ -341,10 +341,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   }
 
   function attachToPrevBlock(currBlock, prevBlock){
-    if (prevBlock){ // sometimes prevblock is null
+    if (prevBlock){
       var prevBlockConnection = prevBlock.nextConnection;
       var thisBlockConnection = currBlock.previousConnection;
       prevBlockConnection.connect(thisBlockConnection);
+    }
+    else{
+      WALconsole.warn("Woah, tried to attach to a null prevBlock!  Bad!");
     }
   }
 
@@ -1044,7 +1047,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (onlyKeydowns){
         this.onlyKeydowns = true;
       }
-      var onlyKeyups = _.reduce(textEntryEvents, function(acc, e){return acc && (e.data.type === "keyup" || !EventM.getVisible(e))}, true); // all events are keyups or invisible
+      var onlyKeyups = _.reduce(textEntryEvents, function(acc, e){return acc && (e.data.type === "keyup")}, true); // all events are keyups or invisible
       if (onlyKeyups){
         this.onlyKeyups = true;
       }
@@ -1135,7 +1138,27 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         this.block.WALStatement = this;
         return this.block;
       }
-      return null;
+      // let's make some new blocks for keyup and keydown only situations
+      else {
+        var customBlocklyLabel = this.blocklyLabel + this.id;
+        var customText = "key press";
+        if (this.onlyKeyups){
+          customText = "key up";
+        }
+        Blockly.Blocks[customBlocklyLabel] = {
+          init: function() {
+            this.appendDummyInput()
+                .appendField(customText);
+            this.setPreviousStatement(true, null);
+            this.setNextStatement(true, null);
+            this.setColour(280);
+          }
+        };
+        this.block = workspace.newBlock(customBlocklyLabel);
+        attachToPrevBlock(this.block, prevBlock);
+        this.block.WALStatement = this;
+        return this.block;
+      }
     };
 
     this.traverse = function _traverse(fn, fn2){
