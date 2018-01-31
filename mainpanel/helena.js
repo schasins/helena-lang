@@ -32,7 +32,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   var pub = {};
   var UIObject = null;
 
-  pub.blocklyLabels = {"web":[],"other":[]};
+  pub.blocklyLabels = {"text": [], "numbers": [], "other":[]};
 
   /* some of the things we do within the objects that represent the programs, statements,
   and expressions should update the UI object that's serving as the IDE.  the UI
@@ -398,6 +398,22 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     return getLoopIterationCountersHelper(s, []);
   }
 
+  function getFollowingSeq(blocklyBlock){
+    var nextBlock = blocklyBlock.getNextBlock();
+    if (!nextBlock){
+      return [];
+    }
+    return nextBlock.WALStatement.getHelena();
+  }
+
+  function getInputSeq(blocklyBlock, inputName){
+    var nextBlock = blocklyBlock.getInput(inputName).connection.targetBlock();
+    if (!nextBlock){
+      return [];
+    }
+    return nextBlock.WALStatement.getHelena();
+  }
+
   // the actual statements
 
   pub.LoadStatement = function _LoadStatement(trace){
@@ -459,7 +475,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
       // uses the program obj, so only makes sense if we have one
       if (!program){return;}
-      addToolboxLabel(this.blocklyLabel, "web");
+      // addToolboxLabel(this.blocklyLabel, "web");
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
@@ -482,6 +498,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       attachToPrevBlock(this.block, prevBlock);
       this.block.WALStatement = this;
       return this.block;
+    };
+
+    this.getHelena = function _getHelena(){
+      var followingSeq = getFollowingSeq(this.block);
+      var fullSeq = [this].concat(followingSeq);
+      return fullSeq;
     };
 
     this.traverse = function _traverse(fn, fn2){
@@ -590,7 +612,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
       // uses the program obj, so only makes sense if we have one
       if (!program){return;}
-      addToolboxLabel(this.blocklyLabel, "web");
+      // addToolboxLabel(this.blocklyLabel, "web");
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
       var outputOptionLabel = this.blocklyLabel+"_outputPage";
       var shapes = [this.blocklyLabel, outputOptionLabel];
@@ -630,6 +652,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       attachToPrevBlock(this.block, prevBlock);
       this.block.WALStatement = this;
       return this.block;
+    };
+
+    this.getHelena = function _getHelena(){
+      var followingSeq = getFollowingSeq(this.block);
+      var fullSeq = [this].concat(followingSeq);
+      return fullSeq;
     };
 
     this.traverse = function _traverse(fn, fn2){
@@ -759,7 +787,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
       // uses the program obj, so only makes sense if we have one
       if (!program){return;}
-      addToolboxLabel(this.blocklyLabel, "web");
+      // addToolboxLabel(this.blocklyLabel, "web");
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
@@ -838,6 +866,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       attachToPrevBlock(this.block, prevBlock);
       this.block.WALStatement = this;
       return this.block;
+    };
+
+    this.getHelena = function _getHelena(){
+      var followingSeq = getFollowingSeq(this.block);
+      var fullSeq = [this].concat(followingSeq);
+      return fullSeq;
     };
 
     this.traverse = function _traverse(fn, fn2){
@@ -1113,7 +1147,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
       // uses the program obj, so only makes sense if we have one
       if (!program){return;}
-      addToolboxLabel(this.blocklyLabel, "web");
+      // addToolboxLabel(this.blocklyLabel, "web");
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
@@ -1159,6 +1193,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         this.block.WALStatement = this;
         return this.block;
       }
+    };
+
+    this.getHelena = function _getHelena(){
+      var followingSeq = getFollowingSeq(this.block);
+      var fullSeq = [this].concat(followingSeq);
+      return fullSeq;
     };
 
     this.traverse = function _traverse(fn, fn2){
@@ -1292,7 +1332,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
       // uses the program obj, so only makes sense if we have one
       if (!program){return;}
-      addToolboxLabel(this.blocklyLabel, "web");
+      // addToolboxLabel(this.blocklyLabel, "web");
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
           this.appendDummyInput()
@@ -1309,6 +1349,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       attachToPrevBlock(this.block, prevBlock);
       this.block.WALStatement = this;
       return this.block;
+    };
+
+    this.getHelena = function _getHelena(){
+      var followingSeq = getFollowingSeq(this.block);
+      var fullSeq = [this].concat(followingSeq);
+      return fullSeq;
     };
 
     this.traverse = function _traverse(fn, fn2){
@@ -1431,6 +1477,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return this.block;
     };
 
+    this.getHelena = function _getHelena(){
+      var followingSeq = getFollowingSeq(this.block);
+      var fullSeq = [this].concat(followingSeq);
+      return fullSeq;
+    };
+
     this.traverse = function _traverse(fn, fn2){
       fn(this);
       fn2(this);
@@ -1442,7 +1494,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   };
 
 
-  pub.NodeVariableUse = function _VariableUse(scrapeStatement){
+  pub.NodeVariableUse = function _NodeVariableUse(scrapeStatement){
     Revival.addRevivalLabel(this);
     setBlocklyLabel(this, "variableUse");
     var varNameFieldName = 'varNameFieldName';
@@ -1492,6 +1544,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               this.setOutput(true, 'NodeVariableUse');
               this.setColour(25);
               this.WALStatement = new pub.NodeVariableUse();
+              this.WALStatement.block = this;
               var name = varNamesDropDown[0][0];
               this.WALStatement.nodeVar = getNodeVariableByName(name); // since this is what it'll show by default, better act as though that's true
             }
@@ -1508,6 +1561,16 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return this.block;
     };
 
+    this.getHelena = function _getHelena(){
+      return this;
+    };
+
+    this.getHelenaSeq = function _getHelenaSeq(){
+      var inputSeq = getInputSeq(this.block, "NodeVariableUse");
+      var fullSeq = [this].concat(inputSeq);
+      return fullSeq;
+    };
+
     this.traverse = function _traverse(fn, fn2){
       fn(this);
       fn2(this);
@@ -1516,11 +1579,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.run = function _run(runObject, rbbcontinuation, rbboptions){
       // just retrieve the val
       this.currentVal = runObject.environment.envLookup(this.nodeVar.getName());
-      rbbcontinuation(rbboptions);
     };
 
     this.getCurrentVal = function _getCurrentVal(){
-      return this.currentVal;
+      // remember!  currentval is an object with text, link, source url, xpath, that stuff
+      // so if the val is being used, we have to pull out just the text
+      return this.currentVal.text;
     };
 
     this.parameterizeForRelation = function _parameterizeForRelation(relation){
@@ -1559,13 +1623,19 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
+      addToolboxLabel(this.blocklyLabel, "numbers");
       var defaultNum = 100;
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
-          this.appendDummyInput()
-              .appendField(new Blockly.FieldNumber(defaultNum, null, null, null, function(newNum){this.currentValue = newNum;}), numberFieldName);
-
           this.WALStatement = new pub.Number();
+          this.WALStatement.block = this;
+          var statement = this.WALStatement;
+
+          this.appendDummyInput()
+              .appendField(new Blockly.FieldNumber(defaultNum, null, null, null, function(newNum){statement.currentValue = newNum;}), numberFieldName);
+
+          this.setOutput(true, 'number');
+          this.setColour(25);
           this.WALStatement.currentValue = defaultNum;
         }
       };
@@ -1580,17 +1650,21 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return this.block;
     };
 
+    this.getHelena = function _getHelena(){
+      return this;
+    };
+
     this.traverse = function _traverse(fn, fn2){
       fn(this);
       fn2(this);
     };
 
     this.run = function _run(runObject, rbbcontinuation, rbboptions){
-      rbbcontinuation(rbboptions);
+      // it's just a constant.  no need to do anything
     };
 
     this.getCurrentVal = function _getCurrentVal(){
-      return this.currentVal;
+      return this.currentValue;
     };
 
     this.parameterizeForRelation = function _parameterizeForRelation(relation){
@@ -1674,6 +1748,22 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         priorBlock = block;
       }
       return this.block;
+    };
+
+    this.getHelena = function _getHelena(){
+      var followingSeq = getFollowingSeq(this.block);
+      var fullSeq = [this].concat(followingSeq);
+
+      // ok, but the other thing we need to do is update our list of variable nodes
+      var firstInput = this.block.getInput('NodeVariableUse').connection.targetBlock();
+      if (firstInput){
+        var inputSeq = firstInput.WALStatement.getHelenaSeq();
+        this.variableUseNodes = inputSeq;        
+      }
+      else{
+        this.variableUseNodes = [];
+      }
+      return fullSeq;
     };
 
     this.traverse = function _traverse(fn, fn2){
@@ -1798,6 +1888,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return null;
     };
 
+    this.getHelena = function _getHelena(){
+      // this should never be called, because should never be represented in blockly
+    };
+
     this.traverse = function _traverse(fn, fn2){
       fn(this);
       fn2(this);
@@ -1870,6 +1964,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       // ok, we're not actually making a block
       return null;
+    };
+
+    this.getHelena = function _getHelena(){
+      // this should never be called bc should never be represented in blockly
     };
 
     this.traverse = function _traverse(fn, fn2){
@@ -1957,6 +2055,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return this.block;
     };
 
+    this.getHelena = function _getHelena(){
+      var followingSeq = getFollowingSeq(this.block);
+      var fullSeq = [this].concat(followingSeq);
+      return fullSeq;
+    };
+
     this.traverse = function _traverse(fn, fn2){
       fn(this);
       fn2(this);
@@ -2017,6 +2121,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           this.setNextStatement(true, null);
           this.setColour(25);
           this.WALStatement = new pub.WaitStatement();
+          this.WALStatement.block = this;
         }
       };
     };
@@ -2027,6 +2132,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.block.WALStatement = this;
       this.block.setFieldValue(this.wait, waitFieldName);
       return this.block;
+    };
+
+    this.getHelena = function _getHelena(){
+      var followingSeq = getFollowingSeq(this.block);
+      var fullSeq = [this].concat(followingSeq);
+      return fullSeq;
     };
 
     this.traverse = function _traverse(fn, fn2){
@@ -2078,6 +2189,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           this.setNextStatement(true, null);
           this.setColour(25);
           this.WALStatement = new pub.WaitUntilUserReadyStatement();
+          this.WALStatement.block = this;
         }
       };
     };
@@ -2087,6 +2199,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       attachToPrevBlock(this.block, prevBlock);
       this.block.WALStatement = this;
       return this.block;
+    };
+
+    this.getHelena = function _getHelena(){
+      var followingSeq = getFollowingSeq(this.block);
+      var fullSeq = [this].concat(followingSeq);
+      return fullSeq;
     };
 
     this.traverse = function _traverse(fn, fn2){
@@ -2154,6 +2272,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           this.setNextStatement(true, null);
           this.setColour(25);
           this.WALStatement = new pub.SayStatement();
+          this.WALStatement.block = this;
         }
       };
     };
@@ -2164,6 +2283,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.block.WALStatement = this;
       this.block.setFieldValue(this.textToSay, textToSayFieldName);
       return this.block;
+    };
+
+    this.getHelena = function _getHelena(){
+      var followingSeq = getFollowingSeq(this.block);
+      var fullSeq = [this].concat(followingSeq);
+      return fullSeq;
     };
 
     this.traverse = function _traverse(fn, fn2){
@@ -2235,6 +2360,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               this.setNextStatement(true, null);
               this.setColour(25);
               this.WALStatement = new pub.SayNodeStatement();
+              this.WALStatement.block = this;
               this.WALStatement.varName = varNamesDropDown[0][0]; // since this is what it'll show by default, better act as though that's true
             }
           }
@@ -2248,6 +2374,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.block.WALStatement = this;
       this.block.setFieldValue(this.varName, textToSayFieldName);
       return this.block;
+    };
+
+    this.getHelena = function _getHelena(){
+      var followingSeq = getFollowingSeq(this.block);
+      var fullSeq = [this].concat(followingSeq);
+      return fullSeq;
     };
 
     this.traverse = function _traverse(fn, fn2){
@@ -2280,6 +2412,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   pub.IfStatement = function _IfStatement(bodyStatements){
     Revival.addRevivalLabel(this);
     setBlocklyLabel(this, "if");
+    this.condition = null;
 
     if (bodyStatements){ // we will sometimes initialize with undefined, as when reviving a saved program
       this.updateChildStatements(bodyStatements);
@@ -2331,6 +2464,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           this.setColour(25);
 
           this.WALStatement = new pub.IfStatement();
+          this.WALStatement.block = this;
         }
       };
     };
@@ -2342,9 +2476,37 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return this.block;
     };
 
+    this.getHelena = function _getHelena(){
+      var followingSeq = getFollowingSeq(this.block);
+      var fullSeq = [this].concat(followingSeq);
+
+      // all well and good to have the things attached after this block, but also need the bodyStatements updated
+      var firstNestedBlock = this.block.getInput('statements').connection.targetBlock();
+      if (firstNestedBlock){
+        var fSeq2 = firstNestedBlock.WALStatement.getHelena();
+        this.bodyStatements = fSeq2;
+      }
+      else{
+        this.bodyStatements = [];
+      }
+
+      // ok, but we also want to update our own condition object
+      var conditionBlocklyBlock = this.block.getInput('NodeVariableUse').connection.targetBlock();
+      if (conditionBlocklyBlock){
+        var conditionHelena = conditionBlocklyBlock.WALStatement.getHelena();
+        this.condition = conditionHelena;        
+      }
+      else{
+        this.condition = null;
+      }
+      return fullSeq;
+    };
+
     this.traverse = function _traverse(fn, fn2){
       fn(this);
-      this.condition.traverse(fn, fn2);
+      if (this.condition){
+        this.condition.traverse(fn, fn2);
+      }
       for (var i = 0; i < this.bodyStatements.length; i++){
         this.bodyStatements[i].traverse(fn, fn2);
       }
@@ -2359,8 +2521,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.run = function _run(runObject, rbbcontinuation, rbboptions){
-      // todo: the condition is hard-coded for now, but obviously we should ultimately have real conds
-      if (runObject.environment.envLookup("cases.case_id").indexOf("CVG") !== 0){ // todo: want to check if first scrape statement scrapes something with "CFG" in it
+      // first thing first, run everything on which you depend
+      this.condition.run(runObject, rbbcontinuation, rbboptions);
+      if (this.condition.getCurrentVal()){
+        // so basically all that's going to happen here is we'll go ahead and decide to run the bodyStatements of the if
+        // statement before we go back to running what comes after the if
+        // so....
+        // runObject.program.runBasicBlock(runObject, entityScope.bodyStatements, rbbcontinuation, rbboptions);
+        runObject.program.runBasicBlock(runObject, this.bodyStatements, rbbcontinuation, rbboptions);
+        /*
         if (this.bodyStatements.length < 1){
           // ok seriously, why'd you make an if with no body?  come on.
           rbbcontinuation(rbboptions);
@@ -2389,6 +2558,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         }
         // actually run that first statement
         bodyStatements[0].run(runObject, newContinuation);
+        */
       }
       else{
         // for now we don't have else body statements for our ifs, so we should just carry on with execution
@@ -2442,7 +2612,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
       var dropdown = makeOpsDropdown(operators);
-      addToolboxLabel(this.blocklyLabel);
+      addToolboxLabel(this.blocklyLabel, "numbers");
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
           this.appendValueInput("left");
@@ -2453,6 +2623,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           this.setColour(25);
 
           this.WALStatement = new pub.BinOpNum();
+          this.WALStatement.block = this;
           var op = dropdown[0][0];
           this.WALStatement.operator = op; // since this is what it'll show by default, better act as though that's true
         }
@@ -2467,20 +2638,40 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return this.block;
     };
 
+    this.getHelena = function _getHelena(){
+      // ok, but we also want to update our own condition object
+      var leftBlock = this.block.getInput('left').connection.targetBlock();
+      var rightBlock = this.block.getInput('right').connection.targetBlock();
+      if (leftBlock){
+        this.left = leftBlock.WALStatement.getHelena();
+      }
+      else{
+        this.left = null;
+      }
+      if (rightBlock){
+        this.right = rightBlock.WALStatement.getHelena();
+      }
+      else{
+        this.right = null;
+      }
+      return this;
+    };
+
     this.traverse = function _traverse(fn, fn2){
       fn(this);
-      this.left.traverse(fn, fn2);
-      this.right.traverse(fn, fn2);
+      if (this.left){this.left.traverse(fn, fn2);}
+      if (this.right){ this.right.traverse(fn, fn2);}
       fn2(this);
     };
 
     this.run = function _run(runObject, rbbcontinuation, rbboptions){
-      // todo: the condition is hard-coded for now, but obviously we should ultimately have real conds
+      // now run the things on which we depend
+      this.left.run(runObject, rbbcontinuation, rbboptions);
+      this.right.run(runObject, rbbcontinuation, rbboptions);
+
       var leftVal = parseInt(this.left.getCurrentVal()); // todo: make this float not int
       var rightVal = parseInt(this.right.getCurrentVal());
-      this.currentVal = this.operators(this.operator)(leftVal, rightVal);
-      // now carry on with continuation
-      rbbcontinuation(rbboptions);
+      this.currentVal = operators[this.operator](leftVal, rightVal);
     };
     this.getCurrentVal = function _getCurrentVal(){
       return this.currentVal;
@@ -2694,7 +2885,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           }
 
 
-          this.appendStatementInput("statements")
+          this.appendStatementInput("statements") // must be called this
               .setCheck(null)
               .appendField("do");
           
@@ -2718,6 +2909,22 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
       this.block.WALStatement = this;
       return this.block;
+    };
+
+    this.getHelena = function _getHelena(){
+      var followingSeq = getFollowingSeq(this.block);
+      var fullSeq = [this].concat(followingSeq);
+
+      // all well and good to have the things attached after this block, but also need the bodyStatements updated
+      var firstNestedBlock = this.block.getInput('statements').connection.targetBlock();
+      if (firstNestedBlock){
+        var fSeq2 = firstNestedBlock.WALStatement.getHelena();
+        this.bodyStatements = fSeq2;
+      }
+      else{
+        this.bodyStatements = [];
+      }
+      return fullSeq;
     };
 
     this.traverse = function _traverse(fn, fn2){
@@ -3051,7 +3258,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         block.WALStatement.maxRows = this.sourceBlock_.getFieldValue(maxRowsFieldName);
       }
 
-      addToolboxLabel(this.blocklyLabel);
+      // addToolboxLabel(this.blocklyLabel);
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
       var relationsDropDown = makeRelationsDropdown(relations);
       var statement = this;
@@ -3103,6 +3310,22 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
       this.block.WALStatement = this;
       return this.block;
+    };
+
+    this.getHelena = function _getHelena(){
+      var followingSeq = getFollowingSeq(this.block);
+      var fullSeq = [this].concat(followingSeq);
+
+      // all well and good to have the things attached after this block, but also need the bodyStatements updated
+      var firstNestedBlock = this.block.getInput('statements').connection.targetBlock();
+      if (firstNestedBlock){
+        var fSeq2 = firstNestedBlock.WALStatement.getHelena();
+        this.bodyStatements = fSeq2;
+      }
+      else{
+        this.bodyStatements = [];
+      }
+      return fullSeq;
     };
 
     this.traverse = function _traverse(fn, fn2){
@@ -4010,7 +4233,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   function getNodeVariableByName(name){
     for (var i = 0; i < allNodeVariablesSeenSoFar.length; i++){
       if (allNodeVariablesSeenSoFar[i].name === name){
-        return allNodeVariablesSeenSoFar;
+        return allNodeVariablesSeenSoFar[i];
       }
     }
   }

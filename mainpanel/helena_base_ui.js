@@ -93,6 +93,8 @@ var HelenaUIBase = (function () {
     function onBlockMove(event) {
       if (event.type === Blockly.Events.MOVE){
         console.log("move event", event);
+        // this might have changed our program.  let's go ahead and update it
+        pub.blocklyToHelena(helenaProg);
       }
       if (pub.newBlocklyBlockDraggedIn && event.type === Blockly.Events.CREATE){
         var createdBlock = workspace.getBlockById(event.blockId);
@@ -175,6 +177,34 @@ var HelenaUIBase = (function () {
       WALconsole.warn("Called displayBlockly, but no program to display yet.  Should be set with setBlocklyProgram.");
     }
   };
+
+  function quickSizeEstimate(ls){
+    var acc = 0;
+    acc += ls.length;
+    for (var i = 0; i < ls.length; i++){
+      if (ls[i].bodyStatements){
+        acc += quickSizeEstimate(ls[i].bodyStatements);
+      }
+    }
+    return acc;
+  }
+
+  pub.blocklyToHelena = function _blocklyToHelena(program){
+    var roots = workspace.getTopBlocks();
+    var biggestSoFarSize = 0;
+    for (var i = 0; i < roots.length; i++){
+      var r = roots[i];
+      var rootHelenaStatement = r.WALStatement;
+      var helenaStatements = rootHelenaStatement.getHelena();
+      console.log(helenaStatements);
+      var size = quickSizeEstimate(helenaStatements);
+      console.log("size:", size);
+      if (size > biggestSoFarSize){
+        biggestSoFarSize = size;
+        program.loopyStatements = helenaStatements;
+      }
+    }
+  }
 
   return pub;
 }());
