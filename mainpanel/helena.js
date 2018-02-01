@@ -358,13 +358,16 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     parentConnection.connect(childConnection);
   }
 
+  function attachToInput(leftBlock, rightBlock, name){
+    var parentConnection = leftBlock.getInput(name).connection;
+    var childConnection = rightBlock.outputConnection;
+    parentConnection.connect(childConnection);
+  }
+
   function attachInputToOutput(leftBlock, rightBlock){
     var outputBlockConnection = rightBlock.outputConnection;
     var inputBlockConnection = leftBlock.inputList[0].connection;
     outputBlockConnection.connect(inputBlockConnection);
-    console.log(inputBlockConnection.isConnected());
-    console.log(outputBlockConnection.isConnected());
-    return;
   }
 
   function genBlocklyBlocksSeq(statements, workspace){
@@ -2472,6 +2475,17 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       this.block = workspace.newBlock(this.blocklyLabel);
       attachToPrevBlock(this.block, prevBlock);
+
+      // handle the condition
+      if (this.condition){
+        var cond = this.condition.genBlocklyNode(this.block, workspace);
+        attachToInput(this.block, cond, "NodeVariableUse");
+      }
+      
+      // handle the body statements
+      var firstNestedBlock = genBlocklyBlocksSeq(this.bodyStatements, workspace);
+      attachNestedBlocksToWrapper(this.block, firstNestedBlock);
+
       this.block.WALStatement = this;
       return this.block;
     };
@@ -2529,36 +2543,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // so....
         // runObject.program.runBasicBlock(runObject, entityScope.bodyStatements, rbbcontinuation, rbboptions);
         runObject.program.runBasicBlock(runObject, this.bodyStatements, rbbcontinuation, rbboptions);
-        /*
-        if (this.bodyStatements.length < 1){
-          // ok seriously, why'd you make an if with no body?  come on.
-          rbbcontinuation(rbboptions);
-          return;
-        }
-        // let's run the first body statement, make a continuation for running the remaining ones
-        var bodyStatements = this.bodyStatements;
-        var currBodyStatementsIndex = 1;
-        var bodyStatmentsLength = this.bodyStatements.length;
-        var newContinuation = function(rbboptions){ // remember that rbbcontinuations must always handle options.skipMode
-          if (rbboptions.skipMode || rbboptions.breakMode){
-            // executed a continue statement, so don't carry on with this if
-            rbbcontinuation(rbboptions);
-            return;
-          }
-          if (currBodyStatementsIndex === bodyStatmentsLength){
-            // finished with the body statements, call original continuation
-            rbbcontinuation(rbboptions);
-            return;
-          }
-          else{
-            // still working on the body of the current if statement, keep going
-            currBodyStatementsIndex += 1;
-            bodyStatements[currBodyStatementsIndex - 1].run(runObject, newContinuation);
-          }
-        }
-        // actually run that first statement
-        bodyStatements[0].run(runObject, newContinuation);
-        */
       }
       else{
         // for now we don't have else body statements for our ifs, so we should just carry on with execution
@@ -2634,7 +2618,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.block = workspace.newBlock(this.blocklyLabel);
       this.block.WALStatement = this;
       this.block.setFieldValue(this.operator, "op");
-      attachInputToOutput(this.left, this.right);
+      if (this.left){
+        attachToInput(this.block, this.left.genBlocklyNode(this.block, workspace), "left");
+      }
+      if (this.right){
+        attachToInput(this.block, this.right.genBlocklyNode(this.block, workspace), "right");
+      }
       return this.block;
     };
 
@@ -3024,9 +3013,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         }
         else{
           // ok, let's just fall back into treating it like normal parallel mode
-          // todo: we should actually fall back into normal skip block mode, not parallel, but parallel
-          // mode is an easy way to convert all our skip blocks to skipping only from this run
-          // which is convenient for the time being
           inParallelMode = true;
         }
       }
