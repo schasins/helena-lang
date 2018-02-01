@@ -406,7 +406,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     if (!nextBlock){
       return [];
     }
-    return nextBlock.WALStatement.getHelena();
+    return getWAL(nextBlock).getHelena();
   }
 
   function getInputSeq(blocklyBlock, inputName){
@@ -414,7 +414,34 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     if (!nextBlock){
       return [];
     }
-    return nextBlock.WALStatement.getHelena();
+    return getWAL(nextBlock).getHelena();
+  }
+
+  // when Blockly blocks are thrown away (in trash cah), you can undo it, but undoing it doesn't bring back the walstatement
+  // property that we add
+  // so...we'll keep track
+  var blocklyToWALDict = {};
+
+  function setWAL(block, WALEquiv){
+    block.WAL = WALEquiv;
+    WALEquiv.block = block;
+    blocklyToWALDict[block.id] = WALEquiv;
+  }
+
+  function getWAL(block){
+    if (!block.WAL){
+      block.WAL = blocklyToWALDict[block.id];
+      block.WAL.block = block;
+      // the above line may look silly but when blockly drops blocks into the trashcan, they're restored
+      // with the same id but with a fresh object
+      // and the fresh object doesn't have WAL stored anymore, which is why we have to look in the dict
+      // but that also means the block object stored by the wal object is out of date, must be refreshed
+    }
+    return block.WAL;
+  }
+
+  pub.getWALRep = function _getWALRep(blocklyBlock){
+    return getWAL(blocklyBlock);
   }
 
   // the actual statements
@@ -499,7 +526,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.block.setFieldValue(this.cUrlString(), "url");
       this.block.setFieldValue(this.outputPageVar.toString(), "page");
       attachToPrevBlock(this.block, prevBlock);
-      this.block.WALStatement = this;
+      setWAL(this.block, this);
       return this.block;
     };
 
@@ -653,7 +680,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       console.log("hasOutputPage2", this.outputPageVars && this.outputPageVars.length > 0, this);
 
       attachToPrevBlock(this.block, prevBlock);
-      this.block.WALStatement = this;
+      setWAL(this.block, this);
       return this.block;
     };
 
@@ -836,9 +863,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         onchange: function(ev) {
           console.log("ev in blockly scrape", ev);
           var newName = this.getFieldValue("name");
-          var currentName = this.WALStatement.currentNode.getName();
+          var currentName = getWAL(this).currentNode.getName();
           if (newName !== defaultName && (newName !== currentName)){
-            this.WALStatement.currentNode.setName(newName);
+            getWAL(this).currentNode.setName(newName);
             // new name so update all our program display stuff
             UIObject.updateDisplayedScript(false); // update without updating how blockly appears
           }
@@ -867,7 +894,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
       this.block.setFieldValue(this.pageVar.toString(), "page");
       attachToPrevBlock(this.block, prevBlock);
-      this.block.WALStatement = this;
+      setWAL(this.block, this);
       return this.block;
     };
 
@@ -1172,7 +1199,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         this.block.setFieldValue(this.stringRep(), "text");
         this.block.setFieldValue(this.pageVar.toString(), "page");
         attachToPrevBlock(this.block, prevBlock);
-        this.block.WALStatement = this;
+        setWAL(this.block, this);
         return this.block;
       }
       // let's make some new blocks for keyup and keydown only situations
@@ -1193,7 +1220,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         };
         this.block = workspace.newBlock(customBlocklyLabel);
         attachToPrevBlock(this.block, prevBlock);
-        this.block.WALStatement = this;
+        setWAL(this.block, this);
         return this.block;
       }
     };
@@ -1350,7 +1377,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       this.block = workspace.newBlock(this.blocklyLabel);
       attachToPrevBlock(this.block, prevBlock);
-      this.block.WALStatement = this;
+      setWAL(this.block, this);
       return this.block;
     };
 
@@ -1476,7 +1503,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       this.block = workspace.newBlock(this.blocklyLabel);
       attachToPrevBlock(this.block, prevBlock);
-      this.block.WALStatement = this;
+      setWAL(this.block, this);
       return this.block;
     };
 
@@ -1533,7 +1560,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var handleVarChange = function(newVarName){
         if (this.sourceBlock_){
           console.log("updating node to ", newVarName);
-          this.sourceBlock_.WALStatement.nodeVar = getNodeVariableByName(newVarName);
+          getWAL(this.sourceBlock_).nodeVar = getNodeVariableByName(newVarName);
         }
       };
       Blockly.Blocks[this.blocklyLabel] = {
@@ -1546,10 +1573,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               
               this.setOutput(true, 'NodeVariableUse');
               this.setColour(25);
-              this.WALStatement = new pub.NodeVariableUse();
-              this.WALStatement.block = this;
+              setWAL(this, new pub.NodeVariableUse());
+              getWAL(this).block = this;
               var name = varNamesDropDown[0][0];
-              this.WALStatement.nodeVar = getNodeVariableByName(name); // since this is what it'll show by default, better act as though that's true
+              getWAL(this).nodeVar = getNodeVariableByName(name); // since this is what it'll show by default, better act as though that's true
             }
           }
         }
@@ -1559,7 +1586,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       this.block = workspace.newBlock(this.blocklyLabel);
       // nope!  this one doesn't attach to prev! attachToPrevBlock(this.block, prevBlock);
-      this.block.WALStatement = this;
+      setWAL(this.block, this);
       this.block.setFieldValue(this.nodeVar.getName(), varNameFieldName);
       return this.block;
     };
@@ -1630,23 +1657,23 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var defaultNum = 100;
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
-          this.WALStatement = new pub.Number();
-          this.WALStatement.block = this;
-          var statement = this.WALStatement;
+          setWAL(this, new pub.Number());
+          getWAL(this).block = this;
+          var statement = getWAL(this);
 
           this.appendDummyInput()
               .appendField(new Blockly.FieldNumber(defaultNum, null, null, null, function(newNum){statement.currentValue = newNum;}), numberFieldName);
 
           this.setOutput(true, 'number');
           this.setColour(25);
-          this.WALStatement.currentValue = defaultNum;
+          getWAL(this).currentValue = defaultNum;
         }
       };
     };
 
     this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       this.block = workspace.newBlock(this.blocklyLabel);
-      this.block.WALStatement = this;
+      setWAL(this.block, this);
       if (this.currrentValue){
         this.block.setFieldValue(this.currentValue, numberFieldName);
       }
@@ -1742,7 +1769,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       this.block = workspace.newBlock(this.blocklyLabel);
       attachToPrevBlock(this.block, prevBlock);
-      this.block.WALStatement = this;
+      setWAL(this.block, this);
       var priorBlock = this.block;
       for (var i = 0; i < this.variableUseNodes.length; i++){
         var vun = this.variableUseNodes[i];
@@ -1758,9 +1785,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var fullSeq = [this].concat(followingSeq);
 
       // ok, but the other thing we need to do is update our list of variable nodes
-      var firstInput = this.block.getInput('NodeVariableUse').connection.targetBlock();
+      var firstInput = this.block.getInput('NodeVariableUse');
       if (firstInput){
-        var inputSeq = firstInput.WALStatement.getHelenaSeq();
+        var inputSeq = getWAL(firstInput.connection.targetBlock()).getHelenaSeq();
         this.variableUseNodes = inputSeq;        
       }
       else{
@@ -2054,7 +2081,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       this.block = workspace.newBlock(this.blocklyLabel);
       attachToPrevBlock(this.block, prevBlock);
-      this.block.WALStatement = this;
+      setWAL(this.block, this);
       return this.block;
     };
 
@@ -2111,7 +2138,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         console.log("this", this);
         console.log("this.sourceBlock_", this.sourceBlock_);
         if (this.sourceBlock_){
-          this.sourceBlock_.WALStatement.wait = newWait;
+          getWAL(this.sourceBlock_).wait = newWait;
         }
       };
       Blockly.Blocks[this.blocklyLabel] = {
@@ -2123,8 +2150,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           this.setPreviousStatement(true, null);
           this.setNextStatement(true, null);
           this.setColour(25);
-          this.WALStatement = new pub.WaitStatement();
-          this.WALStatement.block = this;
+          setWAL(this, new pub.WaitStatement());
+          getWAL(this).block = this;
         }
       };
     };
@@ -2132,7 +2159,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       this.block = workspace.newBlock(this.blocklyLabel);
       attachToPrevBlock(this.block, prevBlock);
-      this.block.WALStatement = this;
+      setWAL(this.block, this);
       this.block.setFieldValue(this.wait, waitFieldName);
       return this.block;
     };
@@ -2191,8 +2218,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           this.setPreviousStatement(true, null);
           this.setNextStatement(true, null);
           this.setColour(25);
-          this.WALStatement = new pub.WaitUntilUserReadyStatement();
-          this.WALStatement.block = this;
+          setWAL(this, new pub.WaitUntilUserReadyStatement());
+          getWAL(this).block = this;
         }
       };
     };
@@ -2200,7 +2227,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       this.block = workspace.newBlock(this.blocklyLabel);
       attachToPrevBlock(this.block, prevBlock);
-      this.block.WALStatement = this;
+      setWAL(this.block, this);
       return this.block;
     };
 
@@ -2263,7 +2290,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       addToolboxLabel(this.blocklyLabel);
       var handleTextToSayChange = function(newText){
         if (this.sourceBlock_){
-          this.sourceBlock_.WALStatement.textToSay = newText;
+          getWAL(this.sourceBlock_).textToSay = newText;
         }
       };
       Blockly.Blocks[this.blocklyLabel] = {
@@ -2274,8 +2301,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           this.setPreviousStatement(true, null);
           this.setNextStatement(true, null);
           this.setColour(25);
-          this.WALStatement = new pub.SayStatement();
-          this.WALStatement.block = this;
+          setWAL(this, new pub.SayStatement());
+          getWAL(this).block = this;
         }
       };
     };
@@ -2283,7 +2310,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       this.block = workspace.newBlock(this.blocklyLabel);
       attachToPrevBlock(this.block, prevBlock);
-      this.block.WALStatement = this;
+      setWAL(this.block, this);
       this.block.setFieldValue(this.textToSay, textToSayFieldName);
       return this.block;
     };
@@ -2348,7 +2375,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var handleTextToSayChange = function(newVarName){
         if (this.sourceBlock_){
           console.log("updating node to say to", newVarName);
-          this.sourceBlock_.WALStatement.varName = newVarName;
+          getWAL(this.sourceBlock_).varName = newVarName;
         }
       };
       Blockly.Blocks[this.blocklyLabel] = {
@@ -2362,9 +2389,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               this.setPreviousStatement(true, null);
               this.setNextStatement(true, null);
               this.setColour(25);
-              this.WALStatement = new pub.SayNodeStatement();
-              this.WALStatement.block = this;
-              this.WALStatement.varName = varNamesDropDown[0][0]; // since this is what it'll show by default, better act as though that's true
+              setWAL(this, new pub.SayNodeStatement());
+              getWAL(this).block = this;
+              getWAL(this).varName = varNamesDropDown[0][0]; // since this is what it'll show by default, better act as though that's true
             }
           }
         }
@@ -2374,7 +2401,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       this.block = workspace.newBlock(this.blocklyLabel);
       attachToPrevBlock(this.block, prevBlock);
-      this.block.WALStatement = this;
+      setWAL(this.block, this);
       this.block.setFieldValue(this.varName, textToSayFieldName);
       return this.block;
     };
@@ -2466,8 +2493,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               .appendField("do");
           this.setColour(25);
 
-          this.WALStatement = new pub.IfStatement();
-          this.WALStatement.block = this;
+          setWAL(this, new pub.IfStatement());
+          getWAL(this).block = this;
         }
       };
     };
@@ -2486,7 +2513,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var firstNestedBlock = genBlocklyBlocksSeq(this.bodyStatements, workspace);
       attachNestedBlocksToWrapper(this.block, firstNestedBlock);
 
-      this.block.WALStatement = this;
+      setWAL(this.block, this);
       return this.block;
     };
 
@@ -2497,7 +2524,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // all well and good to have the things attached after this block, but also need the bodyStatements updated
       var firstNestedBlock = this.block.getInput('statements').connection.targetBlock();
       if (firstNestedBlock){
-        var fSeq2 = firstNestedBlock.WALStatement.getHelena();
+        var fSeq2 = getWAL(firstNestedBlock).getHelena();
         this.bodyStatements = fSeq2;
       }
       else{
@@ -2507,7 +2534,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // ok, but we also want to update our own condition object
       var conditionBlocklyBlock = this.block.getInput('NodeVariableUse').connection.targetBlock();
       if (conditionBlocklyBlock){
-        var conditionHelena = conditionBlocklyBlock.WALStatement.getHelena();
+        var conditionHelena = getWAL(conditionBlocklyBlock).getHelena();
         this.condition = conditionHelena;        
       }
       else{
@@ -2589,8 +2616,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
        '<=': function(a, b){ return a<=b}
     }
     var handleOpChange = function(newOp){
-        if (this.sourceBlock_ && this.sourceBlock_.WALStatement){
-          this.sourceBlock_.WALStatement.operator = newOp;
+        if (this.sourceBlock_ && getWAL(this.sourceBlock_)){
+          getWAL(this.sourceBlock_).operator = newOp;
         }
     };
 
@@ -2606,17 +2633,17 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           this.setOutput(true, 'Bool');
           this.setColour(25);
 
-          this.WALStatement = new pub.BinOpNum();
-          this.WALStatement.block = this;
+          setWAL(this, new pub.BinOpNum());
+          getWAL(this).block = this;
           var op = dropdown[0][0];
-          this.WALStatement.operator = op; // since this is what it'll show by default, better act as though that's true
+          getWAL(this).operator = op; // since this is what it'll show by default, better act as though that's true
         }
       };
     };
 
     this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       this.block = workspace.newBlock(this.blocklyLabel);
-      this.block.WALStatement = this;
+      setWAL(this.block, this);
       this.block.setFieldValue(this.operator, "op");
       if (this.left){
         attachToInput(this.block, this.left.genBlocklyNode(this.block, workspace), "left");
@@ -2632,13 +2659,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var leftBlock = this.block.getInput('left').connection.targetBlock();
       var rightBlock = this.block.getInput('right').connection.targetBlock();
       if (leftBlock){
-        this.left = leftBlock.WALStatement.getHelena();
+        this.left = getWAL(leftBlock).getHelena();
       }
       else{
         this.left = null;
       }
       if (rightBlock){
-        this.right = rightBlock.WALStatement.getHelena();
+        this.right = getWAL(rightBlock).getHelena();
       }
       else{
         this.right = null;
@@ -2884,8 +2911,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         },
         onchange: function(ev) {
             var newName = this.getFieldValue("name");
-            if (newName !== this.WALStatement.name){
-              this.WALStatement.name = newName;
+            if (newName !== getWAL(this).name){
+              getWAL(this).name = newName;
             }
         }
       };
@@ -2896,7 +2923,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var firstNestedBlock = genBlocklyBlocksSeq(this.bodyStatements, workspace);
       attachNestedBlocksToWrapper(this.block, firstNestedBlock);
 
-      this.block.WALStatement = this;
+      setWAL(this.block, this);
       return this.block;
     };
 
@@ -2907,7 +2934,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // all well and good to have the things attached after this block, but also need the bodyStatements updated
       var firstNestedBlock = this.block.getInput('statements').connection.targetBlock();
       if (firstNestedBlock){
-        var fSeq2 = firstNestedBlock.WALStatement.getHelena();
+        var fSeq2 = getWAL(firstNestedBlock).getHelena();
         this.bodyStatements = fSeq2;
       }
       else{
@@ -3219,8 +3246,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
 
       var handleMaxRowsChange = function(newMaxRows){
-        if (this.sourceBlock_ && this.sourceBlock_.WALStatement){
-          this.sourceBlock_.WALStatement.maxRows = newMaxRows;
+        if (this.sourceBlock_ && getWAL(this.sourceBlock_)){
+          getWAL(this.sourceBlock_).maxRows = newMaxRows;
           // if you changed the maxRows and it's actually defined, should make sure the max rows actually used...
           if (defined(newMaxRows)){
             dontUseInfiniteRows.bind(this)();
@@ -3233,7 +3260,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           block.setFieldValue("TRUE", "infiniteRowsCheckbox");
           block.setFieldValue("FALSE", "limitedRowsCheckbox");
         }, 0);
-        block.WALStatement.maxRows = null;
+        getWAL(block).maxRows = null;
       };
       var dontUseInfiniteRows = function(){
         var block = this.sourceBlock_;
@@ -3241,7 +3268,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           block.setFieldValue("FALSE", "infiniteRowsCheckbox");
           block.setFieldValue("TRUE", "limitedRowsCheckbox");
         }, 0);
-        block.WALStatement.maxRows = this.sourceBlock_.getFieldValue(maxRowsFieldName);
+        getWAL(block).maxRows = this.sourceBlock_.getFieldValue(maxRowsFieldName);
       }
 
       // addToolboxLabel(this.blocklyLabel);
@@ -3294,7 +3321,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var firstNestedBlock = genBlocklyBlocksSeq(this.bodyStatements, workspace);
       attachNestedBlocksToWrapper(this.block, firstNestedBlock);
 
-      this.block.WALStatement = this;
+      setWAL(this.block, this);
       return this.block;
     };
 
@@ -3305,7 +3332,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // all well and good to have the things attached after this block, but also need the bodyStatements updated
       var firstNestedBlock = this.block.getInput('statements').connection.targetBlock();
       if (firstNestedBlock){
-        var fSeq2 = firstNestedBlock.WALStatement.getHelena();
+        var fSeq2 = getWAL(firstNestedBlock).getHelena();
         this.bodyStatements = fSeq2;
       }
       else{
@@ -6362,7 +6389,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             WALconsole.log("Couldn't create new object for prop:", prop, "probably by design.");
             WALconsole.log(err);
           }
-          if (obj.updateBlocklyBlock){
+          if (obj && obj.updateBlocklyBlock){
             if (program){
               obj.updateBlocklyBlock(program, program.pageVars, program.relations)
             }
