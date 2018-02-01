@@ -1844,35 +1844,33 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return newCells;
     }
 
-    this.postReplayProcessing = function _postReplayProcessing(runObject, trace, temporaryStatementIdentifier){
+    this.run = function _run(runObject, rbbcontinuation, rbboptions){
       // we've 'executed' an output statement.  better send a new row to our output
       var cells = [];
-      // get all the cells that we'll get from the text relations
-      for (var i = 0; i < this.relations.length; i++){
-        var relation = this.relations[i];
-        var newCells = relation.getCurrentCellsText(runObject.environment);
-        newCells = convertTextArrayToArrayOfTextCells(newCells);
-        cells = cells.concat(newCells);
+
+      // let's switch to using the nodeVariableUses that we keep
+      for (var i = 0; i < this.variableUseNodes.length; i++){
+        var vun = this.variableUseNodes[i];
+        vun.run(runObject, rbbcontinuation, rbboptions);
+        var v = vun.getCurrentVal();
+        cells.push(v);
       }
-      // get all the cells that we'll get from the scrape statements
-      _.each(this.scrapeStatements, function(scrapeStatment){
-        cells.push(scrapeStatment.currentNodeCurrentValue);
-      });
 
       // for now we're assuming we always want to show the number of iterations of each loop as the final columns
       var loopIterationCounterTexts = _.map(getLoopIterationCounters(this), function(i){return i.toString();});
-      var iterationCells = convertTextArrayToArrayOfTextCells(loopIterationCounterTexts);
-      _.each(iterationCells, function(ic){cells.push(ic);});
+      _.each(loopIterationCounterTexts, function(ic){cells.push(ic);});
       
-	// todo: why are there undefined things in here!!!!????  get rid of them.  seriously, fix that
-	cells = _.filter(cells, function(cell){return cell;});
+      // todo: why are there undefined things in here!!!!????  get rid of them.  seriously, fix that
+      cells = _.filter(cells, function(cell){return cell;});
 
       runObject.dataset.addRow(cells);
       runObject.program.mostRecentRow = cells;
 
-      var displayTextCells = _.map(cells, function(cell){if (!cell){return "NULL";} if (cell.scraped_attribute === "LINK"){return cell.link;} else {return cell.text;}});
+      var displayTextCells = _.map(cells, function(cell){if (!cell){return "EMPTY";} else {return cell;}});
       UIObject.addNewRowToOutput(runObject.tab, displayTextCells);
       UIObject.updateRowsSoFar(runObject.tab, runObject.dataset.fullDatasetLength);
+
+      rbbcontinuation(rbboptions); // and carry on when done
     };
 
     if (doInitialize){
@@ -4987,7 +4985,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                 || statement instanceof WebAutomationLanguage.ClickStatement
                 || statement instanceof WebAutomationLanguage.ScrapeStatement
                 || statement instanceof WebAutomationLanguage.TypeStatement
-                || statement instanceof WebAutomationLanguage.OutputRowStatement
                 || statement instanceof WebAutomationLanguage.PulldownInteractionStatement
                 );
     }
