@@ -421,6 +421,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   // property that we add
   // so...we'll keep track
   var blocklyToWALDict = {};
+  pub.blocklyToWALDict = function _btwd(){
+    return blocklyToWALDict;
+  }
 
   function setWAL(block, WALEquiv){
     block.WAL = WALEquiv;
@@ -431,11 +434,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   function getWAL(block){
     if (!block.WAL){
       block.WAL = blocklyToWALDict[block.id];
-      block.WAL.block = block;
-      // the above line may look silly but when blockly drops blocks into the trashcan, they're restored
-      // with the same id but with a fresh object
-      // and the fresh object doesn't have WAL stored anymore, which is why we have to look in the dict
-      // but that also means the block object stored by the wal object is out of date, must be refreshed
+      if (block.WAL){
+        block.WAL.block = block;
+        // the above line may look silly but when blockly drops blocks into the trashcan, they're restored
+        // with the same id but with a fresh object
+        // and the fresh object doesn't have WAL stored anymore, which is why we have to look in the dict
+        // but that also means the block object stored by the wal object is out of date, must be refreshed
+      }
+
     }
     return block.WAL;
   }
@@ -1573,10 +1579,17 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               
               this.setOutput(true, 'NodeVariableUse');
               this.setColour(25);
-              setWAL(this, new pub.NodeVariableUse());
-              getWAL(this).block = this;
-              var name = varNamesDropDown[0][0];
-              getWAL(this).nodeVar = getNodeVariableByName(name); // since this is what it'll show by default, better act as though that's true
+              // the following is an important pattern
+              // this might be a new block, in which case searching for existing wal statement for the block with this block's id
+              // will be pointless; but if init is being called because a block is being restored from the trashcan, then we have
+              // to do this check or we'll overwrite the existing Helena stuff, which would lose important state
+              // (in this case, the information about the node variable/what node it actually represents)
+              var wal = getWAL(this);
+              if (!wal){
+                setWAL(this, new pub.NodeVariableUse());
+                var name = varNamesDropDown[0][0];
+                getWAL(this).nodeVar = getNodeVariableByName(name); // since this is what it'll show by default, better act as though that's true
+              }
             }
           }
         }
@@ -1657,8 +1670,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var defaultNum = 100;
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
-          setWAL(this, new pub.Number());
-          getWAL(this).block = this;
+          var wal = getWAL(this);
+          if (!wal){
+            setWAL(this, new pub.Number());
+          }
           var statement = getWAL(this);
 
           this.appendDummyInput()
@@ -2148,8 +2163,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           this.setPreviousStatement(true, null);
           this.setNextStatement(true, null);
           this.setColour(25);
-          setWAL(this, new pub.WaitStatement());
-          getWAL(this).block = this;
+          var wal = getWAL(this);
+          if (!wal){
+            setWAL(this, new pub.WaitStatement());
+          }
         }
       };
     };
@@ -2216,8 +2233,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           this.setPreviousStatement(true, null);
           this.setNextStatement(true, null);
           this.setColour(25);
-          setWAL(this, new pub.WaitUntilUserReadyStatement());
-          getWAL(this).block = this;
+          var wal = getWAL(this);
+          if (!wal){
+            setWAL(this, new pub.WaitUntilUserReadyStatement());
+          }
         }
       };
     };
@@ -2299,8 +2318,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           this.setPreviousStatement(true, null);
           this.setNextStatement(true, null);
           this.setColour(25);
-          setWAL(this, new pub.SayStatement());
-          getWAL(this).block = this;
+          var wal = getWAL(this);
+          if (!wal){
+            setWAL(this, new pub.SayStatement());
+          }
         }
       };
     };
@@ -2387,9 +2408,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               this.setPreviousStatement(true, null);
               this.setNextStatement(true, null);
               this.setColour(25);
-              setWAL(this, new pub.SayNodeStatement());
-              getWAL(this).block = this;
-              getWAL(this).varName = varNamesDropDown[0][0]; // since this is what it'll show by default, better act as though that's true
+              var wal = getWAL(this);
+              if (!wal){
+                setWAL(this, new pub.SayNodeStatement());
+                getWAL(this).varName = varNamesDropDown[0][0]; // since this is what it'll show by default, better act as though that's true
+              }
             }
           }
         }
@@ -2491,8 +2514,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               .appendField("do");
           this.setColour(25);
 
-          setWAL(this, new pub.IfStatement());
-          getWAL(this).block = this;
+          var wal = getWAL(this);
+          if (!wal){
+            setWAL(this, new pub.IfStatement());
+          }
         }
       };
     };
@@ -2631,10 +2656,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           this.setOutput(true, 'Bool');
           this.setColour(25);
 
-          setWAL(this, new pub.BinOpNum());
-          getWAL(this).block = this;
-          var op = dropdown[0][0];
-          getWAL(this).operator = op; // since this is what it'll show by default, better act as though that's true
+          var wal = getWAL(this);
+          if (!wal){
+            setWAL(this, new pub.BinOpNum());
+            var op = dropdown[0][0];
+            getWAL(this).operator = op; // since this is what it'll show by default, better act as though that's true
+          }
         }
       };
     };

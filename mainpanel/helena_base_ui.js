@@ -190,6 +190,7 @@ var HelenaUIBase = (function () {
   }
 
   pub.blocklyToHelena = function _blocklyToHelena(program){
+    console.log("dict:", WebAutomationLanguage.blocklyToWALDict());
     var roots = workspace.getTopBlocks();
     var biggestSoFarSize = 0;
     for (var i = 0; i < roots.length; i++){
