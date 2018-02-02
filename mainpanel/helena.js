@@ -369,20 +369,51 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     outputBlockConnection.connect(inputBlockConnection);
   }
 
-  function genBlocklyBlocksSeq(statements, workspace){
-    var foundFirstNonNull = false;
+  function helenaSeqToBlocklySeq(statementsLs, workspace){
+    // get the individual statements to produce their corresponding blockly blocks
+    var firstNonNull = null; // the one we'll ultimately return, in case it needs to be attached to something outside
+
     var lastBlock = null;
-    for (var i = 0; i < statements.length; i++){
-      var newBlock = statements[i].genBlocklyNode(lastBlock, workspace);
+    var lastStatement = null;
+
+    var invisibleHead = [];
+
+    for (var i = 0; i < statementsLs.length; i++){
+      var newBlock = statementsLs[i].genBlocklyNode(lastBlock, workspace);
+      // within each statement, there can be other program components that will need blockly representations
+      // but the individual statements are responsible for traversing those
       if (newBlock !== null){ // handle the fact that there could be null-producing nodes in the middle, and need to connect around those
         lastBlock = newBlock;
+        lastStatement = statementsLs[i];
+        lastStatement.invisibleHead = [];
+        lastStatement.invisibleTail = [];
         // also, if this is our first non-null block it's the one we'll want to return
-        if (!foundFirstNonNull){
-          foundFirstNonNull = newBlock;
+        if (!firstNonNull){
+          firstNonNull = newBlock;
+          // oh, and let's go ahead and set that invisible head now
+          statementsLs[i].invisibleHead = invisibleHead;
+        }
+      }
+      else{
+        // ok, a little bit of special stuff when we do have null nodes
+        // we want to still save them, even though we'll be using the blockly code to generate future versions of the program
+        // so we'll need to associate these invibislbe statements with others
+        // and then the only thing we'll need to do is when we go the other direction (blockly->helena)
+        // we'll have to do some special processing to put them back in the normal structure
+
+        // one special case.  if we don't have a non-null lastblock, we'll have to keep this for later
+        // we prefer to make things tails of earlier statements, but we can make some heads if necessary
+        if (!lastBlock){
+          invisibleHead.push(statementsLs[i]);
+        }
+        else{
+          lastStatement.invisibleTail.push(statementsLs[i]);
         }
       }
     }
-    return foundFirstNonNull;
+    return firstNonNull;
+    // todo: the whole invisible head, invisible tail thing isn't going to be any good if we have no visible
+    // statements in this segment.  So rare that spending time on it now is probably bad, but should be considered eventually
   }
 
 
@@ -400,12 +431,27 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     return getLoopIterationCountersHelper(s, []);
   }
 
-  function getFollowingSeq(blocklyBlock){
-    var nextBlock = blocklyBlock.getNextBlock();
-    if (!nextBlock){
+  function blocklySeqToHelenaSeq(blocklyBlock){
+    if (!blocklyBlock){
       return [];
     }
-    return getWAL(nextBlock).getHelena();
+    var thisNodeHelena = getWAL(blocklyBlock).getHelena(); // grab the associated helena component and call the getHelena method
+    var invisibleHead = thisNodeHelena.invisibleHead;
+    if (!invisibleHead){invisibleHead = [];}
+    var invisibleTail = thisNodeHelena.invisibleTail;
+    if (!invisibleTail){invisibleTail = [];}
+    var helenaSeqForThisBlock = (invisibleHead.concat(thisNodeHelena)).concat(invisibleTail);
+
+    var nextBlocklyBlock = blocklyBlock.getNextBlock();
+    if (!nextBlocklyBlock){
+      return helenaSeqForThisBlock;
+    }
+    var suffix = blocklySeqToHelenaSeq(nextBlocklyBlock);
+    return helenaSeqForThisBlock.concat(suffix);
+  }
+
+  pub.getHelenaFromBlocklyRoot = function(blocklyBlock){
+    return blocklySeqToHelenaSeq(blocklyBlock);
   }
 
   function getInputSeq(blocklyBlock, inputName){
@@ -536,9 +582,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.getHelena = function _getHelena(){
-      var followingSeq = getFollowingSeq(this.block);
-      var fullSeq = [this].concat(followingSeq);
-      return fullSeq;
+      return this;
     };
 
     this.traverse = function _traverse(fn, fn2){
@@ -690,9 +734,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.getHelena = function _getHelena(){
-      var followingSeq = getFollowingSeq(this.block);
-      var fullSeq = [this].concat(followingSeq);
-      return fullSeq;
+      return this;
     };
 
     this.traverse = function _traverse(fn, fn2){
@@ -894,9 +936,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.getHelena = function _getHelena(){
-      var followingSeq = getFollowingSeq(this.block);
-      var fullSeq = [this].concat(followingSeq);
-      return fullSeq;
+      return this;
     };
 
     this.traverse = function _traverse(fn, fn2){
@@ -1176,7 +1216,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
-      if (!this.onlyKeyups && !this.onlyKeydowns){
+      if (!this.onlyKeyups && !this.onlyKeydowns && this.stringRep().length > 0){
         this.block = workspace.newBlock(this.blocklyLabel);
         this.block.setFieldValue(this.stringRep(), "text");
         this.block.setFieldValue(this.pageVar.toString(), "page");
@@ -1186,31 +1226,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
       // let's make some new blocks for keyup and keydown only situations
       else {
-        var customBlocklyLabel = this.blocklyLabel + this.id;
-        var customText = "key press";
-        if (this.onlyKeyups){
-          customText = "key up";
-        }
-        Blockly.Blocks[customBlocklyLabel] = {
-          init: function() {
-            this.appendDummyInput()
-                .appendField(customText);
-            this.setPreviousStatement(true, null);
-            this.setNextStatement(true, null);
-            this.setColour(280);
-          }
-        };
-        this.block = workspace.newBlock(customBlocklyLabel);
-        attachToPrevBlock(this.block, prevBlock);
-        setWAL(this.block, this);
-        return this.block;
+        return null;
       }
     };
 
     this.getHelena = function _getHelena(){
-      var followingSeq = getFollowingSeq(this.block);
-      var fullSeq = [this].concat(followingSeq);
-      return fullSeq;
+      return this;
     };
 
     this.traverse = function _traverse(fn, fn2){
@@ -1364,9 +1385,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.getHelena = function _getHelena(){
-      var followingSeq = getFollowingSeq(this.block);
-      var fullSeq = [this].concat(followingSeq);
-      return fullSeq;
+      return this;
     };
 
     this.traverse = function _traverse(fn, fn2){
@@ -1490,9 +1509,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.getHelena = function _getHelena(){
-      var followingSeq = getFollowingSeq(this.block);
-      var fullSeq = [this].concat(followingSeq);
-      return fullSeq;
+      return this;
     };
 
     this.traverse = function _traverse(fn, fn2){
@@ -1665,7 +1682,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       this.block = workspace.newBlock(this.blocklyLabel);
       setWAL(this.block, this);
-      if (this.currrentValue){
+      if (this.currentValue){
         this.block.setFieldValue(this.currentValue, numberFieldName);
       }
       return this.block;
@@ -1772,10 +1789,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.getHelena = function _getHelena(){
-      var followingSeq = getFollowingSeq(this.block);
-      var fullSeq = [this].concat(followingSeq);
-
-      // ok, but the other thing we need to do is update our list of variable nodes
+      // update our list of variable nodes based on the current blockly situation
       var firstInput = this.block.getInput('NodeVariableUse');
       if (firstInput){
         var inputSeq = getWAL(firstInput.connection.targetBlock()).getHelenaSeq();
@@ -1784,7 +1798,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       else{
         this.variableUseNodes = [];
       }
-      return fullSeq;
+      return this;
     };
 
     this.traverse = function _traverse(fn, fn2){
@@ -2075,9 +2089,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.getHelena = function _getHelena(){
-      var followingSeq = getFollowingSeq(this.block);
-      var fullSeq = [this].concat(followingSeq);
-      return fullSeq;
+      return this;
     };
 
     this.traverse = function _traverse(fn, fn2){
@@ -2156,9 +2168,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.getHelena = function _getHelena(){
-      var followingSeq = getFollowingSeq(this.block);
-      var fullSeq = [this].concat(followingSeq);
-      return fullSeq;
+      return this;
     };
 
     this.traverse = function _traverse(fn, fn2){
@@ -2225,9 +2235,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.getHelena = function _getHelena(){
-      var followingSeq = getFollowingSeq(this.block);
-      var fullSeq = [this].concat(followingSeq);
-      return fullSeq;
+      return this;
     };
 
     this.traverse = function _traverse(fn, fn2){
@@ -2311,9 +2319,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.getHelena = function _getHelena(){
-      var followingSeq = getFollowingSeq(this.block);
-      var fullSeq = [this].concat(followingSeq);
-      return fullSeq;
+      return this;
     };
 
     this.traverse = function _traverse(fn, fn2){
@@ -2404,9 +2410,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.getHelena = function _getHelena(){
-      var followingSeq = getFollowingSeq(this.block);
-      var fullSeq = [this].concat(followingSeq);
-      return fullSeq;
+      return this;
     };
 
     this.traverse = function _traverse(fn, fn2){
@@ -2509,7 +2513,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
       
       // handle the body statements
-      var firstNestedBlock = genBlocklyBlocksSeq(this.bodyStatements, workspace);
+      var firstNestedBlock = helenaSeqToBlocklySeq(this.bodyStatements, workspace);
       attachNestedBlocksToWrapper(this.block, firstNestedBlock);
 
       setWAL(this.block, this);
@@ -2517,18 +2521,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.getHelena = function _getHelena(){
-      var followingSeq = getFollowingSeq(this.block);
-      var fullSeq = [this].concat(followingSeq);
-
       // all well and good to have the things attached after this block, but also need the bodyStatements updated
       var firstNestedBlock = this.block.getInput('statements').connection.targetBlock();
-      if (firstNestedBlock){
-        var fSeq2 = getWAL(firstNestedBlock).getHelena();
-        this.bodyStatements = fSeq2;
-      }
-      else{
-        this.bodyStatements = [];
-      }
+      var helenaSequence = blocklySeqToHelenaSeq(firstNestedBlock);
+      this.bodyStatements = helenaSequence;
 
       // ok, but we also want to update our own condition object
       var conditionBlocklyBlock = this.block.getInput('NodeVariableUse').connection.targetBlock();
@@ -2539,7 +2535,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       else{
         this.condition = null;
       }
-      return fullSeq;
+      return this;
     };
 
     this.traverse = function _traverse(fn, fn2){
@@ -2921,7 +2917,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       attachToPrevBlock(this.block, prevBlock);
 
       // handle the body statements
-      var firstNestedBlock = genBlocklyBlocksSeq(this.bodyStatements, workspace);
+      var firstNestedBlock = helenaSeqToBlocklySeq(this.bodyStatements, workspace);
       attachNestedBlocksToWrapper(this.block, firstNestedBlock);
 
       setWAL(this.block, this);
@@ -2929,19 +2925,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.getHelena = function _getHelena(){
-      var followingSeq = getFollowingSeq(this.block);
-      var fullSeq = [this].concat(followingSeq);
-
       // all well and good to have the things attached after this block, but also need the bodyStatements updated
       var firstNestedBlock = this.block.getInput('statements').connection.targetBlock();
-      if (firstNestedBlock){
-        var fSeq2 = getWAL(firstNestedBlock).getHelena();
-        this.bodyStatements = fSeq2;
-      }
-      else{
-        this.bodyStatements = [];
-      }
-      return fullSeq;
+      var seq = blocklySeqToHelenaSeq(firstNestedBlock);
+      this.bodyStatements = seq;
+      return this;
     };
 
     this.traverse = function _traverse(fn, fn2){
@@ -3319,7 +3307,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       attachToPrevBlock(this.block, prevBlock);
 
       // handle the body statements
-      var firstNestedBlock = genBlocklyBlocksSeq(this.bodyStatements, workspace);
+      var firstNestedBlock = helenaSeqToBlocklySeq(this.bodyStatements, workspace);
       attachNestedBlocksToWrapper(this.block, firstNestedBlock);
 
       setWAL(this.block, this);
@@ -3327,19 +3315,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.getHelena = function _getHelena(){
-      var followingSeq = getFollowingSeq(this.block);
-      var fullSeq = [this].concat(followingSeq);
-
       // all well and good to have the things attached after this block, but also need the bodyStatements updated
       var firstNestedBlock = this.block.getInput('statements').connection.targetBlock();
-      if (firstNestedBlock){
-        var fSeq2 = getWAL(firstNestedBlock).getHelena();
-        this.bodyStatements = fSeq2;
-      }
-      else{
-        this.bodyStatements = [];
-      }
-      return fullSeq;
+      var nested = blocklySeqToHelenaSeq(firstNestedBlock);
+      this.bodyStatements = nested;
+      return this;
     };
 
     this.traverse = function _traverse(fn, fn2){
@@ -4187,7 +4167,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     // in the prog (so that we can rename in one place and have it propogate all over the program, not
     // confuse the user into thinking a single node could be multiple)
     this.recordedNodeSnapshot = recordedNodeSnapshot;
-    if (!recordedNodeSnapshot){
+    if (!recordedNodeSnapshot && mainpanelRep){
       // when we make a node variable based on a cell of a relation, we may not have access to the full node snapshot
       this.recordedNodeSnapshot = mainpanelRep;
       this.recordedNodeSnapshot.baseURI = mainpanelRep.source_url; // make sure we can compare urls
@@ -4540,14 +4520,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // clear out whatever was in there before
       workspace.clear();
 
-      // get the individual statements to produce their corresponding blockly blocks
-      var lastBlock = null;
-      for (var i = 0; i < statementLs.length; i++){
-        var newBlock = statementLs[i].genBlocklyNode(lastBlock, workspace);
-        if (newBlock !== null){ // handle the fact that there could be null-producing nodes in the middle, and need to connect around those
-          lastBlock = newBlock;
-        }
-      }
+      helenaSeqToBlocklySeq(statementLs, workspace);
 
       // now go through and actually display all those nodes
       this.traverse(function(statement){

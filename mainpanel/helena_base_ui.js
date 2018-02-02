@@ -195,8 +195,7 @@ var HelenaUIBase = (function () {
     var biggestSoFarSize = 0;
     for (var i = 0; i < roots.length; i++){
       var r = roots[i];
-      var rootHelenaStatement = WebAutomationLanguage.getWALRep(r);
-      var helenaStatements = rootHelenaStatement.getHelena();
+      var helenaStatements = WebAutomationLanguage.getHelenaFromBlocklyRoot(r);
       console.log(helenaStatements);
       var size = quickSizeEstimate(helenaStatements);
       console.log("size:", size);
