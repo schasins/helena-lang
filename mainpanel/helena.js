@@ -414,7 +414,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     if (!nextBlock){
       return [];
     }
-    return getWAL(nextBlock).getHelena();
+    return getWAL(nextBlock).getHelenaSeq();
   }
 
   // when Blockly blocks are thrown away (in trash cah), you can undo it, but undoing it doesn't bring back the walstatement
@@ -742,16 +742,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
   };
 
-  // todo: get rid of this
-  pub.ScrapeStatementFromRelationCol = function _ScrapeStatementFromRelationCol(relation, colObj, pageVar){
-    var statement = new pub.ScrapeStatement([]);
-    statement.currentNode = new WebAutomationLanguage.NodeVariable(colObj.name, relation.firstRowNodeRepresentation(colObj), null, null, NodeSources.RELATIONEXTRACTOR);
-    statement.pageVar = pageVar;
-    statement.relation = relation;
-    statement.columnObj = colObj;
-    return statement;
-  }
-
   pub.ScrapeStatement = function _ScrapeStatement(trace){
     Revival.addRevivalLabel(this);
     setBlocklyLabel(this, "scrape");
@@ -945,19 +935,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       WALconsole.log("scraping cleantrace", this.cleanTrace);
       var relationColumnUsed = parameterizeNodeWithRelation(this, relation, this.pageVar); // this sets the currentNode
       if (relationColumnUsed){
-        relationColumnUsed.scraped = true; // need the relation column to keep track of the fact that this is being scraped
-        // this is cool because now we don't need to actually run scraping interactions to get the value, so let's update the cleanTrace to reflect that
-        /*
-        for (var i = this.cleanTrace.length - 1; i >= 0; i--){
-          if (this.cleanTrace[i].additional && this.cleanTrace[i].additional.scrape && this.cleanTrace[i].data.type !== "focus"){
-            // todo: do we need to add this to the above condition:
-            // && !(["keyup", "keypress", "keydown"].indexOf(this.cleanTrace[i].data.type) > -1)
-            // todo: the below is commented out for debugging;  fix it
-            this.cleanTrace.splice(i, 1);
-          }
-        }
-        WALconsole.log("shortened cleantrace", this.cleanTrace);
-        */
         return [relationColumnUsed];
       }
       else {
@@ -3600,26 +3577,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       currentRowsCounter = -1;
     };
 
-    this.isColumnUsed = function _isColumnUsed(colObject){
-      return colObject.scraped;
-    };
-
-    this.setColumnUsed = function _setColumnUsed(colObject, val){
-      colObject.scraped = val;
-    };
-
-
-    this.toggleColumnUsed = function _toggleColumnUsed(colObject){
-      // if it was previously scraped, we must remove it from output statement
-      if (colObject.scraped){
-        colObject.scraped = false; // easy to remove, becuase getCurrentCellsText controls what gets scraped when a text relation included with an outputrowstatement, and just responds to whether .scraped is set
-      }
-      // if it was previously unscraped, we must add it to output statement
-      else{
-        colObject.scraped = true;
-      }
-    };
-
     this.setRelationContents = function _setRelationContents(relationContents){
       this.relation = relationContents;
     }
@@ -3774,59 +3731,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     
     if (doInitialization){
       initialize();
-    }
-
-    this.toggleColumnUsed = function _toggleColumnUsed(colObject, currProg){
-      // if it was previously scraped, we must remove any statements that scrape it
-      if (colObject.scraped){
-        colObject.scraped = false;
-        currProg.traverse(function(statement){
-          if (statement instanceof WebAutomationLanguage.ScrapeStatement){
-            if (statement.currentRelation() === relation && statement.currentColumnObj() === colObject){
-              // ok, this is a scrapestatement that has the target relation and columnobj.  let's delete it
-              statement.remove();
-            }
-          }
-        });
-      }
-      // if it was previously unscraped, we must add a scrape statement for it in the appropriate place
-      else{
-        colObject.scraped = true;
-        var newScrapeStatement = null;
-        var outputRowStatement = null;
-        currProg.traverse(function(statement){
-          if (statement instanceof WebAutomationLanguage.LoopStatement){
-            if (statement.relation === relation){
-              newScrapeStatement = WebAutomationLanguage.ScrapeStatementFromRelationCol(relation, colObject, statement.pageVar);
-              statement.insertChild(newScrapeStatement,0);
-            }
-          }
-          // ok, now we have the new scrape statement, which is great, but we also need to actually add it to output
-          // so the next time we hit an outputrowstatement, let's add it in there.
-          // this is not the way to do it, because really need to make sure that the outputrowstatement is in scope to see the new scrape statement
-          // but this will work as long as the outputrowstatement is the last statement in a prog that just has a bunch of nested loops
-          // todo: do this right
-          if (statement instanceof WebAutomationLanguage.OutputRowStatement){
-            if (newScrapeStatement !== null){
-              statement.addAssociatedScrapeStatement(newScrapeStatement);
-              outputRowStatement = statement;
-            }
-          }
-        });
-        if (outputRowStatement){
-          // we may have actually added the new scraping statements after the output statement, so fix it
-          outputRowStatement.parent.removeChild(outputRowStatement);
-          outputRowStatement.parent.appendChild(outputRowStatement);
-        }
-      }
-    };
-
-    this.isColumnUsed = function _isColumnUsed(colObject){
-      return colObject.scraped;
-    };
-
-    this.setColumnUsed = function _setColumnUsed(colObject, val){
-      colObject.scraped = val;
     }
 
     this.setNewAttributes = function _setNewAttributes(selector, selectorVersion, excludeFirst, columns, demonstrationTimeRelation, numRowsInDemo, nextType, nextButtonSelector){
@@ -4288,7 +4192,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var nr1 = this.recordedNodeRep;
       var nr2 = otherNodeVariable.recordedNodeRep;
       var ans = nr1.xpath === nr2.xpath && nr1.text === nr2.text && nr1.source_url === nr2.source_url;
-      // console.log("sameNode", nr1, nr2, ans);
+      console.log("sameNode", nr1, nr2, ans);
       return ans;
     }
 
@@ -4317,6 +4221,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.recordedNodeSnapshot = recordedNodeSnapshot;
       this.imgData = imgData;
       this.nodeSource = source;
+
+      console.log(name);
+      console.log(this.recordedNodeRep.text);
 
       // and let's put this in our allNodeVariablesSeenSoFar record of all our nvs
       allNodeVariablesSeenSoFar.push(this);
