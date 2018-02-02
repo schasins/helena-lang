@@ -182,12 +182,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     var recordTimeNodeSnapshot = null;
     var imgData = null;
     if (trace.length > 0){ // may get 0-length trace if we're just adding a scrape statement by editing (as for a known column in a relation)
-      var i = 0; // 0 bc this is the first ev that prompted us to turn it into the given statement, so must use the right node
-      recordTimeNode = trace[i].additional.scrape;
-      recordTimeNodeSnapshot = trace[i].target.snapshot;
-      imgData = trace[i].additional.visualization;
+      var ev = trace[0]; // 0 bc this is the first ev that prompted us to turn it into the given statement, so must use the right node
+      recordTimeNodeSnapshot = ev.target.snapshot;
+      imgData = ev.additional.visualization;
     }
-    return new WebAutomationLanguage.NodeVariable(null, recordTimeNode, recordTimeNodeSnapshot, imgData, NodeSources.RINGER); // null bc no preferred name
+    return new WebAutomationLanguage.NodeVariable(null, null, recordTimeNodeSnapshot, imgData, NodeSources.RINGER); // null bc no preferred name
   }
 
   function outputPagesRepresentation(statement){
@@ -4180,23 +4179,28 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
   }
 
-  pub.NodeVariable = function _NodeVariable(name, recordedNodeRep, recordedNodeSnapshot, imgData, source){
+  pub.NodeVariable = function _NodeVariable(name, mainpanelRep, recordedNodeSnapshot, imgData, source){
     Revival.addRevivalLabel(this);
 
     // ok, node variables are a little weird, because we have a special interest in making sure that
     // every place where the same node is used in the script is also represented by the same object
     // in the prog (so that we can rename in one place and have it propogate all over the program, not
     // confuse the user into thinking a single node could be multiple)
-    this.recordedNodeRep = recordedNodeRep;
+    this.recordedNodeSnapshot = recordedNodeSnapshot;
+    if (!recordedNodeSnapshot){
+      // when we make a node variable based on a cell of a relation, we may not have access to the full node snapshot
+      this.recordedNodeSnapshot = mainpanelRep;
+      this.recordedNodeSnapshot.baseURI = mainpanelRep.source_url; // make sure we can compare urls
+    }
     this.sameNode = function _sameNode(otherNodeVariable){
-      var nr1 = this.recordedNodeRep;
-      var nr2 = otherNodeVariable.recordedNodeRep;
-      var ans = nr1.xpath === nr2.xpath && nr1.text === nr2.text && nr1.source_url === nr2.source_url;
+      var nr1 = this.recordedNodeSnapshot;
+      var nr2 = otherNodeVariable.recordedNodeSnapshot;
+      var ans = nr1.xpath === nr2.xpath && nr1.text === nr2.text && nr1.baseURI === nr2.baseURI; // baseURI is the url on which the ndoe was found
       console.log("sameNode", nr1, nr2, ans);
       return ans;
     }
 
-    if (recordedNodeRep){
+    if (this.recordedNodeSnapshot){ // go through here if they provided either a snapshot or a mainpanel rep
       // actually go through and compare to all prior nodes
       for (var i = 0; i < allNodeVariablesSeenSoFar.length; i++){
         if (this.sameNode(allNodeVariablesSeenSoFar[i])){
@@ -4204,6 +4208,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           var theRightNode = allNodeVariablesSeenSoFar[i];
           // first update all the attributes based on how we now want to use the node
           if (name) {theRightNode.name = name;}
+          if (mainpanelRep) {theRightNode.mainpanelRep = mainpanelRep;}
           if (source) {theRightNode.nodeSource = source;}
           if (recordedNodeSnapshot){ theRightNode.recordedNodeSnapshot = recordedNodeSnapshot; }
           if (imgData){ theRightNode.imgData = imgData; }
@@ -4218,12 +4223,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
 
       this.name = name;
-      this.recordedNodeSnapshot = recordedNodeSnapshot;
       this.imgData = imgData;
       this.nodeSource = source;
-
-      console.log(name);
-      console.log(this.recordedNodeRep.text);
 
       // and let's put this in our allNodeVariablesSeenSoFar record of all our nvs
       allNodeVariablesSeenSoFar.push(this);
@@ -4245,13 +4246,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.recordTimeText = function _recordTimeText(){
-      return this.recordedNodeRep.text;
+      return this.recordedNodeSnapshot.text;
     };
     this.recordTimeLink = function _recordTimeLink(){
-      return this.recordedNodeRep.link;
+      return this.recordedNodeSnapshot.link;
     };
     this.recordTimeXPath = function _recordTimeXPath(){
-      return this.recordedNodeRep.xpath;
+      return this.recordedNodeSnapshot.xpath;
     };
     this.recordTimeSnapshot = function _recordTimeSnapshot(){
       return this.recordedNodeSnapshot;
