@@ -3611,6 +3611,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         this.nodeVars = [];
         var nodeReps = this.firstRowNodeRepresentations();
         for (var i = 0; i < nodeReps.length; i++){
+          console.log(i);
           var name = this.columns[i].name;
           this.nodeVars.push(new WebAutomationLanguage.NodeVariable(name, nodeReps[i], null, null, NodeSources.RELATIONEXTRACTOR));
         }
@@ -3620,13 +3621,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.updateNodeVariables = function _updateNodeVariables(environment, pageVar){
       WALconsole.log("updateNodeVariables Relation");
-      var nodeVariables = this.nodeVariables();
       var columns = this.columns; // again, nodeVariables and columns must be aligned
       for (var i = 0; i < columns.length; i++){
         var currNodeRep = this.getCurrentNodeRep(pageVar, columns[i]);
-        // this way is bad, bc keeping node variables aligned is bad : 
-        // todo, factor out
-        nodeVariables[i].setCurrentNodeRep(environment, currNodeRep);
+        var nodeVar = getNodeVariableByName(columns[i].name);
+        nodeVar.setCurrentNodeRep(environment, currNodeRep);
       }
       WALconsole.log("updateNodeVariables Relation completed");
     }
@@ -4149,6 +4148,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   var nodeVariablesCounter = 0;
 
+  // below is not a dict because names can change, but could be refactored eventually
+
   var allNodeVariablesSeenSoFar = [];
 
   function getNodeVariableByName(name){
@@ -4209,6 +4210,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // and let's put this in our allNodeVariablesSeenSoFar record of all our nvs
       allNodeVariablesSeenSoFar.push(this);
     }
+
 
     this.toString = function _toString(alreadyBound, pageVar){
       if (alreadyBound === undefined){ alreadyBound = true;} 
@@ -5532,7 +5534,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
 
     this.getAllVariableNames = function _getAllVariables(){
-      var variableNames = this.getParameterNames(); // start with the parameters to the program
+      var variableNames = this.getParameterNames().slice(); // start with the parameters to the program
       this.traverse(function(statement){
         if (statement instanceof WebAutomationLanguage.LoopStatement){
           variableNames = variableNames.concat(statement.relation.columnNames());
