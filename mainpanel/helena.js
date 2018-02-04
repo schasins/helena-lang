@@ -1164,7 +1164,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         stringRep = this.currentTypedString.toString();
       }
       else{
-        stringRep = "'"+this.currentTypedString+"'";
+        stringRep = this.currentTypedString;
       }
       return stringRep;
     };
