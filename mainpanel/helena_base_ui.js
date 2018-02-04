@@ -92,7 +92,6 @@ var HelenaUIBase = (function () {
 
     function onBlockMove(event) {
       if (event.type === Blockly.Events.MOVE){
-        console.log("move event", event);
         // this might have changed our program.  let's go ahead and update it
         pub.blocklyToHelena(helenaProg);
       }
@@ -190,15 +189,12 @@ var HelenaUIBase = (function () {
   }
 
   pub.blocklyToHelena = function _blocklyToHelena(program){
-    console.log("dict:", WebAutomationLanguage.blocklyToWALDict());
     var roots = workspace.getTopBlocks();
     var biggestSoFarSize = 0;
     for (var i = 0; i < roots.length; i++){
       var r = roots[i];
       var helenaStatements = WebAutomationLanguage.getHelenaFromBlocklyRoot(r);
-      console.log(helenaStatements);
       var size = quickSizeEstimate(helenaStatements);
-      console.log("size:", size);
       if (size > biggestSoFarSize){
         biggestSoFarSize = size;
         program.loopyStatements = helenaStatements;

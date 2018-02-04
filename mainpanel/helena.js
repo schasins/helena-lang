@@ -898,7 +898,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           this.setColour(280);
         },
         onchange: function(ev) {
-          console.log("ev in blockly scrape", ev);
           var newName = this.getFieldValue("name");
           var currentName = getWAL(this).currentNode.getName();
           if (newName !== defaultName && (newName !== currentName)){
@@ -926,7 +925,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // ah, a ringer-scraped node
         this.block = workspace.newBlock(this.alternativeBlocklyLabel);
         this.block.setFieldValue(this.currentNode.getName(), "name");
-        console.log("nodeRepresentation", nodeRepresentation(this));
         this.block.setFieldValue(nodeRepresentation(this), "node", maxDim, maxHeight, "node image");
       }
       this.block.setFieldValue(this.pageVar.toString(), "page");
@@ -4177,7 +4175,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var nr1 = this.recordedNodeSnapshot;
       var nr2 = otherNodeVariable.recordedNodeSnapshot;
       var ans = nr1.xpath === nr2.xpath && nr1.text === nr2.text && nr1.baseURI === nr2.baseURI; // baseURI is the url on which the ndoe was found
-      console.log("sameNode", nr1, nr2, ans);
       return ans;
     }
 
@@ -5160,6 +5157,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         doTheReplay(runnableTrace, config, basicBlockStatements, runObject, loopyStatements, nextBlockStartIndex, callback, options);
       }
 
+      /*
       splitOnEnoughMemoryToCloneTrace(trace,
         function(){ // if enough memory
           // plenty of memory.  carry on.
@@ -5188,6 +5186,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             function(){}, // don't have any functions to run after the condition is reached
             60000, false); // just check every minute
         });
+        */
+        continueWithScript();
     }
 
     this.runBasicBlock = function _runBasicBlock(runObject, loopyStatements, callback, options){
