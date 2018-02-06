@@ -1152,7 +1152,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // for now, assume the ones we saw at record time are the ones we'll want at replay
       this.currentNode = this.currentNode = makeNodeVariableForTrace(trace);
       this.origNode = this.node;
-      this.currentTypedString = this.typedString;
+      this.currentTypedString = new pub.String(this.typedString);
 
       // we want to do slightly different things for cases where the typestatement only has keydowns or only has keyups (as when ctrl, shift, alt used)
       var onlyKeydowns = _.reduce(textEntryEvents, function(acc, e){return acc && e.data.type === "keydown"}, true);
@@ -1230,10 +1230,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
           this.appendDummyInput()
-              .appendField("type")
-              .appendField(new Blockly.FieldTextInput("text"), "text")
+              .appendField("type");
+          this.appendValueInput("currentTypedString");
+          this.appendDummyInput()
               .appendField("in")
               .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
+          this.setInputsInline(true);
           this.setPreviousStatement(true, null);
           this.setNextStatement(true, null);
           this.setColour(280);
@@ -1242,12 +1244,16 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
-      if (!this.onlyKeyups && !this.onlyKeydowns && this.stringRep().length > 0){
+      if (!this.onlyKeyups && !this.onlyKeydowns){
         this.block = workspace.newBlock(this.blocklyLabel);
-        this.block.setFieldValue(this.stringRep(), "text");
         this.block.setFieldValue(this.pageVar.toString(), "page");
         attachToPrevBlock(this.block, prevBlock);
         setWAL(this.block, this);
+
+        if (this.currentTypedString){
+          attachToInput(this.block, this.currentTypedString.genBlocklyNode(this.block, workspace), "currentTypedString");
+        }
+
         return this.block;
       }
       // let's make some new blocks for keyup and keydown only situations
@@ -1257,11 +1263,21 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.getHelena = function _getHelena(){
+      var currentTypedString = this.block.getInput('currentTypedString').connection.targetBlock();
+      if (currentTypedString){
+        this.currentTypedString = getWAL(currentTypedString).getHelena();
+      }
+      else{
+        this.currentTypedString = null;
+      }
       return this;
     };
 
     this.traverse = function _traverse(fn, fn2){
       fn(this);
+      if (this.currentTypedString){
+        this.currentTypedString.traverse(fn, fn2);
+      }
       fn2(this);
     };
 
@@ -1325,15 +1341,18 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.unParameterizeForRelation = function _unParameterizeForRelation(relation){
       unParameterizeNodeWithRelation(this, relation);
       if (this.typedStringParameterizationRelation === relation){
-        this.currentTypedString = this.typedString;
+        this.currentTypedString = new pub.String(this.typedString);
       }
     };
 
     function currentNodeText(statement, environment){
-      if (statement.currentTypedString instanceof WebAutomationLanguage.Concatenate){
-        return statement.currentTypedString.currentText(environment);
+      return statement.currentTypedString.getCurrentVal();
+    }
+
+    this.run = function _run(runObject, rbbcontinuation, rbboptions){
+      if (this.currentTypedString){
+        this.currentTypedString.run(runObject, rbbcontinuation, rbboptions);
       }
-      return statement.currentTypedString; // this means currentNode better be a string if it's not a concatenate node
     }
 
     this.args = function _args(environment){
@@ -1341,7 +1360,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (this.currentNode instanceof WebAutomationLanguage.NodeVariable && this.currentNode.getSource() === NodeSources.RELATIONEXTRACTOR){ // we only want to pbv for things that must already have been extracted by relation extractor
         args.push({type:"node", value: currentNodeXpath(this, environment)});
       }
-      args.push({type:"typedString", value: currentNodeText(this, environment)});
+      args.push({type:"typedString", value: this.currentTypedString.getCurrentVal()});
       args.push({type:"tab", value: currentTab(this)});
       return args;
     };
@@ -1693,10 +1712,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           if (!wal){
             setWAL(this, new pub.Number());
           }
-          var statement = getWAL(this);
 
           this.appendDummyInput()
-              .appendField(new Blockly.FieldNumber(defaultNum, null, null, null, function(newNum){statement.currentValue = newNum;}), numberFieldName);
+              .appendField(new Blockly.FieldNumber(defaultNum, null, null, null, function(newNum){getWAL(this.sourceBlock_).currentValue = newNum;}), numberFieldName);
 
           this.setOutput(true, 'number');
           this.setColour(25);
@@ -1739,11 +1757,16 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
   };
 
-  pub.String = function _String(){
+  pub.String = function _String(currString){
     Revival.addRevivalLabel(this);
     setBlocklyLabel(this, "string");
     var stringFieldName = 'stringFieldName';
-    this.currentValue = null;
+    if (currString){
+      this.currentValue = currString;
+    }
+    else{
+      this.currentValue = "your text here";
+    }
 
     this.remove = function _remove(){
       this.parent.removeChild(this);
@@ -1758,7 +1781,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.toStringLines = function _toStringLines(){
       if (this.nodeVar){
-        return [this.currentVal];
+        return [this.currentValue];
       }
       else{
         return [""];
@@ -1767,21 +1790,23 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
       addToolboxLabel(this.blocklyLabel, "text");
-      var defaultString = "your text here";
+      var text = this.currentValue;
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
           var wal = getWAL(this);
           if (!wal){
             setWAL(this, new pub.String());
           }
-          var statement = getWAL(this);
 
           this.appendDummyInput()
-              .appendField(new Blockly.FieldTextInput(defaultString, function(newStr){statement.currentValue = newStr;}), stringFieldName);
+              .appendField(new Blockly.FieldTextInput(text, 
+                function(newStr){
+                  getWAL(this.sourceBlock_).currentValue = newStr;
+                }), stringFieldName);
 
           this.setOutput(true, 'string');
           this.setColour(25);
-          getWAL(this).currentValue = defaultString;
+          getWAL(this).currentValue = text;
         }
       };
     };
@@ -2039,18 +2064,18 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.run = function _run(runObject, rbbcontinuation, rbboptions){
       WALconsole.log("run back statement");
-	// if something went wrong, we won't have a pagevar tabid, ugh
-	if (!this.pageVarCurr.currentTabId()){
-	    rbbcontinuation(rbboptions);
-	    return;
-	}
-	var pageVarTabId = this.pageVarCurr.currentTabId();
-	this.pageVarCurr.clearCurrentTabId();
+  // if something went wrong, we won't have a pagevar tabid, ugh
+  if (!this.pageVarCurr.currentTabId()){
+      rbbcontinuation(rbboptions);
+      return;
+  }
+  var pageVarTabId = this.pageVarCurr.currentTabId();
+  this.pageVarCurr.clearCurrentTabId();
 
       // ok, the only thing we're doing right now is trying to run this back button, so the next time we see a tab ask for an id
       // it should be because of this -- yes, theoretically there could be a process we started earlier that *just* decided to load a new top-level page
       // but that should probably be rare.  todo: is that actually rare?
-	var that = this;
+  var that = this;
       utilities.listenForMessageOnce("content", "mainpanel", "requestTabID", function _backListener(data){
         WALconsole.log("back completed");
         backStatement.pageVarBack.setCurrentTabId(pageVarTabId, function(){rbbcontinuation(rbboptions);});
@@ -2137,8 +2162,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           }); 
         }
         else{
-	  // it's still ok to clear current tab, but don't close it
-	  that.pageVarCurr.clearCurrentTabId();
+    // it's still ok to clear current tab, but don't close it
+    that.pageVarCurr.clearCurrentTabId();
           rbbcontinuation(rbboptions);
         }
       }
@@ -2184,6 +2209,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           this.setPreviousStatement(true, null);
           this.setNextStatement(true, null);
           this.setColour(25);
+          var wal = getWAL(this);
+          if (!wal){
+            setWAL(this, new pub.ContinueStatement());
+          }
         }
       };
     };
@@ -2376,8 +2405,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   pub.SayStatement = function _SayStatement(){
     Revival.addRevivalLabel(this);
     setBlocklyLabel(this, "say");
-    var textToSayFieldName = 'textToSay';
-    this.textToSay = "";
+    this.textToSay = null;
 
     this.remove = function _remove(){
       this.parent.removeChild(this);
@@ -2404,8 +2432,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
           this.appendDummyInput()
-              .appendField("say")
-              .appendField(new Blockly.FieldTextInput('your text here', handleTextToSayChange), textToSayFieldName);
+              .appendField("say");
+          this.appendValueInput("textToSay");
+          this.setInputsInline(true);
           this.setPreviousStatement(true, null);
           this.setNextStatement(true, null);
           this.setColour(25);
@@ -2421,102 +2450,22 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.block = workspace.newBlock(this.blocklyLabel);
       attachToPrevBlock(this.block, prevBlock);
       setWAL(this.block, this);
-      this.block.setFieldValue(this.textToSay, textToSayFieldName);
+
+      if (this.textToSay){
+        attachToInput(this.block, this.textToSay.genBlocklyNode(this.block, workspace), "textToSay");
+      }
+
       return this.block;
     };
 
     this.getHelena = function _getHelena(){
-      return this;
-    };
-
-    this.traverse = function _traverse(fn, fn2){
-      fn(this);
-      fn2(this);
-    };
-
-    this.run = function _run(runObject, rbbcontinuation, rbboptions){
-      // say the thing, then call rbbcontinuation on rbboptions
-      console.log("saying", this.textToSay);
-      say(this.textToSay);
-      rbbcontinuation(rbboptions);
-    };
-
-    this.parameterizeForRelation = function _parameterizeForRelation(relation){
-      return [];
-    };
-    this.unParameterizeForRelation = function _unParameterizeForRelation(relation){
-      return;
-    };
-  };
-
-
-  pub.SayNodeStatement = function _SayNodeStatement(){
-    Revival.addRevivalLabel(this);
-    setBlocklyLabel(this, "sayNode");
-    var textToSayFieldName = 'nodeName';
-    this.varName = null;
-
-    this.remove = function _remove(){
-      this.parent.removeChild(this);
-    }
-
-    this.prepareToRun = function _prepareToRun(){
-      return;
-    };
-    this.clearRunningState = function _clearRunningState(){
-      return;
-    }
-
-    this.toStringLines = function _toStringLines(){
-      if (this.varName){
-        return ["say " + varName];
+      var textToSayBlock = this.block.getInput('textToSay').connection.targetBlock();
+      if (textToSayBlock){
+        this.textToSay = getWAL(textToSayBlock).getHelena();
       }
       else{
-        return ["say nothing -- no node chosen"];
+        this.textToSay = null;
       }
-    };
-
-    this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
-      // uses the program obj, so only makes sense if we have one
-      if (!program){return;}
-      addToolboxLabel(this.blocklyLabel);
-      var handleTextToSayChange = function(newVarName){
-        if (this.sourceBlock_){
-          console.log("updating node to say to", newVarName);
-          getWAL(this.sourceBlock_).varName = newVarName;
-        }
-      };
-      Blockly.Blocks[this.blocklyLabel] = {
-        init: function() {
-          if (program){
-            var varNamesDropDown = makeVariableNamesDropdown(program);
-            if (varNamesDropDown.length > 0){
-              this.appendDummyInput()
-                  .appendField("say")
-                  .appendField(new Blockly.FieldDropdown(varNamesDropDown, handleTextToSayChange), textToSayFieldName);
-              this.setPreviousStatement(true, null);
-              this.setNextStatement(true, null);
-              this.setColour(25);
-              var wal = getWAL(this);
-              if (!wal){
-                setWAL(this, new pub.SayNodeStatement());
-                getWAL(this).varName = varNamesDropDown[0][0]; // since this is what it'll show by default, better act as though that's true
-              }
-            }
-          }
-        }
-      };
-    };
-
-    this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
-      this.block = workspace.newBlock(this.blocklyLabel);
-      attachToPrevBlock(this.block, prevBlock);
-      setWAL(this.block, this);
-      this.block.setFieldValue(this.varName, textToSayFieldName);
-      return this.block;
-    };
-
-    this.getHelena = function _getHelena(){
       return this;
     };
 
@@ -2527,15 +2476,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.run = function _run(runObject, rbbcontinuation, rbboptions){
       // say the thing, then call rbbcontinuation on rbboptions
-      var textToSay = runObject.environment.envLookup(this.varName);
-      // the only thing we put in env now is our weird representation of nodes.  not even a nodeVariable rep, but something else that we get from scraping
-      // todo: might want to fix what we store.  but eh, this is fine for now
-      if (textToSay.text){
-        textToSay = textToSay.text;
-        // if we don't have a text field, then we'll just go with the default and it'll probably be [object object]
+      if (this.textToSay){
+        this.textToSay.run(runObject, rbbcontinuation, rbboptions);
+        console.log("saying", this.textToSay);
+        say(this.textToSay.getCurrentVal());
       }
-      console.log("saying", textToSay);
-      say(textToSay);
       rbbcontinuation(rbboptions);
     };
 
@@ -4578,7 +4523,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         MiscUtilities.repeatUntil(
           function(){utilities.sendMessage("mainpanel", "content", "pageStats", {}, null, null, [tabId], null);}, 
           function(){return that.currentTabIdPageStatsRetrieved;},
-	  function(){},
+    function(){},
           1000, true);
       }
       else{
@@ -4632,42 +4577,104 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   };
 
-  pub.Concatenate = function _Concatenate(components){
+  pub.Concatenate = function _Concatenate(){
     Revival.addRevivalLabel(this);
+    setBlocklyLabel(this, "concatenate");
 
-    if (components){ // will sometimes call with undefined, as for revival
-      this.components = components;
+    this.left = null;
+    this.right = null;
+
+    this.remove = function _remove(){
+      this.parent.removeChild(this);
     }
 
-    this.currentText = function _currentText(enviornment){
-      var output = "";
-      _.each(this.components, function(component){
-        if (component instanceof pub.NodeVariable){
-          output += component.currentText(enviornment);
-        }
-        else{
-          // this should be a string, since currently can only concat strings and variable uses
-          output += component;
-        }
-      });
-      return output;
+    this.prepareToRun = function _prepareToRun(){
+      return;
+    };
+    this.clearRunningState = function _clearRunningState(){
+      return;
     }
 
-    this.toString = function _toString(){
-      var outputComponents = [];
-      _.each(this.components, function(component){
-        if (component instanceof pub.NodeVariable){
-          outputComponents.push(component.toString());
-        }
-        else{
-          // this should be a string, since currently can only concat strings and variable uses
-          outputComponents.push("'"+component+"'");
-        }
-      });
-      return outputComponents.join("+"); 
-    }
+    this.toStringLines = function _toStringLines(){
+      return ["concatenate"];
+    };
 
-  }
+    this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
+      addToolboxLabel(this.blocklyLabel, "text");
+      Blockly.Blocks[this.blocklyLabel] = {
+        init: function() {
+          this.appendValueInput("left");
+          this.appendDummyInput().appendField("+");
+          this.appendValueInput("right");
+          this.setInputsInline(true);
+          this.setOutput(true, 'Bool');
+          this.setColour(25);
+
+          var wal = getWAL(this);
+          if (!wal){
+            setWAL(this, new pub.Concatenate());
+          }
+        }
+      };
+    };
+
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
+      this.block = workspace.newBlock(this.blocklyLabel);
+      setWAL(this.block, this);
+      if (this.left){
+        attachToInput(this.block, this.left.genBlocklyNode(this.block, workspace), "left");
+      }
+      if (this.right){
+        attachToInput(this.block, this.right.genBlocklyNode(this.block, workspace), "right");
+      }
+      return this.block;
+    };
+
+    this.getHelena = function _getHelena(){
+      // ok, but we also want to update our own condition object
+      var leftBlock = this.block.getInput('left').connection.targetBlock();
+      var rightBlock = this.block.getInput('right').connection.targetBlock();
+      if (leftBlock){
+        this.left = getWAL(leftBlock).getHelena();
+      }
+      else{
+        this.left = null;
+      }
+      if (rightBlock){
+        this.right = getWAL(rightBlock).getHelena();
+      }
+      else{
+        this.right = null;
+      }
+      return this;
+    };
+
+    this.traverse = function _traverse(fn, fn2){
+      fn(this);
+      if (this.left){this.left.traverse(fn, fn2);}
+      if (this.right){ this.right.traverse(fn, fn2);}
+      fn2(this);
+    };
+
+    this.run = function _run(runObject, rbbcontinuation, rbboptions){
+      // now run the things on which we depend
+      this.left.run(runObject, rbbcontinuation, rbboptions);
+      this.right.run(runObject, rbbcontinuation, rbboptions);
+
+      var leftVal = this.left.getCurrentVal(); // todo: make this float not int
+      var rightVal = this.right.getCurrentVal();
+      this.currentVal = leftVal + rightVal;
+    };
+    this.getCurrentVal = function _getCurrentVal(){
+      return this.currentVal;
+    };
+    this.parameterizeForRelation = function _parameterizeForRelation(relation){
+      return [];
+    };
+    this.unParameterizeForRelation = function _unParameterizeForRelation(relation){
+      return;
+    };
+  };
 
   // the whole program
 
@@ -5209,6 +5216,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
 
     function doTheReplay(runnableTrace, config, basicBlockStatements, runObject, loopyStatements, nextBlockStartIndex, callback, options){
+
       // first let's throw out any wait time on the first event, since no need to wait for that
       if (runnableTrace.length > 0){
         runnableTrace[0].timing.waitTime = 0;
@@ -5309,13 +5317,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         }
       });
 };
-	try {
-	    check();
-	}
-	catch(err){
-	    // just try again until it works
-	    setTimeout(function(){splitOnEnoughMemoryToCloneTrace(trace, ifEnoughMemory, ifNotEnoughMemory);}, 1000);
-	}
+  try {
+      check();
+  }
+  catch(err){
+      // just try again until it works
+      setTimeout(function(){splitOnEnoughMemoryToCloneTrace(trace, ifEnoughMemory, ifNotEnoughMemory);}, 1000);
+  }
     }
 
     function runBasicBlockWithRinger(loopyStatements, options, runObject, callback){
@@ -5365,6 +5373,16 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // should see in future whether this is a reasonable way to do it
         WALconsole.namedLog("rbb", "trace", trace);
         var parameterizedTrace = pbv(trace, basicBlockStatements);
+
+
+        // first call the run methods for any statements that have run methods in case it's needed for making the arguments
+        // todo: note that this should actually happen interspersed with the ringer replay.  do that evenutally
+        for (var i = 0; i < basicBlockStatements.length; i++){
+          if (basicBlockStatements[i].run){
+            basicBlockStatements[i].run(runObject, function(){}, options);
+          }
+        }
+        
         // now that we've run parameterization-by-value, have a function, let's put in the arguments we need for the current run
         WALconsole.namedLog("rbb", "parameterizedTrace", parameterizedTrace);
         var runnableTrace = passArguments(parameterizedTrace, basicBlockStatements, runObject.environment);
@@ -5388,7 +5406,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         },
         function(){ // if not enough memory
           // yikes, there's a pretty small amount of memory available at this point.  are you sure you want to go on?
-	    console.log("decided we don't have enough memory.  pause.");
+      console.log("decided we don't have enough memory.  pause.");
           var text = "Looks like we're pretty close to running out of memory.  If we keep going, the extension might crash.  Continue anyway?";
           var buttonText = "Continue";
           var dialogDiv = UIObject.continueAfterDialogue(text, buttonText, continueWithScript);
@@ -5396,10 +5414,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // we might like to check now and then to see if more memory has been freed up, so that we could start again
           MiscUtilities.repeatUntil(
             function(){
-	      console.log("do we have enough memory?");
+        console.log("do we have enough memory?");
               splitOnEnoughMemoryToCloneTrace(trace,
                 function(){ // enough memory now, so we actually want to continue
-		  console.log("changed our minds.  decided we do have enough memory.");
+      console.log("changed our minds.  decided we do have enough memory.");
                   dialogDiv.remove(); // get rid of that dialog, so user doesn't see it
                   continueWithScript();
                 },
@@ -5607,7 +5625,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
       // first let's make the runObject that we'll use for all the rest
       // for now the below is commented out to save memory, since only running one per instance
-	    //var programCopy = Clone.cloneProgram(program); // must clone so that run-specific state can be saved with relations and so on
+      //var programCopy = Clone.cloneProgram(program); // must clone so that run-specific state can be saved with relations and so on
       var runObject = {program: program, dataset: dataset, environment: Environment.envRoot()};
       currentRunObjects.push(runObject);
       var tab = UIObject.newRunTab(runObject); // the mainpanel tab in which we'll preview stuff
@@ -5674,7 +5692,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           if (internalOptions.indexOf(prop) > -1){
             // ok, well an internal prop sneaking in is ok, so we'll just provide a warning.  otherwise we're actually going to stop
             WALconsole.warn("Ok, we're allowing it because it's an internal option, but we're not happy about it and we're setting it to false.");
-	    options[prop] = false;
+      options[prop] = false;
           }
           else{
             return;
@@ -6201,7 +6219,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               // we'll sort by number of cells, then return the first one that shares a url with our spec nodes, or the first one if none share that url
               dataObjs = _.filter(dataObjs, function(obj){return obj !== null && obj !== undefined;});
               var sortedDataObjs = _.sortBy(dataObjs, function(data){ if (!data || !data.first_page_relation || !data.first_page_relation[0]){return -1;} else {return data.first_page_relation.length * data.first_page_relation[0].length; }}); // ascending
-	      sortedDataObjs = sortedDataObjs.reverse();
+        sortedDataObjs = sortedDataObjs.reverse();
               WALconsole.log("sortedDataObjs", sortedDataObjs);
               var frameUrls = pagesToFrameUrls[targetPageVar.name];
               WALconsole.log("frameUrls", frameUrls, pagesToFrameUrls, targetPageVar.name);
