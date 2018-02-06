@@ -1572,9 +1572,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     Revival.addRevivalLabel(this);
     setBlocklyLabel(this, "variableUse");
     var varNameFieldName = 'varNameFieldName';
+    var attributeFieldName = "attributeFieldName";
     this.nodeVar = null;
+    this.attributeOption = AttributeOptions.TEXT; // by default, text
     if (scrapeStatement){
       this.nodeVar = scrapeStatement.currentNode;
+      if (scrapeStatement.scrapeLink){
+        this.attributeOption = AttributeOptions.LINK;
+      }
     }
 
     this.remove = function _remove(){
@@ -1607,13 +1612,20 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           getWAL(this.sourceBlock_).nodeVar = getNodeVariableByName(newVarName);
         }
       };
+      var handleAttributeChange = function(newAttribute){
+        if (this.sourceBlock_){
+          getWAL(this.sourceBlock_).attributeOption = newAttribute;
+        }
+      };
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
           if (program){
             var varNamesDropDown = makeVariableNamesDropdown(program);
+            var attributesDropDown = [["TEXT", AttributeOptions.TEXT],["LINK", AttributeOptions.LINK]];
             if (varNamesDropDown.length > 0){
               this.appendValueInput('NodeVariableUse')
-                  .appendField(new Blockly.FieldDropdown(varNamesDropDown, handleVarChange), varNameFieldName);
+                  .appendField(new Blockly.FieldDropdown(varNamesDropDown, handleVarChange), varNameFieldName)
+                  .appendField(new Blockly.FieldDropdown(attributesDropDown, handleAttributeChange), attributeFieldName);
               
               this.setOutput(true, 'NodeVariableUse');
               this.setColour(25);
@@ -1627,6 +1639,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                 setWAL(this, new pub.NodeVariableUse());
                 var name = varNamesDropDown[0][0];
                 getWAL(this).nodeVar = getNodeVariableByName(name); // since this is what it'll show by default, better act as though that's true
+                getWAL(this).attributeOption = AttributeOptions.TEXT;
               }
             }
           }
@@ -1639,6 +1652,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // nope!  this one doesn't attach to prev! attachToPrevBlock(this.block, prevBlock);
       setWAL(this.block, this);
       this.block.setFieldValue(this.nodeVar.getName(), varNameFieldName);
+      this.block.setFieldValue(this.attributeOption, attributeFieldName);
       return this.block;
     };
 
@@ -1665,7 +1679,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.getCurrentVal = function _getCurrentVal(){
       // remember!  currentval is an object with text, link, source url, xpath, that stuff
       // so if the val is being used, we have to pull out just the text
-      return this.currentVal.text;
+      if (this.attributeOption === AttributeOptions.TEXT){
+        return this.currentVal.text;
+      }
+      else if (this.attributeOption === AttributeOptions.LINK){
+        return this.currentVal.link;
+      }
+      return "";
     };
 
     this.parameterizeForRelation = function _parameterizeForRelation(relation){
@@ -1845,6 +1865,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
   };
 
+  var AttributeOptions = { // silly to use strings, I know, but it makes it easier to do the blockly dropdown
+    TEXT: "1",
+    LINK: "2"
+  };
+
   pub.OutputRowStatement = function _OutputRowStatement(scrapeStatements){
     Revival.addRevivalLabel(this);
     setBlocklyLabel(this, "output");
@@ -1997,8 +2022,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var loopIterationCounterTexts = _.map(getLoopIterationCounters(this), function(i){return i.toString();});
       _.each(loopIterationCounterTexts, function(ic){cells.push(ic);});
       
+      /*
       // todo: why are there undefined things in here!!!!????  get rid of them.  seriously, fix that
-      cells = _.filter(cells, function(cell){return cell;});
+      cells = _.filter(cells, function(cell){return cell !== null && cell !== undefined;});
+      */
 
       runObject.dataset.addRow(cells);
       runObject.program.mostRecentRow = cells;
