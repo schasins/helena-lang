@@ -1688,6 +1688,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return "";
     };
 
+    this.getCurrentNode = function _getCurrentNode(){
+      return this.currentVal;
+    };
+
     this.parameterizeForRelation = function _parameterizeForRelation(relation){
       return [];
     };
@@ -2009,13 +2013,16 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.run = function _run(runObject, rbbcontinuation, rbboptions){
       // we've 'executed' an output statement.  better send a new row to our output
       var cells = [];
+      var nodeCells = [];
 
       // let's switch to using the nodeVariableUses that we keep
       for (var i = 0; i < this.variableUseNodes.length; i++){
         var vun = this.variableUseNodes[i];
         vun.run(runObject, rbbcontinuation, rbboptions);
         var v = vun.getCurrentVal();
+        var n = vun.getCurrentNode();
         cells.push(v);
+        nodeCells.push(n);
       }
 
       // for now we're assuming we always want to show the number of iterations of each loop as the final columns
@@ -2027,7 +2034,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       cells = _.filter(cells, function(cell){return cell !== null && cell !== undefined;});
       */
 
-      runObject.dataset.addRow(cells);
+      runObject.dataset.addRow(nodeCells);
       runObject.program.mostRecentRow = cells;
 
       var displayTextCells = _.map(cells, function(cell){if (!cell){return "EMPTY";} else {return cell;}});
