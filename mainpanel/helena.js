@@ -688,45 +688,73 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return [outputPagesRepresentation(this)+"click("+nodeRep+")"];
     };
 
+    var maxDim = 50;
+    var maxHeight = 20;
     this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
       // uses the program obj, so only makes sense if we have one
       if (!program){return;}
       // addToolboxLabel(this.blocklyLabel, "web");
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
-      var outputOptionLabel = this.blocklyLabel+"_outputPage";
-      var shapes = [this.blocklyLabel, outputOptionLabel];
+      var shapes = ["", "ringer", "output", "ringeroutput"];
       for (var i = 0; i < shapes.length; i++){
-        var shapeLabel = shapes[i];
-        Blockly.Blocks[shapeLabel] = {
-          init: function() {
-            var fieldsSoFar = this.appendDummyInput()
-                .appendField("click")
-                .appendField(new Blockly.FieldTextInput("node"), "node") // switch to pulldown
-                .appendField("in")
-                .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
-            if (outputOptionLabel === shapeLabel){
-              fieldsSoFar = fieldsSoFar.appendField(", load page into")
-                .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "outputPage");
+        var label = this.blocklyLabel + "_" + shapes[i];;
+        (function(){
+          var sl = label;
+          Blockly.Blocks[sl] = {
+            init: function() {
+              var shapeLabel = sl;
+              var fieldsSoFar = this.appendDummyInput()
+                  .appendField("click");
+
+              // let's decide how to display the node
+              if (shapeLabel.indexOf("ringer") > -1){
+                // it's just a ringer-identified node, use the pic
+                fieldsSoFar = fieldsSoFar.appendField(new Blockly.FieldImage("node", maxDim, maxHeight, "node image"), "node");
+              }
+              else{
+                // it has a name so just use the name
+                fieldsSoFar = fieldsSoFar.appendField(new Blockly.FieldTextInput("node"), "node");
+              }
+              fieldsSoFar = fieldsSoFar.appendField("in")
+                  .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
+
+              // let's decide whether there's an output page
+              if (shapeLabel.indexOf("output") > -1){
+                fieldsSoFar = fieldsSoFar.appendField(", load page into")
+                  .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "outputPage");
+              }
+              this.setPreviousStatement(true, null);
+              this.setNextStatement(true, null);
+              this.setColour(280);
             }
-            this.setPreviousStatement(true, null);
-            this.setNextStatement(true, null);
-            this.setColour(280);
-          }
-        };
+          };
+        })();
       }
     };
 
     this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
+      var label = this.blocklyLabel + "_";
+
+      if (this.currentNode.getSource() === NodeSources.RINGER){
+        label += "ringer";
+      }
       if (this.outputPageVars && this.outputPageVars.length > 0){
-        this.block = workspace.newBlock(this.blocklyLabel+"_outputPage"); // see above for source of this name
-        this.block.setFieldValue(this.outputPageVars[0].toString(), "outputPage");
+        label += "output";
+      }
+
+      this.block = workspace.newBlock(label);
+
+      if (this.currentNode.getSource() === NodeSources.RINGER){
+        this.block.setFieldValue(nodeRepresentation(this), "node", maxDim, maxHeight, "node image");
       }
       else{
-        this.block = workspace.newBlock(this.blocklyLabel);
+        this.block.setFieldValue(nodeRepresentation(this), "node");
       }
-      this.block.setFieldValue(nodeRepresentation(this), "node");
+      if (this.outputPageVars && this.outputPageVars.length > 0){
+        this.block.setFieldValue(this.outputPageVars[0].toString(), "outputPage");
+      }
+
       this.block.setFieldValue(this.pageVar.toString(), "page");
-      console.log("hasOutputPage2", this.outputPageVars && this.outputPageVars.length > 0, this);
 
       attachToPrevBlock(this.block, prevBlock);
       setWAL(this.block, this);
@@ -888,7 +916,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         init: function() {
           this.appendDummyInput()
               .appendField("scrape")
-              .appendField(new Blockly.FieldImage("node", maxDim, maxHeight, "node image"), "node") // switch to pulldown
+              .appendField(new Blockly.FieldImage("node", maxDim, maxHeight, "node image"), "node")
               .appendField("in")
               .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page")
               .appendField("and call it")
