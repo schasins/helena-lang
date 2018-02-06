@@ -61,8 +61,10 @@ var PortManager = (function PortManagerClosure() {
     },
     removeTab: function _removeTab(tabId) {
       var portIds = this.tabIdToPortIds[tabId];
-      for (var i = 0; i < portIds.length; i++){
-        this.removePort(portIds[i]);
+      if (portIds){
+        for (var i = 0; i < portIds.length; i++){
+          this.removePort(portIds[i]);
+        }
       }
       delete this.tabIdToPortIds[tabId];
       delete this.tabIdToTab[tabId];

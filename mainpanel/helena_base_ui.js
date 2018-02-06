@@ -84,26 +84,16 @@ var HelenaUIBase = (function () {
     // eventually should handle the case where existing blocks are being rearranged
     // and should keep in mind that the blocks mostly move in groupings, not just singly.  will have to test that
 
+    // todo: reminder that the below (for now) still doesn't handle adding a new statement to the beginning of a program
+    // because we focus on the block that moved rather than on the block towards which it moved...
+    // todo: also, what will happen when someone moves out a big slice, then tries to move out a smaller slice and add
+    // it to the already-taken-out slice?  it won't be in the root Helena program, so...we'll look for it and not find it
+    // probably should have a list of other segments?  yeah, let's do that?
+
     function onBlockMove(event) {
       if (event.type === Blockly.Events.MOVE){
-        console.log("move event", event);
-        if (event.newParentId && event.newParentId !== event.oldParentId){
-          // ok, it's an insertion
-          console.log("move event is an insertion");
-          var movedBlock = workspace.getBlockById(event.blockId);
-          var priorStatementBlock = workspace.getBlockById(event.newParentId);
-          // if for some reason, the movedBlock doesn't have a wal statement, we're in trouble
-          var newStatement = movedBlock.WALStatement;
-          var precedingStatement = priorStatementBlock.WALStatement;
-
-          // ok, sometimes this is going to be raised because we're programmatically constructing the right
-          // program in the workspace.  which means it's not a real insertion.  The way we're going to figuer that out
-          // is we'll just see if the 'new' statement is actually already in there
-
-          if (!helenaProg.containsStatement(newStatement)){
-            helenaProg.insertAfter(newStatement, precedingStatement);
-          }
-        }
+        // this might have changed our program.  let's go ahead and update it
+        pub.blocklyToHelena(helenaProg);
       }
       if (pub.newBlocklyBlockDraggedIn && event.type === Blockly.Events.CREATE){
         var createdBlock = workspace.getBlockById(event.blockId);
@@ -186,6 +176,31 @@ var HelenaUIBase = (function () {
       WALconsole.warn("Called displayBlockly, but no program to display yet.  Should be set with setBlocklyProgram.");
     }
   };
+
+  function quickSizeEstimate(ls){
+    var acc = 0;
+    acc += ls.length;
+    for (var i = 0; i < ls.length; i++){
+      if (ls[i].bodyStatements){
+        acc += quickSizeEstimate(ls[i].bodyStatements);
+      }
+    }
+    return acc;
+  }
+
+  pub.blocklyToHelena = function _blocklyToHelena(program){
+    var roots = workspace.getTopBlocks();
+    var biggestSoFarSize = 0;
+    for (var i = 0; i < roots.length; i++){
+      var r = roots[i];
+      var helenaStatements = WebAutomationLanguage.getHelenaFromBlocklyRoot(r);
+      var size = quickSizeEstimate(helenaStatements);
+      if (size > biggestSoFarSize){
+        biggestSoFarSize = size;
+        program.loopyStatements = helenaStatements;
+      }
+    }
+  }
 
   return pub;
 }());

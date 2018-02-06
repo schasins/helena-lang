@@ -32,7 +32,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   var pub = {};
   var UIObject = null;
 
-  pub.blocklyLabels = {"web":[],"other":[]};
+  pub.blocklyLabels = {"text": [], "numbers": [], "other":[]};
 
   /* some of the things we do within the objects that represent the programs, statements,
   and expressions should update the UI object that's serving as the IDE.  the UI
@@ -150,6 +150,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     return varNamesDropDown;
   }
 
+  function makeOpsDropdown(ops){
+    var opsDropdown = [];
+    for (var key in ops){
+      opsDropdown.push([key, key]);
+    }
+    return opsDropdown;
+  }
+
   function nodeRepresentation(statement, linkScraping){
     if (linkScraping === undefined){ linkScraping = false; }
     if (statement.currentNode instanceof WebAutomationLanguage.NodeVariable){
@@ -174,12 +182,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     var recordTimeNodeSnapshot = null;
     var imgData = null;
     if (trace.length > 0){ // may get 0-length trace if we're just adding a scrape statement by editing (as for a known column in a relation)
-      var i = 0; // 0 bc this is the first ev that prompted us to turn it into the given statement, so must use the right node
-      recordTimeNode = trace[i].additional.scrape;
-      recordTimeNodeSnapshot = trace[i].target.snapshot;
-      imgData = trace[i].additional.visualization;
+      var ev = trace[0]; // 0 bc this is the first ev that prompted us to turn it into the given statement, so must use the right node
+      recordTimeNodeSnapshot = ev.target.snapshot;
+      imgData = ev.additional.visualization;
     }
-    return new WebAutomationLanguage.NodeVariable(null, recordTimeNode, recordTimeNodeSnapshot, imgData, NodeSources.RINGER); // null bc no preferred name
+    return new WebAutomationLanguage.NodeVariable(null, null, recordTimeNodeSnapshot, imgData, NodeSources.RINGER); // null bc no preferred name
   }
 
   function outputPagesRepresentation(statement){
@@ -213,8 +220,20 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           statement.relation = relation;
           var name = relation.columns[i].name;
           var nodeRep = nodeRepresentations[i];
-          statement.currentNode = new WebAutomationLanguage.NodeVariable(name, nodeRep, null, null, NodeSources.RELATIONEXTRACTOR); // note that this means the elements in the firstRowXPaths and the elements in columns must be aligned!
-          
+
+          // not ok to just overwrite currentNode, because there may be multiple statements using the old
+          // currentNode, and becuase we're interested in keeping naming consistent, they should keep using it
+          // so...just overwrite some things
+          statement.currentNode.name = name;
+          statement.currentNode.nodeRep = nodeRep;
+          statement.currentNode.setSource(NodeSources.RELATIONEXTRACTOR);
+          // statement.currentNode = new WebAutomationLanguage.NodeVariable(name, nodeRep, null, null, NodeSources.RELATIONEXTRACTOR); // note that this means the elements in the firstRowXPaths and the elements in columns must be aligned!
+          // ps. in theory the above commented out line should have just worked
+          // because we could search all prior nodes to see if any is the same
+          // but we just extracted the relation from a fresh run of the script, so any of the attributes we use
+          // (xpath, text, or even in some cases url) could have changed, and we'd try to make a new node, and mess it up
+          // since we know we want to treat this as the same as a prior one, better to just do this
+
           // the statement should track whether it's currently parameterized for a given relation and column obj
           statement.relation = relation;
           statement.columnObj = relation.columns[i];
@@ -321,10 +340,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   }
 
   function attachToPrevBlock(currBlock, prevBlock){
-    if (prevBlock){ // sometimes prevblock is null
+    if (prevBlock){
       var prevBlockConnection = prevBlock.nextConnection;
       var thisBlockConnection = currBlock.previousConnection;
       prevBlockConnection.connect(thisBlockConnection);
+    }
+    else{
+      WALconsole.warn("Woah, tried to attach to a null prevBlock!  Bad!");
     }
   }
 
@@ -335,20 +357,63 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     parentConnection.connect(childConnection);
   }
 
-  function genBlocklyBlocksSeq(statements, workspace){
-    var foundFirstNonNull = false;
+  function attachToInput(leftBlock, rightBlock, name){
+    var parentConnection = leftBlock.getInput(name).connection;
+    var childConnection = rightBlock.outputConnection;
+    parentConnection.connect(childConnection);
+  }
+
+  function attachInputToOutput(leftBlock, rightBlock){
+    var outputBlockConnection = rightBlock.outputConnection;
+    var inputBlockConnection = leftBlock.inputList[0].connection;
+    outputBlockConnection.connect(inputBlockConnection);
+  }
+
+  function helenaSeqToBlocklySeq(statementsLs, workspace){
+    // get the individual statements to produce their corresponding blockly blocks
+    var firstNonNull = null; // the one we'll ultimately return, in case it needs to be attached to something outside
+
     var lastBlock = null;
-    for (var i = 0; i < statements.length; i++){
-      var newBlock = statements[i].genBlocklyNode(lastBlock, workspace);
+    var lastStatement = null;
+
+    var invisibleHead = [];
+
+    for (var i = 0; i < statementsLs.length; i++){
+      var newBlock = statementsLs[i].genBlocklyNode(lastBlock, workspace);
+      // within each statement, there can be other program components that will need blockly representations
+      // but the individual statements are responsible for traversing those
       if (newBlock !== null){ // handle the fact that there could be null-producing nodes in the middle, and need to connect around those
         lastBlock = newBlock;
+        lastStatement = statementsLs[i];
+        lastStatement.invisibleHead = [];
+        lastStatement.invisibleTail = [];
         // also, if this is our first non-null block it's the one we'll want to return
-        if (!foundFirstNonNull){
-          foundFirstNonNull = newBlock;
+        if (!firstNonNull){
+          firstNonNull = newBlock;
+          // oh, and let's go ahead and set that invisible head now
+          statementsLs[i].invisibleHead = invisibleHead;
+        }
+      }
+      else{
+        // ok, a little bit of special stuff when we do have null nodes
+        // we want to still save them, even though we'll be using the blockly code to generate future versions of the program
+        // so we'll need to associate these invibislbe statements with others
+        // and then the only thing we'll need to do is when we go the other direction (blockly->helena)
+        // we'll have to do some special processing to put them back in the normal structure
+
+        // one special case.  if we don't have a non-null lastblock, we'll have to keep this for later
+        // we prefer to make things tails of earlier statements, but we can make some heads if necessary
+        if (!lastBlock){
+          invisibleHead.push(statementsLs[i]);
+        }
+        else{
+          lastStatement.invisibleTail.push(statementsLs[i]);
         }
       }
     }
-    return foundFirstNonNull;
+    return firstNonNull;
+    // todo: the whole invisible head, invisible tail thing isn't going to be any good if we have no visible
+    // statements in this segment.  So rare that spending time on it now is probably bad, but should be considered eventually
   }
 
 
@@ -364,6 +429,70 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   function getLoopIterationCounters(s){
     return getLoopIterationCountersHelper(s, []);
+  }
+
+  function blocklySeqToHelenaSeq(blocklyBlock){
+    if (!blocklyBlock){
+      return [];
+    }
+    var thisNodeHelena = getWAL(blocklyBlock).getHelena(); // grab the associated helena component and call the getHelena method
+    var invisibleHead = thisNodeHelena.invisibleHead;
+    if (!invisibleHead){invisibleHead = [];}
+    var invisibleTail = thisNodeHelena.invisibleTail;
+    if (!invisibleTail){invisibleTail = [];}
+    var helenaSeqForThisBlock = (invisibleHead.concat(thisNodeHelena)).concat(invisibleTail);
+
+    var nextBlocklyBlock = blocklyBlock.getNextBlock();
+    if (!nextBlocklyBlock){
+      return helenaSeqForThisBlock;
+    }
+    var suffix = blocklySeqToHelenaSeq(nextBlocklyBlock);
+    return helenaSeqForThisBlock.concat(suffix);
+  }
+
+  pub.getHelenaFromBlocklyRoot = function(blocklyBlock){
+    return blocklySeqToHelenaSeq(blocklyBlock);
+  }
+
+  function getInputSeq(blocklyBlock, inputName){
+    var nextBlock = blocklyBlock.getInput(inputName).connection.targetBlock();
+    if (!nextBlock){
+      return [];
+    }
+    return getWAL(nextBlock).getHelenaSeq();
+  }
+
+  // when Blockly blocks are thrown away (in trash cah), you can undo it, but undoing it doesn't bring back the walstatement
+  // property that we add
+  // so...we'll keep track
+  var blocklyToWALDict = {};
+  pub.blocklyToWALDict = function _btwd(){
+    return blocklyToWALDict;
+  }
+
+  function setWAL(block, WALEquiv){
+    block.WAL = WALEquiv;
+    WALEquiv.block = block;
+    blocklyToWALDict[block.id] = WALEquiv;
+  }
+
+  function getWAL(block){
+    if (!block.WAL){
+      block.WAL = blocklyToWALDict[block.id];
+      if (block.WAL){
+        block.WAL.block = block;
+        // the above line may look silly but when blockly drops blocks into the trashcan, they're restored
+        // with the same id but with a fresh object
+        // and the fresh object doesn't have WAL stored anymore, which is why we have to look in the dict
+        // but that also means the block object stored by the wal object is out of date, must be refreshed
+      }
+
+    }
+    return block.WAL;
+  }
+
+  pub.getWALRep = function _getWALRep(blocklyBlock){
+    return getWAL(blocklyBlock);
   }
 
   // the actual statements
@@ -415,7 +544,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
       else {
         // else it's a string
-        return '"'+this.currentUrl+'"';
+        return this.currentUrl;
       }
     }
 
@@ -427,7 +556,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
       // uses the program obj, so only makes sense if we have one
       if (!program){return;}
-      addToolboxLabel(this.blocklyLabel, "web");
+      // addToolboxLabel(this.blocklyLabel, "web");
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
@@ -445,11 +574,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       this.block = workspace.newBlock(this.blocklyLabel);
-      this.block.setFieldValue(encodeURIComponent(this.cUrlString()), "url");
+      this.block.setFieldValue(this.cUrlString(), "url");
       this.block.setFieldValue(this.outputPageVar.toString(), "page");
       attachToPrevBlock(this.block, prevBlock);
-      this.block.WALStatement = this;
+      setWAL(this.block, this);
       return this.block;
+    };
+
+    this.getHelena = function _getHelena(){
+      return this;
     };
 
     this.traverse = function _traverse(fn, fn2){
@@ -555,49 +688,81 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return [outputPagesRepresentation(this)+"click("+nodeRep+")"];
     };
 
+    var maxDim = 50;
+    var maxHeight = 20;
     this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
       // uses the program obj, so only makes sense if we have one
       if (!program){return;}
-      addToolboxLabel(this.blocklyLabel, "web");
+      // addToolboxLabel(this.blocklyLabel, "web");
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
-      var outputOptionLabel = this.blocklyLabel+"_outputPage";
-      var shapes = [this.blocklyLabel, outputOptionLabel];
+      var shapes = ["", "ringer", "output", "ringeroutput"];
       for (var i = 0; i < shapes.length; i++){
-        var shapeLabel = shapes[i];
-        Blockly.Blocks[shapeLabel] = {
-          init: function() {
-            var fieldsSoFar = this.appendDummyInput()
-                .appendField("click")
-                .appendField(new Blockly.FieldTextInput("node"), "node") // switch to pulldown
-                .appendField("in")
-                .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
-            if (outputOptionLabel === shapeLabel){
-              fieldsSoFar = fieldsSoFar.appendField(", load page into")
-                .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "outputPage");
+        var label = this.blocklyLabel + "_" + shapes[i];;
+        (function(){
+          var sl = label;
+          Blockly.Blocks[sl] = {
+            init: function() {
+              var shapeLabel = sl;
+              var fieldsSoFar = this.appendDummyInput()
+                  .appendField("click");
+
+              // let's decide how to display the node
+              if (shapeLabel.indexOf("ringer") > -1){
+                // it's just a ringer-identified node, use the pic
+                fieldsSoFar = fieldsSoFar.appendField(new Blockly.FieldImage("node", maxDim, maxHeight, "node image"), "node");
+              }
+              else{
+                // it has a name so just use the name
+                fieldsSoFar = fieldsSoFar.appendField(new Blockly.FieldTextInput("node"), "node");
+              }
+              fieldsSoFar = fieldsSoFar.appendField("in")
+                  .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
+
+              // let's decide whether there's an output page
+              if (shapeLabel.indexOf("output") > -1){
+                fieldsSoFar = fieldsSoFar.appendField(", load page into")
+                  .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "outputPage");
+              }
+              this.setPreviousStatement(true, null);
+              this.setNextStatement(true, null);
+              this.setColour(280);
             }
-            this.setPreviousStatement(true, null);
-            this.setNextStatement(true, null);
-            this.setColour(280);
-          }
-        };
+          };
+        })();
       }
     };
 
     this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
+      var label = this.blocklyLabel + "_";
+
+      if (this.currentNode.getSource() === NodeSources.RINGER){
+        label += "ringer";
+      }
       if (this.outputPageVars && this.outputPageVars.length > 0){
-        this.block = workspace.newBlock(this.blocklyLabel+"_outputPage"); // see above for source of this name
-        this.block.setFieldValue(this.outputPageVars[0].toString(), "outputPage");
+        label += "output";
+      }
+
+      this.block = workspace.newBlock(label);
+
+      if (this.currentNode.getSource() === NodeSources.RINGER){
+        this.block.setFieldValue(nodeRepresentation(this), "node", maxDim, maxHeight, "node image");
       }
       else{
-        this.block = workspace.newBlock(this.blocklyLabel);
+        this.block.setFieldValue(nodeRepresentation(this), "node");
       }
-      this.block.setFieldValue(nodeRepresentation(this), "node");
+      if (this.outputPageVars && this.outputPageVars.length > 0){
+        this.block.setFieldValue(this.outputPageVars[0].toString(), "outputPage");
+      }
+
       this.block.setFieldValue(this.pageVar.toString(), "page");
-      console.log("hasOutputPage2", this.outputPageVars && this.outputPageVars.length > 0, this);
 
       attachToPrevBlock(this.block, prevBlock);
-      this.block.WALStatement = this;
+      setWAL(this.block, this);
       return this.block;
+    };
+
+    this.getHelena = function _getHelena(){
+      return this;
     };
 
     this.traverse = function _traverse(fn, fn2){
@@ -645,15 +810,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return this.columnObj;
     };
   };
-
-  pub.ScrapeStatementFromRelationCol = function _ScrapeStatementFromRelationCol(relation, colObj, pageVar){
-    var statement = new pub.ScrapeStatement([]);
-    statement.currentNode = new WebAutomationLanguage.NodeVariable(colObj.name, relation.firstRowNodeRepresentation(colObj), null, null, NodeSources.RELATIONEXTRACTOR);
-    statement.pageVar = pageVar;
-    statement.relation = relation;
-    statement.columnObj = colObj;
-    return statement;
-  }
 
   pub.ScrapeStatement = function _ScrapeStatement(trace){
     Revival.addRevivalLabel(this);
@@ -726,7 +882,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
       // uses the program obj, so only makes sense if we have one
       if (!program){return;}
-      addToolboxLabel(this.blocklyLabel, "web");
+      // addToolboxLabel(this.blocklyLabel, "web");
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
@@ -746,6 +902,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.updateAlternativeBlocklyBlock(program, pageVars, relations);
     };
 
+    var maxDim = 50;
+    var maxHeight = 20;
     this.alternativeBlocklyLabel = "scrape_ringer"
     this.updateAlternativeBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
       // uses the program obj, so only makes sense if we have one
@@ -758,7 +916,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         init: function() {
           this.appendDummyInput()
               .appendField("scrape")
-              .appendField(new Blockly.FieldTextInput("node"), "node") // switch to pulldown
+              .appendField(new Blockly.FieldImage("node", maxDim, maxHeight, "node image"), "node")
               .appendField("in")
               .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page")
               .appendField("and call it")
@@ -768,11 +926,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           this.setColour(280);
         },
         onchange: function(ev) {
-          console.log("ev in blockly scrape", ev);
           var newName = this.getFieldValue("name");
-          var currentName = this.WALStatement.currentNode.getName();
+          var currentName = getWAL(this).currentNode.getName();
           if (newName !== defaultName && (newName !== currentName)){
-            this.WALStatement.currentNode.setName(newName);
+            getWAL(this).currentNode.setName(newName);
             // new name so update all our program display stuff
             UIObject.updateDisplayedScript(false); // update without updating how blockly appears
           }
@@ -790,17 +947,22 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (this.relation){
         // scrapes a relation node, so don't let the user name the node here probably?
         this.block = workspace.newBlock(this.blocklyLabel);
+        this.block.setFieldValue(nodeRepresentation(this), "node");
       }
       else{
         // ah, a ringer-scraped node
         this.block = workspace.newBlock(this.alternativeBlocklyLabel);
         this.block.setFieldValue(this.currentNode.getName(), "name");
+        this.block.setFieldValue(nodeRepresentation(this), "node", maxDim, maxHeight, "node image");
       }
-      this.block.setFieldValue(nodeRepresentation(this), "node");
       this.block.setFieldValue(this.pageVar.toString(), "page");
       attachToPrevBlock(this.block, prevBlock);
-      this.block.WALStatement = this;
+      setWAL(this.block, this);
       return this.block;
+    };
+
+    this.getHelena = function _getHelena(){
+      return this;
     };
 
     this.traverse = function _traverse(fn, fn2){
@@ -838,19 +1000,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       WALconsole.log("scraping cleantrace", this.cleanTrace);
       var relationColumnUsed = parameterizeNodeWithRelation(this, relation, this.pageVar); // this sets the currentNode
       if (relationColumnUsed){
-        relationColumnUsed.scraped = true; // need the relation column to keep track of the fact that this is being scraped
-        // this is cool because now we don't need to actually run scraping interactions to get the value, so let's update the cleanTrace to reflect that
-        /*
-        for (var i = this.cleanTrace.length - 1; i >= 0; i--){
-          if (this.cleanTrace[i].additional && this.cleanTrace[i].additional.scrape && this.cleanTrace[i].data.type !== "focus"){
-            // todo: do we need to add this to the above condition:
-            // && !(["keyup", "keypress", "keydown"].indexOf(this.cleanTrace[i].data.type) > -1)
-            // todo: the below is commented out for debugging;  fix it
-            this.cleanTrace.splice(i, 1);
-          }
-        }
-        WALconsole.log("shortened cleantrace", this.cleanTrace);
-        */
         return [relationColumnUsed];
       }
       else {
@@ -1003,14 +1152,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // for now, assume the ones we saw at record time are the ones we'll want at replay
       this.currentNode = this.currentNode = makeNodeVariableForTrace(trace);
       this.origNode = this.node;
-      this.currentTypedString = this.typedString;
+      this.currentTypedString = new pub.String(this.typedString);
 
       // we want to do slightly different things for cases where the typestatement only has keydowns or only has keyups (as when ctrl, shift, alt used)
       var onlyKeydowns = _.reduce(textEntryEvents, function(acc, e){return acc && e.data.type === "keydown"}, true);
       if (onlyKeydowns){
         this.onlyKeydowns = true;
       }
-      var onlyKeyups = _.reduce(textEntryEvents, function(acc, e){return acc && (e.data.type === "keyup" || !EventM.getVisible(e))}, true); // all events are keyups or invisible
+      var onlyKeyups = _.reduce(textEntryEvents, function(acc, e){return acc && (e.data.type === "keyup")}, true); // all events are keyups or invisible
       if (onlyKeyups){
         this.onlyKeyups = true;
       }
@@ -1041,7 +1190,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         stringRep = this.currentTypedString.toString();
       }
       else{
-        stringRep = "'"+this.currentTypedString+"'";
+        stringRep = this.currentTypedString;
       }
       return stringRep;
     };
@@ -1076,15 +1225,17 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
       // uses the program obj, so only makes sense if we have one
       if (!program){return;}
-      addToolboxLabel(this.blocklyLabel, "web");
+      // addToolboxLabel(this.blocklyLabel, "web");
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
           this.appendDummyInput()
-              .appendField("type")
-              .appendField(new Blockly.FieldTextInput("text"), "text")
+              .appendField("type");
+          this.appendValueInput("currentTypedString");
+          this.appendDummyInput()
               .appendField("in")
               .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
+          this.setInputsInline(true);
           this.setPreviousStatement(true, null);
           this.setNextStatement(true, null);
           this.setColour(280);
@@ -1095,17 +1246,38 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       if (!this.onlyKeyups && !this.onlyKeydowns){
         this.block = workspace.newBlock(this.blocklyLabel);
-        this.block.setFieldValue(this.stringRep(), "text");
         this.block.setFieldValue(this.pageVar.toString(), "page");
         attachToPrevBlock(this.block, prevBlock);
-        this.block.WALStatement = this;
+        setWAL(this.block, this);
+
+        if (this.currentTypedString){
+          attachToInput(this.block, this.currentTypedString.genBlocklyNode(this.block, workspace), "currentTypedString");
+        }
+
         return this.block;
       }
-      return null;
+      // let's make some new blocks for keyup and keydown only situations
+      else {
+        return null;
+      }
+    };
+
+    this.getHelena = function _getHelena(){
+      var currentTypedString = this.block.getInput('currentTypedString').connection.targetBlock();
+      if (currentTypedString){
+        this.currentTypedString = getWAL(currentTypedString).getHelena();
+      }
+      else{
+        this.currentTypedString = null;
+      }
+      return this;
     };
 
     this.traverse = function _traverse(fn, fn2){
       fn(this);
+      if (this.currentTypedString){
+        this.currentTypedString.traverse(fn, fn2);
+      }
       fn2(this);
     };
 
@@ -1169,15 +1341,18 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.unParameterizeForRelation = function _unParameterizeForRelation(relation){
       unParameterizeNodeWithRelation(this, relation);
       if (this.typedStringParameterizationRelation === relation){
-        this.currentTypedString = this.typedString;
+        this.currentTypedString = new pub.String(this.typedString);
       }
     };
 
     function currentNodeText(statement, environment){
-      if (statement.currentTypedString instanceof WebAutomationLanguage.Concatenate){
-        return statement.currentTypedString.currentText(environment);
+      return statement.currentTypedString.getCurrentVal();
+    }
+
+    this.run = function _run(runObject, rbbcontinuation, rbboptions){
+      if (this.currentTypedString){
+        this.currentTypedString.run(runObject, rbbcontinuation, rbboptions);
       }
-      return statement.currentTypedString; // this means currentNode better be a string if it's not a concatenate node
     }
 
     this.args = function _args(environment){
@@ -1185,7 +1360,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (this.currentNode instanceof WebAutomationLanguage.NodeVariable && this.currentNode.getSource() === NodeSources.RELATIONEXTRACTOR){ // we only want to pbv for things that must already have been extracted by relation extractor
         args.push({type:"node", value: currentNodeXpath(this, environment)});
       }
-      args.push({type:"typedString", value: currentNodeText(this, environment)});
+      args.push({type:"typedString", value: this.currentTypedString.getCurrentVal()});
       args.push({type:"tab", value: currentTab(this)});
       return args;
     };
@@ -1235,7 +1410,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
       // uses the program obj, so only makes sense if we have one
       if (!program){return;}
-      addToolboxLabel(this.blocklyLabel, "web");
+      // addToolboxLabel(this.blocklyLabel, "web");
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
           this.appendDummyInput()
@@ -1250,8 +1425,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       this.block = workspace.newBlock(this.blocklyLabel);
       attachToPrevBlock(this.block, prevBlock);
-      this.block.WALStatement = this;
+      setWAL(this.block, this);
       return this.block;
+    };
+
+    this.getHelena = function _getHelena(){
+      return this;
     };
 
     this.traverse = function _traverse(fn, fn2){
@@ -1370,8 +1549,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       this.block = workspace.newBlock(this.blocklyLabel);
       attachToPrevBlock(this.block, prevBlock);
-      this.block.WALStatement = this;
+      setWAL(this.block, this);
       return this.block;
+    };
+
+    this.getHelena = function _getHelena(){
+      return this;
     };
 
     this.traverse = function _traverse(fn, fn2){
@@ -1385,6 +1568,283 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   };
 
 
+  pub.NodeVariableUse = function _NodeVariableUse(scrapeStatement){
+    Revival.addRevivalLabel(this);
+    setBlocklyLabel(this, "variableUse");
+    var varNameFieldName = 'varNameFieldName';
+    this.nodeVar = null;
+    if (scrapeStatement){
+      this.nodeVar = scrapeStatement.currentNode;
+    }
+
+    this.remove = function _remove(){
+      this.parent.removeChild(this);
+    }
+
+    this.prepareToRun = function _prepareToRun(){
+      return;
+    };
+    this.clearRunningState = function _clearRunningState(){
+      return;
+    }
+
+    this.toStringLines = function _toStringLines(){
+      if (this.nodeVar){
+        return [this.nodeVar.getName()];
+      }
+      else{
+        return [""];
+      }
+    };
+
+    this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
+      // uses the program obj, so only makes sense if we have one
+      if (!program){return;}
+      addToolboxLabel(this.blocklyLabel);
+      var handleVarChange = function(newVarName){
+        if (this.sourceBlock_){
+          console.log("updating node to ", newVarName);
+          getWAL(this.sourceBlock_).nodeVar = getNodeVariableByName(newVarName);
+        }
+      };
+      Blockly.Blocks[this.blocklyLabel] = {
+        init: function() {
+          if (program){
+            var varNamesDropDown = makeVariableNamesDropdown(program);
+            if (varNamesDropDown.length > 0){
+              this.appendValueInput('NodeVariableUse')
+                  .appendField(new Blockly.FieldDropdown(varNamesDropDown, handleVarChange), varNameFieldName);
+              
+              this.setOutput(true, 'NodeVariableUse');
+              this.setColour(25);
+              // the following is an important pattern
+              // this might be a new block, in which case searching for existing wal statement for the block with this block's id
+              // will be pointless; but if init is being called because a block is being restored from the trashcan, then we have
+              // to do this check or we'll overwrite the existing Helena stuff, which would lose important state
+              // (in this case, the information about the node variable/what node it actually represents)
+              var wal = getWAL(this);
+              if (!wal){
+                setWAL(this, new pub.NodeVariableUse());
+                var name = varNamesDropDown[0][0];
+                getWAL(this).nodeVar = getNodeVariableByName(name); // since this is what it'll show by default, better act as though that's true
+              }
+            }
+          }
+        }
+      };
+    };
+
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
+      this.block = workspace.newBlock(this.blocklyLabel);
+      // nope!  this one doesn't attach to prev! attachToPrevBlock(this.block, prevBlock);
+      setWAL(this.block, this);
+      this.block.setFieldValue(this.nodeVar.getName(), varNameFieldName);
+      return this.block;
+    };
+
+    this.getHelena = function _getHelena(){
+      return this;
+    };
+
+    this.getHelenaSeq = function _getHelenaSeq(){
+      var inputSeq = getInputSeq(this.block, "NodeVariableUse");
+      var fullSeq = [this].concat(inputSeq);
+      return fullSeq;
+    };
+
+    this.traverse = function _traverse(fn, fn2){
+      fn(this);
+      fn2(this);
+    };
+
+    this.run = function _run(runObject, rbbcontinuation, rbboptions){
+      // just retrieve the val
+      this.currentVal = runObject.environment.envLookup(this.nodeVar.getName());
+    };
+
+    this.getCurrentVal = function _getCurrentVal(){
+      // remember!  currentval is an object with text, link, source url, xpath, that stuff
+      // so if the val is being used, we have to pull out just the text
+      return this.currentVal.text;
+    };
+
+    this.parameterizeForRelation = function _parameterizeForRelation(relation){
+      return [];
+    };
+    this.unParameterizeForRelation = function _unParameterizeForRelation(relation){
+      return;
+    };
+  };
+
+
+  pub.Number = function _Number(){
+    Revival.addRevivalLabel(this);
+    setBlocklyLabel(this, "num");
+    var numberFieldName = 'numberFieldName';
+    this.currentValue = null;
+
+    this.remove = function _remove(){
+      this.parent.removeChild(this);
+    }
+
+    this.prepareToRun = function _prepareToRun(){
+      return;
+    };
+    this.clearRunningState = function _clearRunningState(){
+      return;
+    }
+
+    this.toStringLines = function _toStringLines(){
+      if (this.nodeVar){
+        return [this.currentVal];
+      }
+      else{
+        return [""];
+      }
+    };
+
+    this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
+      addToolboxLabel(this.blocklyLabel, "numbers");
+      var defaultNum = 100;
+      Blockly.Blocks[this.blocklyLabel] = {
+        init: function() {
+          var wal = getWAL(this);
+          if (!wal){
+            setWAL(this, new pub.Number());
+          }
+
+          this.appendDummyInput()
+              .appendField(new Blockly.FieldNumber(defaultNum, null, null, null, function(newNum){getWAL(this.sourceBlock_).currentValue = newNum;}), numberFieldName);
+
+          this.setOutput(true, 'number');
+          this.setColour(25);
+          getWAL(this).currentValue = defaultNum;
+        }
+      };
+    };
+
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
+      this.block = workspace.newBlock(this.blocklyLabel);
+      setWAL(this.block, this);
+      if (this.currentValue){
+        this.block.setFieldValue(this.currentValue, numberFieldName);
+      }
+      return this.block;
+    };
+
+    this.getHelena = function _getHelena(){
+      return this;
+    };
+
+    this.traverse = function _traverse(fn, fn2){
+      fn(this);
+      fn2(this);
+    };
+
+    this.run = function _run(runObject, rbbcontinuation, rbboptions){
+      // it's just a constant.  no need to do anything
+    };
+
+    this.getCurrentVal = function _getCurrentVal(){
+      return this.currentValue;
+    };
+
+    this.parameterizeForRelation = function _parameterizeForRelation(relation){
+      return [];
+    };
+    this.unParameterizeForRelation = function _unParameterizeForRelation(relation){
+      return;
+    };
+  };
+
+  pub.String = function _String(currString){
+    Revival.addRevivalLabel(this);
+    setBlocklyLabel(this, "string");
+    var stringFieldName = 'stringFieldName';
+    if (currString){
+      this.currentValue = currString;
+    }
+    else{
+      this.currentValue = "your text here";
+    }
+
+    this.remove = function _remove(){
+      this.parent.removeChild(this);
+    }
+
+    this.prepareToRun = function _prepareToRun(){
+      return;
+    };
+    this.clearRunningState = function _clearRunningState(){
+      return;
+    }
+
+    this.toStringLines = function _toStringLines(){
+      if (this.nodeVar){
+        return [this.currentValue];
+      }
+      else{
+        return [""];
+      }
+    };
+
+    this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
+      addToolboxLabel(this.blocklyLabel, "text");
+      var text = this.currentValue;
+      Blockly.Blocks[this.blocklyLabel] = {
+        init: function() {
+          var wal = getWAL(this);
+          if (!wal){
+            setWAL(this, new pub.String());
+          }
+
+          this.appendDummyInput()
+              .appendField(new Blockly.FieldTextInput(text, 
+                function(newStr){
+                  getWAL(this.sourceBlock_).currentValue = newStr;
+                }), stringFieldName);
+
+          this.setOutput(true, 'string');
+          this.setColour(25);
+          getWAL(this).currentValue = text;
+        }
+      };
+    };
+
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
+      this.block = workspace.newBlock(this.blocklyLabel);
+      setWAL(this.block, this);
+      if (this.currentValue){
+        this.block.setFieldValue(this.currentValue, stringFieldName);
+      }
+      return this.block;
+    };
+
+    this.getHelena = function _getHelena(){
+      return this;
+    };
+
+    this.traverse = function _traverse(fn, fn2){
+      fn(this);
+      fn2(this);
+    };
+
+    this.run = function _run(runObject, rbbcontinuation, rbboptions){
+      // it's just a constant.  no need to do anything
+    };
+
+    this.getCurrentVal = function _getCurrentVal(){
+      return this.currentValue;
+    };
+
+    this.parameterizeForRelation = function _parameterizeForRelation(relation){
+      return [];
+    };
+    this.unParameterizeForRelation = function _unParameterizeForRelation(relation){
+      return;
+    };
+  };
+
   pub.OutputRowStatement = function _OutputRowStatement(scrapeStatements){
     Revival.addRevivalLabel(this);
     setBlocklyLabel(this, "output");
@@ -1395,8 +1855,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.trace = []; // no extra work to do in r+r layer for this
       this.cleanTrace = [];
       this.scrapeStatements = [];
+      this.variableUseNodes = [];
       for (var i = 0; i < scrapeStatements.length; i++){
         this.addAssociatedScrapeStatement(scrapeStatements[i]);
+        this.variableUseNodes.push(new WebAutomationLanguage.NodeVariableUse(scrapeStatements[i]));
       }
       this.relations = [];
     }
@@ -1435,11 +1897,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       addToolboxLabel(this.blocklyLabel);
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
-          this.appendDummyInput()
+          this.appendValueInput('NodeVariableUse')
               .appendField("output");
+          this.setColour(25);
           this.setPreviousStatement(true, null);
           this.setNextStatement(true, null);
-          this.setColour(25);
         }
       };
     };
@@ -1447,12 +1909,36 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       this.block = workspace.newBlock(this.blocklyLabel);
       attachToPrevBlock(this.block, prevBlock);
-      this.block.WALStatement = this;
+      setWAL(this.block, this);
+      var priorBlock = this.block;
+      for (var i = 0; i < this.variableUseNodes.length; i++){
+        var vun = this.variableUseNodes[i];
+        var block = vun.genBlocklyNode(this.block, workspace);
+        attachInputToOutput(priorBlock, block);
+        priorBlock = block;
+      }
       return this.block;
+    };
+
+    this.getHelena = function _getHelena(){
+      // update our list of variable nodes based on the current blockly situation
+      var firstInput = this.block.getInput('NodeVariableUse');
+      if (firstInput){
+        var inputSeq = getWAL(firstInput.connection.targetBlock()).getHelenaSeq();
+        this.variableUseNodes = inputSeq;        
+      }
+      else{
+        this.variableUseNodes = [];
+      }
+      return this;
     };
 
     this.traverse = function _traverse(fn, fn2){
       fn(this);
+      for (var i = 0; i < this.variableUseNodes.length; i++){
+        var e = this.variableUseNodes[i];
+        e.traverse(fn, fn2);
+      }
       fn2(this);
     };
 
@@ -1495,35 +1981,33 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return newCells;
     }
 
-    this.postReplayProcessing = function _postReplayProcessing(runObject, trace, temporaryStatementIdentifier){
+    this.run = function _run(runObject, rbbcontinuation, rbboptions){
       // we've 'executed' an output statement.  better send a new row to our output
       var cells = [];
-      // get all the cells that we'll get from the text relations
-      for (var i = 0; i < this.relations.length; i++){
-        var relation = this.relations[i];
-        var newCells = relation.getCurrentCellsText(runObject.environment);
-        newCells = convertTextArrayToArrayOfTextCells(newCells);
-        cells = cells.concat(newCells);
+
+      // let's switch to using the nodeVariableUses that we keep
+      for (var i = 0; i < this.variableUseNodes.length; i++){
+        var vun = this.variableUseNodes[i];
+        vun.run(runObject, rbbcontinuation, rbboptions);
+        var v = vun.getCurrentVal();
+        cells.push(v);
       }
-      // get all the cells that we'll get from the scrape statements
-      _.each(this.scrapeStatements, function(scrapeStatment){
-        cells.push(scrapeStatment.currentNodeCurrentValue);
-      });
 
       // for now we're assuming we always want to show the number of iterations of each loop as the final columns
       var loopIterationCounterTexts = _.map(getLoopIterationCounters(this), function(i){return i.toString();});
-      var iterationCells = convertTextArrayToArrayOfTextCells(loopIterationCounterTexts);
-      _.each(iterationCells, function(ic){cells.push(ic);});
+      _.each(loopIterationCounterTexts, function(ic){cells.push(ic);});
       
-	// todo: why are there undefined things in here!!!!????  get rid of them.  seriously, fix that
-	cells = _.filter(cells, function(cell){return cell;});
+      // todo: why are there undefined things in here!!!!????  get rid of them.  seriously, fix that
+      cells = _.filter(cells, function(cell){return cell;});
 
       runObject.dataset.addRow(cells);
       runObject.program.mostRecentRow = cells;
 
-      var displayTextCells = _.map(cells, function(cell){if (!cell){return "NULL";} if (cell.scraped_attribute === "LINK"){return cell.link;} else {return cell.text;}});
+      var displayTextCells = _.map(cells, function(cell){if (!cell){return "EMPTY";} else {return cell;}});
       UIObject.addNewRowToOutput(runObject.tab, displayTextCells);
       UIObject.updateRowsSoFar(runObject.tab, runObject.dataset.fullDatasetLength);
+
+      rbbcontinuation(rbboptions); // and carry on when done
     };
 
     if (doInitialize){
@@ -1569,6 +2053,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return null;
     };
 
+    this.getHelena = function _getHelena(){
+      // this should never be called, because should never be represented in blockly
+    };
+
     this.traverse = function _traverse(fn, fn2){
       fn(this);
       fn2(this);
@@ -1576,18 +2064,18 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.run = function _run(runObject, rbbcontinuation, rbboptions){
       WALconsole.log("run back statement");
-	// if something went wrong, we won't have a pagevar tabid, ugh
-	if (!this.pageVarCurr.currentTabId()){
-	    rbbcontinuation(rbboptions);
-	    return;
-	}
-	var pageVarTabId = this.pageVarCurr.currentTabId();
-	this.pageVarCurr.clearCurrentTabId();
+  // if something went wrong, we won't have a pagevar tabid, ugh
+  if (!this.pageVarCurr.currentTabId()){
+      rbbcontinuation(rbboptions);
+      return;
+  }
+  var pageVarTabId = this.pageVarCurr.currentTabId();
+  this.pageVarCurr.clearCurrentTabId();
 
       // ok, the only thing we're doing right now is trying to run this back button, so the next time we see a tab ask for an id
       // it should be because of this -- yes, theoretically there could be a process we started earlier that *just* decided to load a new top-level page
       // but that should probably be rare.  todo: is that actually rare?
-	var that = this;
+  var that = this;
       utilities.listenForMessageOnce("content", "mainpanel", "requestTabID", function _backListener(data){
         WALconsole.log("back completed");
         backStatement.pageVarBack.setCurrentTabId(pageVarTabId, function(){rbbcontinuation(rbboptions);});
@@ -1643,6 +2131,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return null;
     };
 
+    this.getHelena = function _getHelena(){
+      // this should never be called bc should never be represented in blockly
+    };
+
     this.traverse = function _traverse(fn, fn2){
       fn(this);
       fn2(this);
@@ -1670,8 +2162,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           }); 
         }
         else{
-	  // it's still ok to clear current tab, but don't close it
-	  that.pageVarCurr.clearCurrentTabId();
+    // it's still ok to clear current tab, but don't close it
+    that.pageVarCurr.clearCurrentTabId();
           rbbcontinuation(rbboptions);
         }
       }
@@ -1717,6 +2209,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           this.setPreviousStatement(true, null);
           this.setNextStatement(true, null);
           this.setColour(25);
+          var wal = getWAL(this);
+          if (!wal){
+            setWAL(this, new pub.ContinueStatement());
+          }
         }
       };
     };
@@ -1724,8 +2220,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       this.block = workspace.newBlock(this.blocklyLabel);
       attachToPrevBlock(this.block, prevBlock);
-      this.block.WALStatement = this;
+      setWAL(this.block, this);
       return this.block;
+    };
+
+    this.getHelena = function _getHelena(){
+      return this;
     };
 
     this.traverse = function _traverse(fn, fn2){
@@ -1775,7 +2275,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         console.log("this", this);
         console.log("this.sourceBlock_", this.sourceBlock_);
         if (this.sourceBlock_){
-          this.sourceBlock_.WALStatement.wait = newWait;
+          getWAL(this.sourceBlock_).wait = newWait;
         }
       };
       Blockly.Blocks[this.blocklyLabel] = {
@@ -1787,7 +2287,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           this.setPreviousStatement(true, null);
           this.setNextStatement(true, null);
           this.setColour(25);
-          this.WALStatement = new pub.WaitStatement();
+          var wal = getWAL(this);
+          if (!wal){
+            setWAL(this, new pub.WaitStatement());
+          }
         }
       };
     };
@@ -1795,9 +2298,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       this.block = workspace.newBlock(this.blocklyLabel);
       attachToPrevBlock(this.block, prevBlock);
-      this.block.WALStatement = this;
+      setWAL(this.block, this);
       this.block.setFieldValue(this.wait, waitFieldName);
       return this.block;
+    };
+
+    this.getHelena = function _getHelena(){
+      return this;
     };
 
     this.traverse = function _traverse(fn, fn2){
@@ -1848,7 +2355,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           this.setPreviousStatement(true, null);
           this.setNextStatement(true, null);
           this.setColour(25);
-          this.WALStatement = new pub.WaitUntilUserReadyStatement();
+          var wal = getWAL(this);
+          if (!wal){
+            setWAL(this, new pub.WaitUntilUserReadyStatement());
+          }
         }
       };
     };
@@ -1856,8 +2366,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       this.block = workspace.newBlock(this.blocklyLabel);
       attachToPrevBlock(this.block, prevBlock);
-      this.block.WALStatement = this;
+      setWAL(this.block, this);
       return this.block;
+    };
+
+    this.getHelena = function _getHelena(){
+      return this;
     };
 
     this.traverse = function _traverse(fn, fn2){
@@ -1891,8 +2405,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   pub.SayStatement = function _SayStatement(){
     Revival.addRevivalLabel(this);
     setBlocklyLabel(this, "say");
-    var textToSayFieldName = 'textToSay';
-    this.textToSay = "";
+    this.textToSay = null;
 
     this.remove = function _remove(){
       this.parent.removeChild(this);
@@ -1913,101 +2426,21 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       addToolboxLabel(this.blocklyLabel);
       var handleTextToSayChange = function(newText){
         if (this.sourceBlock_){
-          this.sourceBlock_.WALStatement.textToSay = newText;
+          getWAL(this.sourceBlock_).textToSay = newText;
         }
       };
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
           this.appendDummyInput()
-              .appendField("say")
-              .appendField(new Blockly.FieldTextInput('your text here', handleTextToSayChange), textToSayFieldName);
+              .appendField("say");
+          this.appendValueInput("textToSay");
+          this.setInputsInline(true);
           this.setPreviousStatement(true, null);
           this.setNextStatement(true, null);
           this.setColour(25);
-          this.WALStatement = new pub.SayStatement();
-        }
-      };
-    };
-
-    this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
-      this.block = workspace.newBlock(this.blocklyLabel);
-      attachToPrevBlock(this.block, prevBlock);
-      this.block.WALStatement = this;
-      this.block.setFieldValue(this.textToSay, textToSayFieldName);
-      return this.block;
-    };
-
-    this.traverse = function _traverse(fn, fn2){
-      fn(this);
-      fn2(this);
-    };
-
-    this.run = function _run(runObject, rbbcontinuation, rbboptions){
-      // say the thing, then call rbbcontinuation on rbboptions
-      console.log("saying", this.textToSay);
-      say(this.textToSay);
-      rbbcontinuation(rbboptions);
-    };
-
-    this.parameterizeForRelation = function _parameterizeForRelation(relation){
-      return [];
-    };
-    this.unParameterizeForRelation = function _unParameterizeForRelation(relation){
-      return;
-    };
-  };
-
-
-  pub.SayNodeStatement = function _SayNodeStatement(){
-    Revival.addRevivalLabel(this);
-    setBlocklyLabel(this, "sayNode");
-    var textToSayFieldName = 'nodeName';
-    this.varName = null;
-
-    this.remove = function _remove(){
-      this.parent.removeChild(this);
-    }
-
-    this.prepareToRun = function _prepareToRun(){
-      return;
-    };
-    this.clearRunningState = function _clearRunningState(){
-      return;
-    }
-
-    this.toStringLines = function _toStringLines(){
-      if (this.varName){
-        return ["say " + varName];
-      }
-      else{
-        return ["say nothing -- no node chosen"];
-      }
-    };
-
-    this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
-      // uses the program obj, so only makes sense if we have one
-      if (!program){return;}
-      addToolboxLabel(this.blocklyLabel);
-      var handleTextToSayChange = function(newVarName){
-        if (this.sourceBlock_){
-          console.log("updating node to say to", newVarName);
-          this.sourceBlock_.WALStatement.varName = newVarName;
-        }
-      };
-      Blockly.Blocks[this.blocklyLabel] = {
-        init: function() {
-          if (program){
-            var varNamesDropDown = makeVariableNamesDropdown(program);
-            if (varNamesDropDown.length > 0){
-              this.appendDummyInput()
-                  .appendField("say")
-                  .appendField(new Blockly.FieldDropdown(varNamesDropDown, handleTextToSayChange), textToSayFieldName);
-              this.setPreviousStatement(true, null);
-              this.setNextStatement(true, null);
-              this.setColour(25);
-              this.WALStatement = new pub.SayNodeStatement();
-              this.WALStatement.varName = varNamesDropDown[0][0]; // since this is what it'll show by default, better act as though that's true
-            }
+          var wal = getWAL(this);
+          if (!wal){
+            setWAL(this, new pub.SayStatement());
           }
         }
       };
@@ -2016,9 +2449,24 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       this.block = workspace.newBlock(this.blocklyLabel);
       attachToPrevBlock(this.block, prevBlock);
-      this.block.WALStatement = this;
-      this.block.setFieldValue(this.varName, textToSayFieldName);
+      setWAL(this.block, this);
+
+      if (this.textToSay){
+        attachToInput(this.block, this.textToSay.genBlocklyNode(this.block, workspace), "textToSay");
+      }
+
       return this.block;
+    };
+
+    this.getHelena = function _getHelena(){
+      var textToSayBlock = this.block.getInput('textToSay').connection.targetBlock();
+      if (textToSayBlock){
+        this.textToSay = getWAL(textToSayBlock).getHelena();
+      }
+      else{
+        this.textToSay = null;
+      }
+      return this;
     };
 
     this.traverse = function _traverse(fn, fn2){
@@ -2028,15 +2476,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.run = function _run(runObject, rbbcontinuation, rbboptions){
       // say the thing, then call rbbcontinuation on rbboptions
-      var textToSay = runObject.environment.envLookup(this.varName);
-      // the only thing we put in env now is our weird representation of nodes.  not even a nodeVariable rep, but something else that we get from scraping
-      // todo: might want to fix what we store.  but eh, this is fine for now
-      if (textToSay.text){
-        textToSay = textToSay.text;
-        // if we don't have a text field, then we'll just go with the default and it'll probably be [object object]
+      if (this.textToSay){
+        this.textToSay.run(runObject, rbbcontinuation, rbboptions);
+        console.log("saying", this.textToSay);
+        say(this.textToSay.getCurrentVal());
       }
-      console.log("saying", textToSay);
-      say(textToSay);
       rbbcontinuation(rbboptions);
     };
 
@@ -2051,6 +2495,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   pub.IfStatement = function _IfStatement(bodyStatements){
     Revival.addRevivalLabel(this);
     setBlocklyLabel(this, "if");
+    this.condition = null;
 
     if (bodyStatements){ // we will sometimes initialize with undefined, as when reviving a saved program
       this.updateChildStatements(bodyStatements);
@@ -2092,11 +2537,19 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       addToolboxLabel(this.blocklyLabel);
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
-          this.appendDummyInput()
+          this.appendValueInput('NodeVariableUse')
               .appendField("if");
           this.setPreviousStatement(true, null);
           this.setNextStatement(true, null);
+          this.appendStatementInput("statements") // important for our processing that we always call this statements
+              .setCheck(null)
+              .appendField("do");
           this.setColour(25);
+
+          var wal = getWAL(this);
+          if (!wal){
+            setWAL(this, new pub.IfStatement());
+          }
         }
       };
     };
@@ -2104,12 +2557,44 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       this.block = workspace.newBlock(this.blocklyLabel);
       attachToPrevBlock(this.block, prevBlock);
-      this.block.WALStatement = this;
+
+      // handle the condition
+      if (this.condition){
+        var cond = this.condition.genBlocklyNode(this.block, workspace);
+        attachToInput(this.block, cond, "NodeVariableUse");
+      }
+      
+      // handle the body statements
+      var firstNestedBlock = helenaSeqToBlocklySeq(this.bodyStatements, workspace);
+      attachNestedBlocksToWrapper(this.block, firstNestedBlock);
+
+      setWAL(this.block, this);
       return this.block;
+    };
+
+    this.getHelena = function _getHelena(){
+      // all well and good to have the things attached after this block, but also need the bodyStatements updated
+      var firstNestedBlock = this.block.getInput('statements').connection.targetBlock();
+      var helenaSequence = blocklySeqToHelenaSeq(firstNestedBlock);
+      this.bodyStatements = helenaSequence;
+
+      // ok, but we also want to update our own condition object
+      var conditionBlocklyBlock = this.block.getInput('NodeVariableUse').connection.targetBlock();
+      if (conditionBlocklyBlock){
+        var conditionHelena = getWAL(conditionBlocklyBlock).getHelena();
+        this.condition = conditionHelena;        
+      }
+      else{
+        this.condition = null;
+      }
+      return this;
     };
 
     this.traverse = function _traverse(fn, fn2){
       fn(this);
+      if (this.condition){
+        this.condition.traverse(fn, fn2);
+      }
       for (var i = 0; i < this.bodyStatements.length; i++){
         this.bodyStatements[i].traverse(fn, fn2);
       }
@@ -2121,39 +2606,17 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       for (var i = 0; i < this.bodyStatements.length; i++){
         this.bodyStatements[i].parent = this;
       }
-    }
+    };
 
     this.run = function _run(runObject, rbbcontinuation, rbboptions){
-      // todo: the condition is hard-coded for now, but obviously we should ultimately have real conds
-      if (runObject.environment.envLookup("cases.case_id").indexOf("CVG") !== 0){ // todo: want to check if first scrape statement scrapes something with "CFG" in it
-        if (this.bodyStatements.length < 1){
-          // ok seriously, why'd you make an if with no body?  come on.
-          rbbcontinuation(rbboptions);
-          return;
-        }
-        // let's run the first body statement, make a continuation for running the remaining ones
-        var bodyStatements = this.bodyStatements;
-        var currBodyStatementsIndex = 1;
-        var bodyStatmentsLength = this.bodyStatements.length;
-        var newContinuation = function(rbboptions){ // remember that rbbcontinuations must always handle options.skipMode
-          if (rbboptions.skipMode || rbboptions.breakMode){
-            // executed a continue statement, so don't carry on with this if
-            rbbcontinuation(rbboptions);
-            return;
-          }
-          if (currBodyStatementsIndex === bodyStatmentsLength){
-            // finished with the body statements, call original continuation
-            rbbcontinuation(rbboptions);
-            return;
-          }
-          else{
-            // still working on the body of the current if statement, keep going
-            currBodyStatementsIndex += 1;
-            bodyStatements[currBodyStatementsIndex - 1].run(runObject, newContinuation);
-          }
-        }
-        // actually run that first statement
-        bodyStatements[0].run(runObject, newContinuation);
+      // first thing first, run everything on which you depend
+      this.condition.run(runObject, rbbcontinuation, rbboptions);
+      if (this.condition.getCurrentVal()){
+        // so basically all that's going to happen here is we'll go ahead and decide to run the bodyStatements of the if
+        // statement before we go back to running what comes after the if
+        // so....
+        // runObject.program.runBasicBlock(runObject, entityScope.bodyStatements, rbbcontinuation, rbboptions);
+        runObject.program.runBasicBlock(runObject, this.bodyStatements, rbbcontinuation, rbboptions);
       }
       else{
         // for now we don't have else body statements for our ifs, so we should just carry on with execution
@@ -2163,6 +2626,236 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
     this.parameterizeForRelation = function _parameterizeForRelation(relation){
       // todo: once we have real conditions may need to do something here
+      return [];
+    };
+    this.unParameterizeForRelation = function _unParameterizeForRelation(relation){
+      return;
+    };
+  };
+
+  pub.BinOpNum = function _BinOpNum(){
+    Revival.addRevivalLabel(this);
+    setBlocklyLabel(this, "binopnum");
+    this.left = null;
+    this.right = null;
+    this.operator = null;
+
+    this.remove = function _remove(){
+      this.parent.removeChild(this);
+    }
+
+    this.prepareToRun = function _prepareToRun(){
+      return;
+    };
+    this.clearRunningState = function _clearRunningState(){
+      return;
+    }
+
+    this.toStringLines = function _toStringLines(){
+      return ["binopnum"];
+    };
+
+    var operators = {
+       '>': function(a, b){ return a>b},
+       '>=': function(a, b){ return a>=b},
+       '==': function(a, b){ return a===b},
+       '<': function(a, b){ return a<b},
+       '<=': function(a, b){ return a<=b}
+    };
+    var handleOpChange = function(newOp){
+        if (this.sourceBlock_ && getWAL(this.sourceBlock_)){
+          getWAL(this.sourceBlock_).operator = newOp;
+        }
+    };
+
+    this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
+      var dropdown = makeOpsDropdown(operators);
+      addToolboxLabel(this.blocklyLabel, "numbers");
+      Blockly.Blocks[this.blocklyLabel] = {
+        init: function() {
+          this.appendValueInput("left");
+          this.appendDummyInput().appendField(new Blockly.FieldDropdown(dropdown, handleOpChange), "op");
+          this.appendValueInput("right");
+          this.setInputsInline(true);
+          this.setOutput(true, 'Bool');
+          this.setColour(25);
+
+          var wal = getWAL(this);
+          if (!wal){
+            setWAL(this, new pub.BinOpNum());
+            var op = dropdown[0][0];
+            getWAL(this).operator = op; // since this is what it'll show by default, better act as though that's true
+          }
+        }
+      };
+    };
+
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
+      this.block = workspace.newBlock(this.blocklyLabel);
+      setWAL(this.block, this);
+      this.block.setFieldValue(this.operator, "op");
+      if (this.left){
+        attachToInput(this.block, this.left.genBlocklyNode(this.block, workspace), "left");
+      }
+      if (this.right){
+        attachToInput(this.block, this.right.genBlocklyNode(this.block, workspace), "right");
+      }
+      return this.block;
+    };
+
+    this.getHelena = function _getHelena(){
+      // ok, but we also want to update our own condition object
+      var leftBlock = this.block.getInput('left').connection.targetBlock();
+      var rightBlock = this.block.getInput('right').connection.targetBlock();
+      if (leftBlock){
+        this.left = getWAL(leftBlock).getHelena();
+      }
+      else{
+        this.left = null;
+      }
+      if (rightBlock){
+        this.right = getWAL(rightBlock).getHelena();
+      }
+      else{
+        this.right = null;
+      }
+      return this;
+    };
+
+    this.traverse = function _traverse(fn, fn2){
+      fn(this);
+      if (this.left){this.left.traverse(fn, fn2);}
+      if (this.right){ this.right.traverse(fn, fn2);}
+      fn2(this);
+    };
+
+    this.run = function _run(runObject, rbbcontinuation, rbboptions){
+      // now run the things on which we depend
+      this.left.run(runObject, rbbcontinuation, rbboptions);
+      this.right.run(runObject, rbbcontinuation, rbboptions);
+
+      var leftVal = parseInt(this.left.getCurrentVal()); // todo: make this float not int
+      var rightVal = parseInt(this.right.getCurrentVal());
+      this.currentVal = operators[this.operator](leftVal, rightVal);
+    };
+    this.getCurrentVal = function _getCurrentVal(){
+      return this.currentVal;
+    };
+    this.parameterizeForRelation = function _parameterizeForRelation(relation){
+      return [];
+    };
+    this.unParameterizeForRelation = function _unParameterizeForRelation(relation){
+      return;
+    };
+  };
+
+  pub.BinOpString = function _BinOpString(){
+    Revival.addRevivalLabel(this);
+    setBlocklyLabel(this, "binopstring");
+    this.left = null;
+    this.right = null;
+    this.operator = null;
+
+    this.remove = function _remove(){
+      this.parent.removeChild(this);
+    }
+
+    this.prepareToRun = function _prepareToRun(){
+      return;
+    };
+    this.clearRunningState = function _clearRunningState(){
+      return;
+    }
+
+    this.toStringLines = function _toStringLines(){
+      return ["binopstring"];
+    };
+
+    var operators = {
+       'contains': function(a, b){ return a.indexOf(b) > -1; },
+       'is in': function(a, b){ return b.indexOf(a) > -1; },
+       'is': function(a, b){ return a === b; }
+    };
+    var handleOpChange = function(newOp){
+        if (this.sourceBlock_ && getWAL(this.sourceBlock_)){
+          getWAL(this.sourceBlock_).operator = newOp;
+        }
+    };
+
+    this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
+      var dropdown = makeOpsDropdown(operators);
+      addToolboxLabel(this.blocklyLabel, "text");
+      Blockly.Blocks[this.blocklyLabel] = {
+        init: function() {
+          this.appendValueInput("left");
+          this.appendDummyInput().appendField(new Blockly.FieldDropdown(dropdown, handleOpChange), "op");
+          this.appendValueInput("right");
+          this.setInputsInline(true);
+          this.setOutput(true, 'Bool');
+          this.setColour(25);
+
+          var wal = getWAL(this);
+          if (!wal){
+            setWAL(this, new pub.BinOpString());
+            var op = dropdown[0][0];
+            getWAL(this).operator = op; // since this is what it'll show by default, better act as though that's true
+          }
+        }
+      };
+    };
+
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
+      this.block = workspace.newBlock(this.blocklyLabel);
+      setWAL(this.block, this);
+      this.block.setFieldValue(this.operator, "op");
+      if (this.left){
+        attachToInput(this.block, this.left.genBlocklyNode(this.block, workspace), "left");
+      }
+      if (this.right){
+        attachToInput(this.block, this.right.genBlocklyNode(this.block, workspace), "right");
+      }
+      return this.block;
+    };
+
+    this.getHelena = function _getHelena(){
+      // ok, but we also want to update our own condition object
+      var leftBlock = this.block.getInput('left').connection.targetBlock();
+      var rightBlock = this.block.getInput('right').connection.targetBlock();
+      if (leftBlock){
+        this.left = getWAL(leftBlock).getHelena();
+      }
+      else{
+        this.left = null;
+      }
+      if (rightBlock){
+        this.right = getWAL(rightBlock).getHelena();
+      }
+      else{
+        this.right = null;
+      }
+      return this;
+    };
+
+    this.traverse = function _traverse(fn, fn2){
+      fn(this);
+      if (this.left){this.left.traverse(fn, fn2);}
+      if (this.right){ this.right.traverse(fn, fn2);}
+      fn2(this);
+    };
+
+    this.run = function _run(runObject, rbbcontinuation, rbboptions){
+      // now run the things on which we depend
+      this.left.run(runObject, rbbcontinuation, rbboptions);
+      this.right.run(runObject, rbbcontinuation, rbboptions);
+
+      var leftVal = this.left.getCurrentVal(); // todo: make this float not int
+      var rightVal = this.right.getCurrentVal();
+      this.currentVal = operators[this.operator](leftVal, rightVal);
+    };
+    this.getCurrentVal = function _getCurrentVal(){
+      return this.currentVal;
+    };
+    this.parameterizeForRelation = function _parameterizeForRelation(relation){
       return [];
     };
     this.unParameterizeForRelation = function _unParameterizeForRelation(relation){
@@ -2371,7 +3064,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           }
 
 
-          this.appendStatementInput("statements")
+          this.appendStatementInput("statements") // must be called this
               .setCheck(null)
               .appendField("do");
           
@@ -2381,8 +3074,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         },
         onchange: function(ev) {
             var newName = this.getFieldValue("name");
-            if (newName !== this.WALStatement.name){
-              this.WALStatement.name = newName;
+            if (newName !== getWAL(this).name){
+              getWAL(this).name = newName;
             }
         }
       };
@@ -2390,11 +3083,19 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       attachToPrevBlock(this.block, prevBlock);
 
       // handle the body statements
-      var firstNestedBlock = genBlocklyBlocksSeq(this.bodyStatements, workspace);
+      var firstNestedBlock = helenaSeqToBlocklySeq(this.bodyStatements, workspace);
       attachNestedBlocksToWrapper(this.block, firstNestedBlock);
 
-      this.block.WALStatement = this;
+      setWAL(this.block, this);
       return this.block;
+    };
+
+    this.getHelena = function _getHelena(){
+      // all well and good to have the things attached after this block, but also need the bodyStatements updated
+      var firstNestedBlock = this.block.getInput('statements').connection.targetBlock();
+      var seq = blocklySeqToHelenaSeq(firstNestedBlock);
+      this.bodyStatements = seq;
+      return this;
     };
 
     this.traverse = function _traverse(fn, fn2){
@@ -2494,9 +3195,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         }
         else{
           // ok, let's just fall back into treating it like normal parallel mode
-          // todo: we should actually fall back into normal skip block mode, not parallel, but parallel
-          // mode is an easy way to convert all our skip blocks to skipping only from this run
-          // which is convenient for the time being
           inParallelMode = true;
         }
       }
@@ -2689,6 +3387,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return [prefix].concat(statementStrings).concat(["}"]);
     };
 
+    function defined(v){
+      return (v !== null && v !== undefined);
+    }
+
+    var maxRowsFieldName = "maxRows";
     this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
       // uses the program obj, so only makes sense if we have one
       if (!program){return;}
@@ -2697,17 +3400,51 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         return;
       }
 
-      addToolboxLabel(this.blocklyLabel);
+      var handleMaxRowsChange = function(newMaxRows){
+        if (this.sourceBlock_ && getWAL(this.sourceBlock_)){
+          getWAL(this.sourceBlock_).maxRows = newMaxRows;
+          // if you changed the maxRows and it's actually defined, should make sure the max rows actually used...
+          if (defined(newMaxRows)){
+            dontUseInfiniteRows.bind(this)();
+          }
+        }
+      };
+      var useInfiniteRows = function(){
+        var block = this.sourceBlock_;
+        setTimeout(function(){
+          block.setFieldValue("TRUE", "infiniteRowsCheckbox");
+          block.setFieldValue("FALSE", "limitedRowsCheckbox");
+        }, 0);
+        getWAL(block).maxRows = null;
+      };
+      var dontUseInfiniteRows = function(){
+        var block = this.sourceBlock_;
+        setTimeout(function(){
+          block.setFieldValue("FALSE", "infiniteRowsCheckbox");
+          block.setFieldValue("TRUE", "limitedRowsCheckbox");
+        }, 0);
+        getWAL(block).maxRows = this.sourceBlock_.getFieldValue(maxRowsFieldName);
+      }
+
+      // addToolboxLabel(this.blocklyLabel);
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
       var relationsDropDown = makeRelationsDropdown(relations);
+      var statement = this;
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
           this.appendDummyInput()
               .appendField("for each row in")
               .appendField(new Blockly.FieldDropdown(relationsDropDown), "list")        
               .appendField("in")
-              .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
-          this.appendStatementInput("statements")
+              .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page")        
+              .appendField("(")
+              .appendField(new Blockly.FieldCheckbox("TRUE", useInfiniteRows), 'infiniteRowsCheckbox')
+              .appendField("for all rows,")
+              .appendField(new Blockly.FieldCheckbox("TRUE", dontUseInfiniteRows), 'limitedRowsCheckbox')
+              .appendField("for the first")
+              .appendField(new Blockly.FieldNumber(20, 0, null, null, handleMaxRowsChange), maxRowsFieldName)      
+              .appendField("rows)");
+          this.appendStatementInput("statements") // important for our processing that we always call this statements
               .setCheck(null)
               .appendField("do");
           this.setPreviousStatement(true, null);
@@ -2725,14 +3462,30 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (this.pageVar){
         this.block.setFieldValue(this.pageVar.toString(), "page");
       }
+      if (this.maxRows){
+        this.block.setFieldValue(this.maxRows, maxRowsFieldName);
+        this.block.setFieldValue("FALSE", "infiniteRowsCheckbox");
+      }
+      else{
+        // we're using infinite rows
+        this.block.setFieldValue("FALSE", "limitedRowsCheckbox");
+      }
       attachToPrevBlock(this.block, prevBlock);
 
       // handle the body statements
-      var firstNestedBlock = genBlocklyBlocksSeq(this.bodyStatements, workspace);
+      var firstNestedBlock = helenaSeqToBlocklySeq(this.bodyStatements, workspace);
       attachNestedBlocksToWrapper(this.block, firstNestedBlock);
 
-      this.block.WALStatement = this;
+      setWAL(this.block, this);
       return this.block;
+    };
+
+    this.getHelena = function _getHelena(){
+      // all well and good to have the things attached after this block, but also need the bodyStatements updated
+      var firstNestedBlock = this.block.getInput('statements').connection.targetBlock();
+      var nested = blocklySeqToHelenaSeq(firstNestedBlock);
+      this.bodyStatements = nested;
+      return this;
     };
 
     this.traverse = function _traverse(fn, fn2){
@@ -2969,26 +3722,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       currentRowsCounter = -1;
     };
 
-    this.isColumnUsed = function _isColumnUsed(colObject){
-      return colObject.scraped;
-    };
-
-    this.setColumnUsed = function _setColumnUsed(colObject, val){
-      colObject.scraped = val;
-    };
-
-
-    this.toggleColumnUsed = function _toggleColumnUsed(colObject){
-      // if it was previously scraped, we must remove it from output statement
-      if (colObject.scraped){
-        colObject.scraped = false; // easy to remove, becuase getCurrentCellsText controls what gets scraped when a text relation included with an outputrowstatement, and just responds to whether .scraped is set
-      }
-      // if it was previously unscraped, we must add it to output statement
-      else{
-        colObject.scraped = true;
-      }
-    };
-
     this.setRelationContents = function _setRelationContents(relationContents){
       this.relation = relationContents;
     }
@@ -3044,6 +3777,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         this.nodeVars = [];
         var nodeReps = this.firstRowNodeRepresentations();
         for (var i = 0; i < nodeReps.length; i++){
+          console.log(i);
           var name = this.columns[i].name;
           this.nodeVars.push(new WebAutomationLanguage.NodeVariable(name, nodeReps[i], null, null, NodeSources.RELATIONEXTRACTOR));
         }
@@ -3053,13 +3787,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.updateNodeVariables = function _updateNodeVariables(environment, pageVar){
       WALconsole.log("updateNodeVariables Relation");
-      var nodeVariables = this.nodeVariables();
       var columns = this.columns; // again, nodeVariables and columns must be aligned
       for (var i = 0; i < columns.length; i++){
         var currNodeRep = this.getCurrentNodeRep(pageVar, columns[i]);
-        // this way is bad, bc keeping node variables aligned is bad : 
-        // todo, factor out
-        nodeVariables[i].setCurrentNodeRep(environment, currNodeRep);
+        var nodeVar = getNodeVariableByName(columns[i].name);
+        nodeVar.setCurrentNodeRep(environment, currNodeRep);
       }
       WALconsole.log("updateNodeVariables Relation completed");
     }
@@ -3143,59 +3875,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     
     if (doInitialization){
       initialize();
-    }
-
-    this.toggleColumnUsed = function _toggleColumnUsed(colObject, currProg){
-      // if it was previously scraped, we must remove any statements that scrape it
-      if (colObject.scraped){
-        colObject.scraped = false;
-        currProg.traverse(function(statement){
-          if (statement instanceof WebAutomationLanguage.ScrapeStatement){
-            if (statement.currentRelation() === relation && statement.currentColumnObj() === colObject){
-              // ok, this is a scrapestatement that has the target relation and columnobj.  let's delete it
-              statement.remove();
-            }
-          }
-        });
-      }
-      // if it was previously unscraped, we must add a scrape statement for it in the appropriate place
-      else{
-        colObject.scraped = true;
-        var newScrapeStatement = null;
-        var outputRowStatement = null;
-        currProg.traverse(function(statement){
-          if (statement instanceof WebAutomationLanguage.LoopStatement){
-            if (statement.relation === relation){
-              newScrapeStatement = WebAutomationLanguage.ScrapeStatementFromRelationCol(relation, colObject, statement.pageVar);
-              statement.insertChild(newScrapeStatement,0);
-            }
-          }
-          // ok, now we have the new scrape statement, which is great, but we also need to actually add it to output
-          // so the next time we hit an outputrowstatement, let's add it in there.
-          // this is not the way to do it, because really need to make sure that the outputrowstatement is in scope to see the new scrape statement
-          // but this will work as long as the outputrowstatement is the last statement in a prog that just has a bunch of nested loops
-          // todo: do this right
-          if (statement instanceof WebAutomationLanguage.OutputRowStatement){
-            if (newScrapeStatement !== null){
-              statement.addAssociatedScrapeStatement(newScrapeStatement);
-              outputRowStatement = statement;
-            }
-          }
-        });
-        if (outputRowStatement){
-          // we may have actually added the new scraping statements after the output statement, so fix it
-          outputRowStatement.parent.removeChild(outputRowStatement);
-          outputRowStatement.parent.appendChild(outputRowStatement);
-        }
-      }
-    };
-
-    this.isColumnUsed = function _isColumnUsed(colObject){
-      return colObject.scraped;
-    };
-
-    this.setColumnUsed = function _setColumnUsed(colObject, val){
-      colObject.scraped = val;
     }
 
     this.setNewAttributes = function _setNewAttributes(selector, selectorVersion, excludeFirst, columns, demonstrationTimeRelation, numRowsInDemo, nextType, nextButtonSelector){
@@ -3635,23 +4314,39 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   var nodeVariablesCounter = 0;
 
+  // below is not a dict because names can change, but could be refactored eventually
+
   var allNodeVariablesSeenSoFar = [];
 
-  pub.NodeVariable = function _NodeVariable(name, recordedNodeRep, recordedNodeSnapshot, imgData, source){
+  function getNodeVariableByName(name){
+    for (var i = 0; i < allNodeVariablesSeenSoFar.length; i++){
+      if (allNodeVariablesSeenSoFar[i].name === name){
+        return allNodeVariablesSeenSoFar[i];
+      }
+    }
+  }
+
+  pub.NodeVariable = function _NodeVariable(name, mainpanelRep, recordedNodeSnapshot, imgData, source){
     Revival.addRevivalLabel(this);
 
     // ok, node variables are a little weird, because we have a special interest in making sure that
     // every place where the same node is used in the script is also represented by the same object
     // in the prog (so that we can rename in one place and have it propogate all over the program, not
     // confuse the user into thinking a single node could be multiple)
-    this.recordedNodeRep = recordedNodeRep;
+    this.recordedNodeSnapshot = recordedNodeSnapshot;
+    if (!recordedNodeSnapshot && mainpanelRep){
+      // when we make a node variable based on a cell of a relation, we may not have access to the full node snapshot
+      this.recordedNodeSnapshot = mainpanelRep;
+      this.recordedNodeSnapshot.baseURI = mainpanelRep.source_url; // make sure we can compare urls
+    }
     this.sameNode = function _sameNode(otherNodeVariable){
-      var nr1 = this.recordedNodeRep;
-      var nr2 = otherNodeVariable.recordedNodeRep;
-      return nr1.xpath === nr2.xpath && nr1.text === nr2.text && nr1.source_url === nr2.source_url;
+      var nr1 = this.recordedNodeSnapshot;
+      var nr2 = otherNodeVariable.recordedNodeSnapshot;
+      var ans = nr1.xpath === nr2.xpath && nr1.text === nr2.text && nr1.baseURI === nr2.baseURI; // baseURI is the url on which the ndoe was found
+      return ans;
     }
 
-    if (recordedNodeRep){
+    if (this.recordedNodeSnapshot){ // go through here if they provided either a snapshot or a mainpanel rep
       // actually go through and compare to all prior nodes
       for (var i = 0; i < allNodeVariablesSeenSoFar.length; i++){
         if (this.sameNode(allNodeVariablesSeenSoFar[i])){
@@ -3659,6 +4354,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           var theRightNode = allNodeVariablesSeenSoFar[i];
           // first update all the attributes based on how we now want to use the node
           if (name) {theRightNode.name = name;}
+          if (mainpanelRep) {theRightNode.mainpanelRep = mainpanelRep;}
           if (source) {theRightNode.nodeSource = source;}
           if (recordedNodeSnapshot){ theRightNode.recordedNodeSnapshot = recordedNodeSnapshot; }
           if (imgData){ theRightNode.imgData = imgData; }
@@ -3673,7 +4369,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
 
       this.name = name;
-      this.recordedNodeSnapshot = recordedNodeSnapshot;
       this.imgData = imgData;
       this.nodeSource = source;
 
@@ -3681,12 +4376,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       allNodeVariablesSeenSoFar.push(this);
     }
 
+
     this.toString = function _toString(alreadyBound, pageVar){
       if (alreadyBound === undefined){ alreadyBound = true;} 
       if (alreadyBound){
         return this.name;
       }
-      return pageVar.toString()+".<img src='"+this.imgData+"' style='max-height: 150px; max-width: 350px;'>";
+      return this.imgData;
     };
 
     this.getName = function _getName(){
@@ -3697,13 +4393,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.recordTimeText = function _recordTimeText(){
-      return this.recordedNodeRep.text;
+      return this.recordedNodeSnapshot.text;
     };
     this.recordTimeLink = function _recordTimeLink(){
-      return this.recordedNodeRep.link;
+      return this.recordedNodeSnapshot.link;
     };
     this.recordTimeXPath = function _recordTimeXPath(){
-      return this.recordedNodeRep.xpath;
+      return this.recordedNodeSnapshot.xpath;
     };
     this.recordTimeSnapshot = function _recordTimeSnapshot(){
       return this.recordedNodeSnapshot;
@@ -3729,6 +4425,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return this.currentNodeRep(environment).xpath;
     };
 
+    this.setSource = function _setSource(src){
+      this.nodeSource = src;
+    };
     this.getSource = function _getSource(){
       return this.nodeSource;
     };
@@ -3824,7 +4523,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         MiscUtilities.repeatUntil(
           function(){utilities.sendMessage("mainpanel", "content", "pageStats", {}, null, null, [tabId], null);}, 
           function(){return that.currentTabIdPageStatsRetrieved;},
-	  function(){},
+    function(){},
           1000, true);
       }
       else{
@@ -3878,42 +4577,104 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   };
 
-  pub.Concatenate = function _Concatenate(components){
+  pub.Concatenate = function _Concatenate(){
     Revival.addRevivalLabel(this);
+    setBlocklyLabel(this, "concatenate");
 
-    if (components){ // will sometimes call with undefined, as for revival
-      this.components = components;
+    this.left = null;
+    this.right = null;
+
+    this.remove = function _remove(){
+      this.parent.removeChild(this);
     }
 
-    this.currentText = function _currentText(enviornment){
-      var output = "";
-      _.each(this.components, function(component){
-        if (component instanceof pub.NodeVariable){
-          output += component.currentText(enviornment);
-        }
-        else{
-          // this should be a string, since currently can only concat strings and variable uses
-          output += component;
-        }
-      });
-      return output;
+    this.prepareToRun = function _prepareToRun(){
+      return;
+    };
+    this.clearRunningState = function _clearRunningState(){
+      return;
     }
 
-    this.toString = function _toString(){
-      var outputComponents = [];
-      _.each(this.components, function(component){
-        if (component instanceof pub.NodeVariable){
-          outputComponents.push(component.toString());
-        }
-        else{
-          // this should be a string, since currently can only concat strings and variable uses
-          outputComponents.push("'"+component+"'");
-        }
-      });
-      return outputComponents.join("+"); 
-    }
+    this.toStringLines = function _toStringLines(){
+      return ["concatenate"];
+    };
 
-  }
+    this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
+      addToolboxLabel(this.blocklyLabel, "text");
+      Blockly.Blocks[this.blocklyLabel] = {
+        init: function() {
+          this.appendValueInput("left");
+          this.appendDummyInput().appendField("+");
+          this.appendValueInput("right");
+          this.setInputsInline(true);
+          this.setOutput(true, 'Bool');
+          this.setColour(25);
+
+          var wal = getWAL(this);
+          if (!wal){
+            setWAL(this, new pub.Concatenate());
+          }
+        }
+      };
+    };
+
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
+      this.block = workspace.newBlock(this.blocklyLabel);
+      setWAL(this.block, this);
+      if (this.left){
+        attachToInput(this.block, this.left.genBlocklyNode(this.block, workspace), "left");
+      }
+      if (this.right){
+        attachToInput(this.block, this.right.genBlocklyNode(this.block, workspace), "right");
+      }
+      return this.block;
+    };
+
+    this.getHelena = function _getHelena(){
+      // ok, but we also want to update our own condition object
+      var leftBlock = this.block.getInput('left').connection.targetBlock();
+      var rightBlock = this.block.getInput('right').connection.targetBlock();
+      if (leftBlock){
+        this.left = getWAL(leftBlock).getHelena();
+      }
+      else{
+        this.left = null;
+      }
+      if (rightBlock){
+        this.right = getWAL(rightBlock).getHelena();
+      }
+      else{
+        this.right = null;
+      }
+      return this;
+    };
+
+    this.traverse = function _traverse(fn, fn2){
+      fn(this);
+      if (this.left){this.left.traverse(fn, fn2);}
+      if (this.right){ this.right.traverse(fn, fn2);}
+      fn2(this);
+    };
+
+    this.run = function _run(runObject, rbbcontinuation, rbboptions){
+      // now run the things on which we depend
+      this.left.run(runObject, rbbcontinuation, rbboptions);
+      this.right.run(runObject, rbbcontinuation, rbboptions);
+
+      var leftVal = this.left.getCurrentVal(); // todo: make this float not int
+      var rightVal = this.right.getCurrentVal();
+      this.currentVal = leftVal + rightVal;
+    };
+    this.getCurrentVal = function _getCurrentVal(){
+      return this.currentVal;
+    };
+    this.parameterizeForRelation = function _parameterizeForRelation(relation){
+      return [];
+    };
+    this.unParameterizeForRelation = function _unParameterizeForRelation(relation){
+      return;
+    };
+  };
 
   // the whole program
 
@@ -3988,14 +4749,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // clear out whatever was in there before
       workspace.clear();
 
-      // get the individual statements to produce their corresponding blockly blocks
-      var lastBlock = null;
-      for (var i = 0; i < statementLs.length; i++){
-        var newBlock = statementLs[i].genBlocklyNode(lastBlock, workspace);
-        if (newBlock !== null){ // handle the fact that there could be null-producing nodes in the middle, and need to connect around those
-          lastBlock = newBlock;
-        }
-      }
+      helenaSeqToBlocklySeq(statementLs, workspace);
 
       // now go through and actually display all those nodes
       this.traverse(function(statement){
@@ -4088,7 +4842,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     function insertAfterHelper(listOfStatements, statementToInsert, statementAfterWhichToInsert){
       for (var i = 0; i < listOfStatements.length; i++){
         if (listOfStatements[i] === statementAfterWhichToInsert){
-          listOfStatements.splice(i + 1, 0, statementToInsert);
+          listOfStatements.splice(i + 1, 0, statementToInsert); // remember, overwrites the original array bc splice
           return listOfStatements;
         }
         else{
@@ -4116,6 +4870,109 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         this.loopyStatements = possibleNewLoopyStatements;
       }
     };
+
+    function removeStatementAndFollowing(listOfStatements, statement){
+      for (var i = 0; i < listOfStatements.length; i++){
+        if (listOfStatements[i] === statement){
+          var removedSeq = listOfStatements.splice(i); // remember, overwrites the original array bc splice
+          return removedSeq;
+        }
+        else{
+          // ok, haven't found it yet.  mayhaps it belongs in the body statements of this very statement?
+          if (listOfStatements[i].bodyStatements){
+            // ok, this one has bodyStatements to check
+            var removedSeq = removeStatementAndFollowing(listOfStatements[i].bodyStatements, statement);
+            if (removedSeq){
+              // awesome, we're done
+              return removedSeq;
+            }
+          }
+        }
+      }
+      return null;
+    }
+
+    // go through the program, look for the movedStatement and any statements/blocks that the Blockly UI would attach to it
+    // then remove those from the program
+    this.statementRemovedByUI = function(movedStatement, oldPriorStatement){
+      console.log("statementRemovedByUI", movedStatement, oldPriorStatement);
+      var seq = removeStatementAndFollowing(this.loopyStatements, movedStatement);
+      console.log("removed the seq:". removedSeq);
+      if (!seq){
+        WALconsole.warn("Woah, tried to remove a particular WALStatement, but that statement wasn't in our prog.");
+      }
+
+      // now, if we end up pulling this same seq back in...better know about the seq
+      movedStatement.associatedStatementSequence = seq;
+      return seq;
+    };
+
+    function insertArrayAt(array, index, arrayToInsert) {
+      Array.prototype.splice.apply(array, [index, 0].concat(arrayToInsert));
+    }
+
+    function addSeq(listOfStatements, statementSeq, blocklyParentStatement, inputName){
+      for (var i = 0; i < listOfStatements.length; i++){
+        if (listOfStatements[i] === blocklyParentStatement){
+          // awesome, found the new parent.  now the questions is: is this the parent because the new statementSeq
+          // comes immediately after it in the listOfStatements?  or because it's the new first
+          // seq in the body statements?  blockly does it both ways
+          // we'll use inputName to find out
+          var s = listOfStatements[i];
+          if (inputName === "statements"){
+            // ok.  the new seq is going in the body statements, right at the head
+            insertArrayAt(s.bodyStatements, 0, statementSeq); // in place, so overwriting the original
+          }
+          else{
+            // ok, not going in the body statements
+            // going after this statement in the current listOfStatements
+            insertArrayAt(listOfStatements, i + 1, statementSeq); // in place, again, so overwriting the original
+          }
+          return true;
+        }
+        else{
+          // ok, haven't found it yet.  mayhaps it belongs in the body statements of this very statement?
+          if (listOfStatements[i].bodyStatements){
+            // ok, this one has bodyStatements to check
+            var res = addSeq(listOfStatements[i].bodyStatements, statementSeq, blocklyParentStatement, inputName);
+            if (res){
+              // awesome, we're done
+              return res;
+            }
+          }
+        }
+      }
+      return false;
+    }
+
+    this.statementAddedByUI = function(movedStatement, precedingStatement, inputName){
+      // a quick precaution.  it's not ok for statements to appear in the same program twice.  so make sure it's not already in there...
+      // (this comes up when we're programmatically producing the blockly rep for an existing program)
+      if (this.containsStatement(movedStatement)){
+        return;
+      }
+
+      // ok, we know which block is coming in, but don't necessarily know whether there's a sequence of blocks that should come with it
+      // if there's one associated with the block, we'll use that.  otherwise we'll assume it's just the block itself
+      // (as when the user has dragged in a brand new block, or even when we're programmatically buidling up the displayed program)
+      var addedSeq = movedStatement.seq;
+      if (!addedSeq){
+        addedSeq = [movedStatement];
+      }
+
+      var added = addSeq(this.loopyStatements, addedSeq, precedingStatement, inputName);
+      if (!added){
+        WALconsole.warn("Woah, tried to insert after a particular WALStatement, but that statement wasn't in our prog.");
+      }
+      return added;
+    }
+
+    this.inputRemovedByUI = function(){
+
+    }
+    this.inputAddedByUI = function(){
+
+    }
 
     this.getDuplicateDetectionData = function _getDuplicateDetectionData(){
       var loopData = [];
@@ -4265,7 +5122,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                 || statement instanceof WebAutomationLanguage.ClickStatement
                 || statement instanceof WebAutomationLanguage.ScrapeStatement
                 || statement instanceof WebAutomationLanguage.TypeStatement
-                || statement instanceof WebAutomationLanguage.OutputRowStatement
                 || statement instanceof WebAutomationLanguage.PulldownInteractionStatement
                 );
     }
@@ -4360,6 +5216,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
 
     function doTheReplay(runnableTrace, config, basicBlockStatements, runObject, loopyStatements, nextBlockStartIndex, callback, options){
+
       // first let's throw out any wait time on the first event, since no need to wait for that
       if (runnableTrace.length > 0){
         runnableTrace[0].timing.waitTime = 0;
@@ -4460,13 +5317,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         }
       });
 };
-	try {
-	    check();
-	}
-	catch(err){
-	    // just try again until it works
-	    setTimeout(function(){splitOnEnoughMemoryToCloneTrace(trace, ifEnoughMemory, ifNotEnoughMemory);}, 1000);
-	}
+  try {
+      check();
+  }
+  catch(err){
+      // just try again until it works
+      setTimeout(function(){splitOnEnoughMemoryToCloneTrace(trace, ifEnoughMemory, ifNotEnoughMemory);}, 1000);
+  }
     }
 
     function runBasicBlockWithRinger(loopyStatements, options, runObject, callback){
@@ -4516,6 +5373,16 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // should see in future whether this is a reasonable way to do it
         WALconsole.namedLog("rbb", "trace", trace);
         var parameterizedTrace = pbv(trace, basicBlockStatements);
+
+
+        // first call the run methods for any statements that have run methods in case it's needed for making the arguments
+        // todo: note that this should actually happen interspersed with the ringer replay.  do that evenutally
+        for (var i = 0; i < basicBlockStatements.length; i++){
+          if (basicBlockStatements[i].run){
+            basicBlockStatements[i].run(runObject, function(){}, options);
+          }
+        }
+        
         // now that we've run parameterization-by-value, have a function, let's put in the arguments we need for the current run
         WALconsole.namedLog("rbb", "parameterizedTrace", parameterizedTrace);
         var runnableTrace = passArguments(parameterizedTrace, basicBlockStatements, runObject.environment);
@@ -4531,6 +5398,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         doTheReplay(runnableTrace, config, basicBlockStatements, runObject, loopyStatements, nextBlockStartIndex, callback, options);
       }
 
+      /*
       splitOnEnoughMemoryToCloneTrace(trace,
         function(){ // if enough memory
           // plenty of memory.  carry on.
@@ -4538,7 +5406,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         },
         function(){ // if not enough memory
           // yikes, there's a pretty small amount of memory available at this point.  are you sure you want to go on?
-	    console.log("decided we don't have enough memory.  pause.");
+      console.log("decided we don't have enough memory.  pause.");
           var text = "Looks like we're pretty close to running out of memory.  If we keep going, the extension might crash.  Continue anyway?";
           var buttonText = "Continue";
           var dialogDiv = UIObject.continueAfterDialogue(text, buttonText, continueWithScript);
@@ -4546,10 +5414,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // we might like to check now and then to see if more memory has been freed up, so that we could start again
           MiscUtilities.repeatUntil(
             function(){
-	      console.log("do we have enough memory?");
+        console.log("do we have enough memory?");
               splitOnEnoughMemoryToCloneTrace(trace,
                 function(){ // enough memory now, so we actually want to continue
-		  console.log("changed our minds.  decided we do have enough memory.");
+      console.log("changed our minds.  decided we do have enough memory.");
                   dialogDiv.remove(); // get rid of that dialog, so user doesn't see it
                   continueWithScript();
                 },
@@ -4559,6 +5427,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             function(){}, // don't have any functions to run after the condition is reached
             60000, false); // just check every minute
         });
+        */
+        continueWithScript();
     }
 
     this.runBasicBlock = function _runBasicBlock(runObject, loopyStatements, callback, options){
@@ -4755,7 +5625,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
       // first let's make the runObject that we'll use for all the rest
       // for now the below is commented out to save memory, since only running one per instance
-	    //var programCopy = Clone.cloneProgram(program); // must clone so that run-specific state can be saved with relations and so on
+      //var programCopy = Clone.cloneProgram(program); // must clone so that run-specific state can be saved with relations and so on
       var runObject = {program: program, dataset: dataset, environment: Environment.envRoot()};
       currentRunObjects.push(runObject);
       var tab = UIObject.newRunTab(runObject); // the mainpanel tab in which we'll preview stuff
@@ -4822,7 +5692,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           if (internalOptions.indexOf(prop) > -1){
             // ok, well an internal prop sneaking in is ok, so we'll just provide a warning.  otherwise we're actually going to stop
             WALconsole.warn("Ok, we're allowing it because it's an internal option, but we're not happy about it and we're setting it to false.");
-	    options[prop] = false;
+      options[prop] = false;
           }
           else{
             return;
@@ -4895,7 +5765,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.parameterNames = []; // by default, no parameters
+    console.log("parameterNames", this.parameterNames);
     this.setParameterNames = function _setParameterNames(paramNamesLs){
+      console.log("setParameterNames", paramNamesLs);
       this.parameterNames = paramNamesLs;
     }
     this.getParameterNames = function _getParameterNames(){
@@ -4903,12 +5775,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
 
     this.getAllVariableNames = function _getAllVariables(){
-      var variableNames = this.getParameterNames(); // start with the parameters to the program
+      var variableNames = this.getParameterNames().slice(); // start with the parameters to the program
       this.traverse(function(statement){
         if (statement instanceof WebAutomationLanguage.LoopStatement){
           variableNames = variableNames.concat(statement.relation.columnNames());
         }
-        else if (statement instanceof WebAutomationLanguage.ScrapeStatement){
+        else if (statement instanceof WebAutomationLanguage.ScrapeStatement && !statement.scrapingRelationItem()){
           variableNames.push(statement.currentNode.getName());
         }
       });
@@ -5347,7 +6219,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               // we'll sort by number of cells, then return the first one that shares a url with our spec nodes, or the first one if none share that url
               dataObjs = _.filter(dataObjs, function(obj){return obj !== null && obj !== undefined;});
               var sortedDataObjs = _.sortBy(dataObjs, function(data){ if (!data || !data.first_page_relation || !data.first_page_relation[0]){return -1;} else {return data.first_page_relation.length * data.first_page_relation[0].length; }}); // ascending
-	      sortedDataObjs = sortedDataObjs.reverse();
+        sortedDataObjs = sortedDataObjs.reverse();
               WALconsole.log("sortedDataObjs", sortedDataObjs);
               var frameUrls = pagesToFrameUrls[targetPageVar.name];
               WALconsole.log("frameUrls", frameUrls, pagesToFrameUrls, targetPageVar.name);
@@ -5665,7 +6537,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             WALconsole.log("Couldn't create new object for prop:", prop, "probably by design.");
             WALconsole.log(err);
           }
-          if (obj.updateBlocklyBlock){
+          if (obj && obj.updateBlocklyBlock){
             if (program){
               obj.updateBlocklyBlock(program, program.pageVars, program.relations)
             }
