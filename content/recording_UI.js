@@ -9,6 +9,17 @@
  **********************************************************************/
 
 var RecordingHandlers = (function _RecordingHandlers() { var pub = {};
+  pub.contextmenuHandler = function _contextmenuHandler(event){
+    if (currentlyRecording()){
+      event.preventDefault();
+      // TODO: scraping tool tip modification
+      // TODO: relation preview modification
+    }
+    pub.updateScraping(event);
+    if (currentlyScraping() && currentlyRecording()){
+      // TODO: scraping modification
+    }
+  }
 
   pub.mouseoverHandler = function _mouseoverHandler(event){
     if (currentlyRecording()){
@@ -99,6 +110,7 @@ var RecordingHandlers = (function _RecordingHandlers() { var pub = {};
 
 return pub;}());
 
+document.addEventListener('contextmenu', RecordingHandlers.contextmenuHandler, true);
 document.addEventListener('mouseover', RecordingHandlers.mouseoverHandler, true);
 document.addEventListener('mouseout', RecordingHandlers.mouseoutHandler, true);
 document.addEventListener('keydown', RecordingHandlers.updateScraping, true);
