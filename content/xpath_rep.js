@@ -9,6 +9,9 @@ var XPathList = (function _XPathList() { var pub = {};
 
  pub.xPathToXPathList = function _xPathToXPathList(xpath){
   var xpathList = [];
+  if (!xpath){
+    return xpathList;
+  }
   for (var i = 0; i<xpath.length; i++){
     var char = xpath[i];
     if (char === "[") {

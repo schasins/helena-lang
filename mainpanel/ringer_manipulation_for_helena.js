@@ -17,12 +17,26 @@ var EventM = (function _EventM() {
     ev.additionalDataTmp.display = {};
   };
 
+  function strip(str, remove) {
+    while (str.length > 0 && remove.indexOf(str.charAt(0)) != -1) {
+      str = str.substr(1);
+    }
+    while (str.length > 0 && remove.indexOf(str.charAt(str.length - 1)) != -1) {
+      str = str.substr(0, str.length - 1);
+    }
+    return str;
+  }
+
   pub.getLoadURL = function _getLoadURL(ev){
-    return ev.data.url;
+    var url = ev.data.url;
+    // to canonicalize urls that'd be treated the same, remove slash at end
+    return strip(url, "/");
   };
 
   pub.getDOMURL = function _getDOMURL(ev){
-    return ev.frame.topURL;
+    var url = ev.frame.topURL;
+    // to canonicalize urls that'd be treated the same, remove slash at end
+    return strip(url, "/");
   };
 
   pub.getDOMPort = function _getDOMPort(ev){
@@ -149,6 +163,16 @@ var ReplayScript = (function _ReplayScript() {
   function prepareForDisplay(trace){
     _.each(trace, function(ev){EventM.prepareForDisplay(ev);});
     return trace;
+  }
+
+  function strip(str, remove) {
+    while (str.length > 0 && remove.indexOf(str.charAt(0)) != -1) {
+      str = str.substr(1);
+    }
+    while (str.length > 0 && remove.indexOf(str.charAt(str.length - 1)) != -1) {
+      str = str.substr(0, str.length - 1);
+    }
+    return str;
   }
 
   // user doesn't need to see load events for loads that load URLs whose associated DOM trees the user never actually uses

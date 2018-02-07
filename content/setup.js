@@ -26,7 +26,9 @@ utilities.listenForMessage("mainpanel", "content", "editRelation", function(msg)
 utilities.listenForMessage("mainpanel", "content", "nextButtonSelector", function(msg){RelationFinder.nextButtonSelector(msg);});
 utilities.listenForMessage("mainpanel", "content", "clearNextButtonSelector", function(msg){RelationFinder.clearNextButtonSelector(msg);});
 utilities.listenForMessage("mainpanel", "content", "currentRecordingWindows", function(msg){currentRecordingWindows = msg.window_ids;});
-utilities.listenForMessage("mainpanel", "content", "currentReplayWindowId", function(msg){currentReplayWindowId = msg.window_id; RecordingHandlers.applyReplayOverlayIfAppropriate(msg.window);});
+utilities.listenForMessage("mainpanel", "content", "currentReplayWindowId", function(msg){
+	currentReplayWindowId = msg; 
+	RecordingHandlers.applyReplayOverlayIfAppropriate(msg.window);});
 utilities.listenForMessage("mainpanel", "content", "backButton", function(){history.back();});
 utilities.listenForMessage("mainpanel", "content", "pageStats", function(){ utilities.sendMessage("content", "mainpanel", "pageStats", {"numNodes": $('*').length});});
 utilities.listenForMessage("mainpanel", "content", "runNextInteraction", function(msg){RelationFinder.runNextInteraction(msg);});

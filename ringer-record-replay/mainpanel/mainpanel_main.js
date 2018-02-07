@@ -1758,6 +1758,10 @@ function addWebRequestEvent(details, type) {
   // -1 means the request is not associated with a particular tab
   if (details.tabId > -1){
     chrome.tabs.get(details.tabId, function (tab) {
+      if (!tab){
+        WALconsole.warn("No tab.windowId!  This is bad fro addWebRequestEvent.");
+        return;
+      }
       v.data.windowId = tab.windowId;
     });
   }

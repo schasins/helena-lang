@@ -1688,6 +1688,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return "";
     };
 
+    this.getAttribute = function _getAttribute(){
+      for (var key in AttributeOptions){
+        if (this.attributeOption === AttributeOptions[key]){
+          return key;
+        }
+      }
+      return "";
+    };
+
     this.getCurrentNode = function _getCurrentNode(){
       return this.currentVal;
     };
@@ -2020,7 +2029,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         var vun = this.variableUseNodes[i];
         vun.run(runObject, rbbcontinuation, rbboptions);
         var v = vun.getCurrentVal();
-        var n = vun.getCurrentNode();
+        var n = _.clone(vun.getCurrentNode());
+        n.scraped_attribute = this.variableUseNodes[i].getAttribute();
         cells.push(v);
         nodeCells.push(n);
       }
