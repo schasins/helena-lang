@@ -9,15 +9,15 @@
  **********************************************************************/
 
 var RecordingHandlers = (function _RecordingHandlers() { var pub = {};
+  
+  // listening for context menu events allows us to prevent the right click menu from appearing during recording
+  // which is important since interactions with the context menu won't be recorded and thus Helena won't be able
+  // to replay them and the resulting script will fail without giving the user any information abtout the cause
   pub.contextmenuHandler = function _contextmenuHandler(event){
     if (currentlyRecording()){
       event.preventDefault();
       // TODO: scraping tool tip modification
       // TODO: relation preview modification
-    }
-    pub.updateScraping(event);
-    if (currentlyScraping() && currentlyRecording()){
-      // TODO: scraping modification
     }
   }
 
