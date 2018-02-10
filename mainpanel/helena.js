@@ -54,6 +54,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
   };
 
+  pub.resetForNewScript = function _resetForNewScript(){
+    // if the user is going to be starting a fresh script, it shouldn't be allowed to use variables from
+    // a past script or scripts
+    allNodeVariablesSeenSoFar = [];
+  }
+
   var toolId = null; // it's ok to just run with this unless you want to only load programs associated with your own helena-using tool
   pub.setHelenaToolId = function _setHelenaToolId(tid){
     toolId = tid;
@@ -3831,11 +3837,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.updateNodeVariables = function _updateNodeVariables(environment, pageVar){
       WALconsole.log("updateNodeVariables Relation");
+      var nodeVariables = this.nodeVariables();
       var columns = this.columns; // again, nodeVariables and columns must be aligned
       for (var i = 0; i < columns.length; i++){
         var currNodeRep = this.getCurrentNodeRep(pageVar, columns[i]);
-        var nodeVar = getNodeVariableByName(columns[i].name);
-        nodeVar.setCurrentNodeRep(environment, currNodeRep);
+        nodeVariables[i].setCurrentNodeRep(environment, currNodeRep);
       }
       WALconsole.log("updateNodeVariables Relation completed");
     }
