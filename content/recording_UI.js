@@ -89,7 +89,7 @@ var RecordingHandlers = (function _RecordingHandlers() { var pub = {};
     console.log("applyReplayOverlayIfAppropriate", replayWindowId, windowId, addedOverlay);
     if (replayWindowId === windowId && !addedOverlay && self === top){
       // ok, we're a page in the current replay window.  put in an overlay
-      var overlay = $("<div style='position: fixed; width: 100%; height: 100%; \
+      var overlay = $("<div id='helena_overlay' style='position: fixed; width: 100%; height: 100%; \
                                     top: 0; left: 0; right: 0; bottom: 0; \
                                     background-color: rgba(0,0,0,0); \
                                     z-index: 2147483647; cursor: pointer;'></div>");
@@ -105,6 +105,27 @@ var RecordingHandlers = (function _RecordingHandlers() { var pub = {};
       });
       // and remember, don't add the overlay again in future
       addedOverlay = true;
+
+      // ok, now one weird thing about this is this alters the structure of the page if other nodes are added later
+      // which can prevent us from finding things like, say, relations.  so we have to make sure to put it back at the
+      // end of the body nodes list whenever new stuff gets added
+      // select the target node
+      var target = document.querySelector('body');
+      // create an observer instance
+      // configuration of the observer:
+      var config = { childList: true }
+      var observer = new MutationObserver(function(mutations) {
+          mutations.forEach(function(mutation) { 
+              // stop observing while we edit it ourself
+              observer.disconnect();
+              overlay.remove();
+              $("body").append(overlay);
+              // and start again
+              observer.observe(target, config);
+          });
+      });
+      // pass in the target node, as well as the observer options
+      observer.observe(target, config);
     }
   };
 
