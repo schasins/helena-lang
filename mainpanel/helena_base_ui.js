@@ -39,7 +39,7 @@ var HelenaUIBase = (function () {
     pub.blocklyReadjustFunc();
   }
 
-  pub.resetForNewScript = function _resetForNewScript(){
+  pub.resetForNewScriptInternal = function _resetForNewScriptInternal(){
     WebAutomationLanguage.resetForNewScript();
   }
 

@@ -1250,7 +1250,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
-      if (!this.onlyKeyups && !this.onlyKeydowns){
+      if (this.onlyKeyups || this.onlyKeydowns || (this.currentTypedString && this.currentTypedString.hasText && !this.currentTypedString.hasText())){
+        return null;
+      }
+      else{
         this.block = workspace.newBlock(this.blocklyLabel);
         this.block.setFieldValue(this.pageVar.toString(), "page");
         attachToPrevBlock(this.block, prevBlock);
@@ -1261,10 +1264,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         }
 
         return this.block;
-      }
-      // let's make some new blocks for keyup and keydown only situations
-      else {
-        return null;
       }
     };
 
@@ -1800,7 +1799,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     Revival.addRevivalLabel(this);
     setBlocklyLabel(this, "string");
     var stringFieldName = 'stringFieldName';
-    if (currString){
+    if (currString || currString === ""){
       this.currentValue = currString;
     }
     else{
@@ -1826,6 +1825,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         return [""];
       }
     };
+
+    this.hasText = function _hasText(){
+      if (this.currentValue.length < 1){
+        return false;
+      }
+      return true;
+    }
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
       addToolboxLabel(this.blocklyLabel, "text");
@@ -4648,6 +4654,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.toStringLines = function _toStringLines(){
       return ["concatenate"];
     };
+
+    this.hasText = function _hasText(){
+      return true; // if we're messing around with a concat, seems like we must have text planned
+    }
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
       addToolboxLabel(this.blocklyLabel, "text");
