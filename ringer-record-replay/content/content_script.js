@@ -733,8 +733,13 @@ function fixDeltas(recordDeltas, replayDeltas, lastTarget) {
     if (delta.type == 'Property is different.') {
       var divProp = delta.divergingProp;
       if (params.replay.compensation == CompensationAction.FORCED) {
-        element[divProp] = delta.orig.prop[divProp];
-        WALconsole.log("updated prop", divProp, " to ", delta.orig.prop[divProp]);
+        try{
+          element[divProp] = delta.orig.prop[divProp];
+          WALconsole.log("updated prop", divProp, " to ", delta.orig.prop[divProp]);
+        }
+        catch(err) {
+          WALconsole.warn("Attempted to update prop", divProp, delta.orig.prop[divProp]);
+        }
       }
     }
   }
@@ -893,6 +898,7 @@ function addListenersForRecording() {
     for (var e in listOfEvents) {
       listOfEvents[e] = true;
       document.addEventListener(e, recordEvent, true);
+      console.log("adding listener content", e);
     }
   }
 };

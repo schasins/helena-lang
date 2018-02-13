@@ -185,7 +185,12 @@ var utilities = (function _utilities() { var pub = {};
             tabs_messaged = 0;
             for (var i =0; i<tabs.length; i++){
               if (!(tab_ids_exclude && tab_ids_exclude.indexOf(tabs[i].id) > -1)){
-                chrome.tabs.sendMessage(tabs[i].id, msg); 
+                try {
+                    chrome.tabs.sendMessage(tabs[i].id, msg); 
+                }
+                catch(err) {
+                    WALconsole.warn("failure to send message:", msg);
+                }
                 tabs_messaged ++;
               }
             }

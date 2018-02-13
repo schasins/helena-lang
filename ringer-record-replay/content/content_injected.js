@@ -92,6 +92,7 @@
       for (var e in listOfEvents) {
         if (listOfEvents[e])
           document.addEventListener(e, checkEvent, true);
+          console.log("adding listener", e);
       }
     }
   };

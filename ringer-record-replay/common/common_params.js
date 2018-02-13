@@ -52,7 +52,7 @@ var TimeoutStrategy = {
       'paste': true,
       'reset': true,
       'resize': false,
-      'scroll': false,
+      'scroll': true,
       'select': true,
       'submit': true,
       'unload': false
@@ -162,8 +162,7 @@ var TimeoutStrategy = {
     compensation: {
       enabled: true,
       omittedProps: ['innerHTML', 'outerHTML', 'innerText', 'outerText',
-          'textContent', 'className', 'childElementCount', 'scrollHeight',
-          'scrollWidth', 'clientHeight', 'clientWidth', 'clientTop',
+          'textContent', 'className', 'childElementCount', 'clientHeight', 'clientWidth', 'clientTop',
           'clientLeft', 'offsetHeight', 'offsetWidth', 'offsetTop',
           'offsetLeft', 'text', 'valueAsNumber', 'id', 'class', 'xpath', 
           'baseURI'],

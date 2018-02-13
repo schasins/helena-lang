@@ -54,6 +54,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
   };
 
+  pub.resetForNewScript = function _resetForNewScript(){
+    // if the user is going to be starting a fresh script, it shouldn't be allowed to use variables from
+    // a past script or scripts
+    allNodeVariablesSeenSoFar = [];
+  }
+
   var toolId = null; // it's ok to just run with this unless you want to only load programs associated with your own helena-using tool
   pub.setHelenaToolId = function _setHelenaToolId(tid){
     toolId = tid;
@@ -1244,7 +1250,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
-      if (!this.onlyKeyups && !this.onlyKeydowns){
+      if (this.onlyKeyups || this.onlyKeydowns || (this.currentTypedString && this.currentTypedString.hasText && !this.currentTypedString.hasText())){
+        return null;
+      }
+      else{
         this.block = workspace.newBlock(this.blocklyLabel);
         this.block.setFieldValue(this.pageVar.toString(), "page");
         attachToPrevBlock(this.block, prevBlock);
@@ -1255,10 +1264,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         }
 
         return this.block;
-      }
-      // let's make some new blocks for keyup and keydown only situations
-      else {
-        return null;
       }
     };
 
@@ -1572,9 +1577,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     Revival.addRevivalLabel(this);
     setBlocklyLabel(this, "variableUse");
     var varNameFieldName = 'varNameFieldName';
+    var attributeFieldName = "attributeFieldName";
     this.nodeVar = null;
+    this.attributeOption = AttributeOptions.TEXT; // by default, text
     if (scrapeStatement){
       this.nodeVar = scrapeStatement.currentNode;
+      if (scrapeStatement.scrapeLink){
+        this.attributeOption = AttributeOptions.LINK;
+      }
     }
 
     this.remove = function _remove(){
@@ -1607,13 +1617,20 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           getWAL(this.sourceBlock_).nodeVar = getNodeVariableByName(newVarName);
         }
       };
+      var handleAttributeChange = function(newAttribute){
+        if (this.sourceBlock_){
+          getWAL(this.sourceBlock_).attributeOption = newAttribute;
+        }
+      };
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
           if (program){
             var varNamesDropDown = makeVariableNamesDropdown(program);
+            var attributesDropDown = [["TEXT", AttributeOptions.TEXT],["LINK", AttributeOptions.LINK]];
             if (varNamesDropDown.length > 0){
               this.appendValueInput('NodeVariableUse')
-                  .appendField(new Blockly.FieldDropdown(varNamesDropDown, handleVarChange), varNameFieldName);
+                  .appendField(new Blockly.FieldDropdown(varNamesDropDown, handleVarChange), varNameFieldName)
+                  .appendField(new Blockly.FieldDropdown(attributesDropDown, handleAttributeChange), attributeFieldName);
               
               this.setOutput(true, 'NodeVariableUse');
               this.setColour(25);
@@ -1627,6 +1644,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                 setWAL(this, new pub.NodeVariableUse());
                 var name = varNamesDropDown[0][0];
                 getWAL(this).nodeVar = getNodeVariableByName(name); // since this is what it'll show by default, better act as though that's true
+                getWAL(this).attributeOption = AttributeOptions.TEXT;
               }
             }
           }
@@ -1639,6 +1657,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // nope!  this one doesn't attach to prev! attachToPrevBlock(this.block, prevBlock);
       setWAL(this.block, this);
       this.block.setFieldValue(this.nodeVar.getName(), varNameFieldName);
+      this.block.setFieldValue(this.attributeOption, attributeFieldName);
       return this.block;
     };
 
@@ -1665,7 +1684,26 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.getCurrentVal = function _getCurrentVal(){
       // remember!  currentval is an object with text, link, source url, xpath, that stuff
       // so if the val is being used, we have to pull out just the text
-      return this.currentVal.text;
+      if (this.attributeOption === AttributeOptions.TEXT){
+        return this.currentVal.text;
+      }
+      else if (this.attributeOption === AttributeOptions.LINK){
+        return this.currentVal.link;
+      }
+      return "";
+    };
+
+    this.getAttribute = function _getAttribute(){
+      for (var key in AttributeOptions){
+        if (this.attributeOption === AttributeOptions[key]){
+          return key;
+        }
+      }
+      return "";
+    };
+
+    this.getCurrentNode = function _getCurrentNode(){
+      return this.currentVal;
     };
 
     this.parameterizeForRelation = function _parameterizeForRelation(relation){
@@ -1761,7 +1799,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     Revival.addRevivalLabel(this);
     setBlocklyLabel(this, "string");
     var stringFieldName = 'stringFieldName';
-    if (currString){
+    if (currString || currString === ""){
       this.currentValue = currString;
     }
     else{
@@ -1787,6 +1825,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         return [""];
       }
     };
+
+    this.hasText = function _hasText(){
+      if (this.currentValue.length < 1){
+        return false;
+      }
+      return true;
+    }
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
       addToolboxLabel(this.blocklyLabel, "text");
@@ -1843,6 +1888,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.unParameterizeForRelation = function _unParameterizeForRelation(relation){
       return;
     };
+  };
+
+  var AttributeOptions = { // silly to use strings, I know, but it makes it easier to do the blockly dropdown
+    TEXT: "1",
+    LINK: "2"
   };
 
   pub.OutputRowStatement = function _OutputRowStatement(scrapeStatements){
@@ -1984,23 +2034,29 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.run = function _run(runObject, rbbcontinuation, rbboptions){
       // we've 'executed' an output statement.  better send a new row to our output
       var cells = [];
+      var nodeCells = [];
 
       // let's switch to using the nodeVariableUses that we keep
       for (var i = 0; i < this.variableUseNodes.length; i++){
         var vun = this.variableUseNodes[i];
         vun.run(runObject, rbbcontinuation, rbboptions);
         var v = vun.getCurrentVal();
+        var n = _.clone(vun.getCurrentNode());
+        n.scraped_attribute = this.variableUseNodes[i].getAttribute();
         cells.push(v);
+        nodeCells.push(n);
       }
 
       // for now we're assuming we always want to show the number of iterations of each loop as the final columns
       var loopIterationCounterTexts = _.map(getLoopIterationCounters(this), function(i){return i.toString();});
       _.each(loopIterationCounterTexts, function(ic){cells.push(ic);});
       
+      /*
       // todo: why are there undefined things in here!!!!????  get rid of them.  seriously, fix that
-      cells = _.filter(cells, function(cell){return cell;});
+      cells = _.filter(cells, function(cell){return cell !== null && cell !== undefined;});
+      */
 
-      runObject.dataset.addRow(cells);
+      runObject.dataset.addRow(nodeCells);
       runObject.program.mostRecentRow = cells;
 
       var displayTextCells = _.map(cells, function(cell){if (!cell){return "EMPTY";} else {return cell;}});
@@ -3787,11 +3843,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.updateNodeVariables = function _updateNodeVariables(environment, pageVar){
       WALconsole.log("updateNodeVariables Relation");
+      var nodeVariables = this.nodeVariables();
       var columns = this.columns; // again, nodeVariables and columns must be aligned
       for (var i = 0; i < columns.length; i++){
         var currNodeRep = this.getCurrentNodeRep(pageVar, columns[i]);
-        var nodeVar = getNodeVariableByName(columns[i].name);
-        nodeVar.setCurrentNodeRep(environment, currNodeRep);
+        nodeVariables[i].setCurrentNodeRep(environment, currNodeRep);
       }
       WALconsole.log("updateNodeVariables Relation completed");
     }
@@ -4598,6 +4654,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.toStringLines = function _toStringLines(){
       return ["concatenate"];
     };
+
+    this.hasText = function _hasText(){
+      return true; // if we're messing around with a concat, seems like we must have text planned
+    }
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
       addToolboxLabel(this.blocklyLabel, "text");

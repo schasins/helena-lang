@@ -6,6 +6,10 @@
 /* Convert a node to a xpath expression representing the path from the
  * document element */
 function nodeToXPath(element) {
+  // a special case for events that happen on document
+  if (element === document){
+    return "document";
+  }
   if (element === null || element === undefined){
     return null;
   }
@@ -31,6 +35,10 @@ function nodeToXPath(element) {
 
 /* Convert a xpath expression to a set of matching nodes */
 function xPathToNodes(xpath) {
+  // a special case for events that happen on document
+  if (xpath === "document"){
+    return [document];
+  }
   try {
 
     var prefixResolver = function(prefix) { 

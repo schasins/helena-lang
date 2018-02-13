@@ -9,15 +9,15 @@
  **********************************************************************/
 
 var RecordingHandlers = (function _RecordingHandlers() { var pub = {};
+  
+  // listening for context menu events allows us to prevent the right click menu from appearing during recording
+  // which is important since interactions with the context menu won't be recorded and thus Helena won't be able
+  // to replay them and the resulting script will fail without giving the user any information abtout the cause
   pub.contextmenuHandler = function _contextmenuHandler(event){
     if (currentlyRecording()){
       event.preventDefault();
       // TODO: scraping tool tip modification
       // TODO: relation preview modification
-    }
-    pub.updateScraping(event);
-    if (currentlyScraping() && currentlyRecording()){
-      // TODO: scraping modification
     }
   }
 
@@ -86,10 +86,10 @@ var RecordingHandlers = (function _RecordingHandlers() { var pub = {};
   var addedOverlay = false;
   pub.applyReplayOverlayIfAppropriate = function _applyReplayOverlayIfAppropriate(replayWindowId){
     // only apply it if we're in the replay window, if we haven't already applied it, and if we're the top-level frame
-    console.log("applyReplayOverlayIfAppropriate", replayWindowId, windowId, addedOverlay, self, top);
+    console.log("applyReplayOverlayIfAppropriate", replayWindowId, windowId, addedOverlay);
     if (replayWindowId === windowId && !addedOverlay && self === top){
       // ok, we're a page in the current replay window.  put in an overlay
-      var overlay = $("<div style='position: fixed; width: 100%; height: 100%; \
+      var overlay = $("<div id='helena_overlay' style='position: fixed; width: 100%; height: 100%; \
                                     top: 0; left: 0; right: 0; bottom: 0; \
                                     background-color: rgba(0,0,0,0); \
                                     z-index: 2147483647; cursor: pointer;'></div>");
@@ -105,6 +105,27 @@ var RecordingHandlers = (function _RecordingHandlers() { var pub = {};
       });
       // and remember, don't add the overlay again in future
       addedOverlay = true;
+
+      // ok, now one weird thing about this is this alters the structure of the page if other nodes are added later
+      // which can prevent us from finding things like, say, relations.  so we have to make sure to put it back at the
+      // end of the body nodes list whenever new stuff gets added
+      // select the target node
+      var target = document.querySelector('body');
+      // create an observer instance
+      // configuration of the observer:
+      var config = { childList: true }
+      var observer = new MutationObserver(function(mutations) {
+          mutations.forEach(function(mutation) { 
+              // stop observing while we edit it ourself
+              observer.disconnect();
+              overlay.remove();
+              $("body").append(overlay);
+              // and start again
+              observer.observe(target, config);
+          });
+      });
+      // pass in the target node, as well as the observer options
+      observer.observe(target, config);
     }
   };
 

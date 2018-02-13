@@ -44,6 +44,12 @@ function getFeature(element, feature){
 function getFeatures(element){
   var info = {};
   info.xpath = nodeToXPath(element);
+
+  // another special case for document, which doesn't have a lot of the functions we'll call below
+  if (info.xpath === "document"){
+    return info;
+  }
+
   for (var prop in element) {
     try{
       var val = element[prop];
@@ -66,22 +72,24 @@ function getFeatures(element){
   } //test
 
   var text = element.textContent;
-  info.textContent = text;
-  var trimmedText = text.trim();
+  if (text){
+    info.textContent = text;
+    var trimmedText = text.trim();
 
-  var firstSpaceInd = trimmedText.indexOf(" ");
-  if (firstSpaceInd > -1){
-      info.firstWord = trimmedText.slice(0,firstSpaceInd);
-      var secondSpaceInd = trimmedText.indexOf(" ", firstSpaceInd + 1);
-      info.firstTwoWords = trimmedText.slice(0,secondSpaceInd);
-      var thirdSpaceInd = trimmedText.indexOf(" ", secondSpaceInd + 1);
-      info.firstThreeWords = trimmedText.slice(0,thirdSpaceInd);
-      info.lastWord = trimmedText.slice(trimmedText.lastIndexOf(" "),trimmedText.length);
-  }
+    var firstSpaceInd = trimmedText.indexOf(" ");
+    if (firstSpaceInd > -1){
+        info.firstWord = trimmedText.slice(0,firstSpaceInd);
+        var secondSpaceInd = trimmedText.indexOf(" ", firstSpaceInd + 1);
+        info.firstTwoWords = trimmedText.slice(0,secondSpaceInd);
+        var thirdSpaceInd = trimmedText.indexOf(" ", secondSpaceInd + 1);
+        info.firstThreeWords = trimmedText.slice(0,thirdSpaceInd);
+        info.lastWord = trimmedText.slice(trimmedText.lastIndexOf(" "),trimmedText.length);
+    }
 
-  var colonIndex = trimmedText.indexOf(":")
-  if (colonIndex > -1){
-    info.preColonText = trimmedText.slice(0,colonIndex);
+    var colonIndex = trimmedText.indexOf(":")
+    if (colonIndex > -1){
+      info.preColonText = trimmedText.slice(0,colonIndex);
+    }
   }
   
   var children = element.childNodes;
@@ -110,7 +118,7 @@ function getFeatures(element){
   info.possibleHeading = possibleHeading;
 
   var prev = element.previousElementSibling;
-  if (prev !== null){
+  if (prev){
     info.previousElementSiblingText = prev.textContent;
   }
 

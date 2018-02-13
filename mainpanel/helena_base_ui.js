@@ -39,6 +39,10 @@ var HelenaUIBase = (function () {
     pub.blocklyReadjustFunc();
   }
 
+  pub.resetForNewScriptInternal = function _resetForNewScriptInternal(){
+    WebAutomationLanguage.resetForNewScript();
+  }
+
   /**********************************************************************
    * Now onto the functions we'll use for controlling the UI
    **********************************************************************/
