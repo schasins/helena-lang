@@ -265,6 +265,14 @@ var Scraping = (function _Scraping() { var pub = {};
     }
   }
 
+  document.addEventListener('contextmenu', rerouteContextMenu, true);
+  function rerouteContextMenu(event){
+    if (currentlyScraping()){
+      // TODO: reroute the user to not use the context menu
+      // don't want to record this interaction
+    }
+  }
+
   pub.scrapingCriteria = function _scrapingCriteria(event){
     return event.shiftKey && event.altKey; // convention is we need shift+alt+click to scrape
   }
