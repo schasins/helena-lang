@@ -6104,13 +6104,19 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var sets = [];
       for (var i = 0; i < statements.length; i++){
         if (statements[i] instanceof WebAutomationLanguage.TypeStatement && statements[i].onlyKeydowns){
+          // we're seeing typing, but only keydowns, so it might be the start of entering scraping mode
           keyIndexes.push(i);
           keysdown = keysdown.concat(statements[i].keyCodes);
         }
-        else if (keyIndexes.length > 0 && statements[i] instanceof WebAutomationLanguage.ScrapeStatement && statements[i].scrapingRelationItem()){
+        else if (keyIndexes.length > 0 && statements[i] instanceof WebAutomationLanguage.ScrapeStatement 
+                    && statements[i].scrapingRelationItem()){
+          // cool, we think we're in scraping mode, and we're scraping a relation-scraped thing, so no need to
+          // actually execute these events with Ringer
           continue;
         }
         else if (keyIndexes.length > 0 && statements[i] instanceof WebAutomationLanguage.TypeStatement && statements[i].onlyKeyups){
+          // ok, looks like we might be about to pop out of scraping mode
+
           keyIndexes.push(i);
           keysup = keysup.concat(statements[i].keyCodes);
 
@@ -6118,6 +6124,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // todo: is this a strong enough condition?
           keysdown.sort();
           keysup.sort();
+          // below: are we letting up all the same keys we put down before?  and are the keys from a set we might use for
+          // entering scraping mode?
           if (_.isEqual(keysdown, keysup) && isScrapingSet(keysdown)) {
             WALconsole.log("decided to remove set", keyIndexes, keysdown);
             sets.push(keyIndexes);
@@ -6127,6 +6135,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           }
         }
         else if (keyIndexes.length > 0 && !(statements[i] instanceof WebAutomationLanguage.ScrapeStatement && statements[i].scrapingRelationItem())){
+          // well drat.  we started doing something that's not scraping a relation item
+          // maybe clicked, or did another interaction, maybe just scraping something where we'll rely on ringer's node finding abilities
+          // but in either case, we need to actually run Ringer
           keyIndexes = [];
           keysdown = [];
           keysup = [];
