@@ -6112,6 +6112,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                     && statements[i].scrapingRelationItem()){
           // cool, we think we're in scraping mode, and we're scraping a relation-scraped thing, so no need to
           // actually execute these events with Ringer
+          statements[i].contributesTrace = TraceContributions.FOCUS;
           continue;
         }
         else if (keyIndexes.length > 0 && statements[i] instanceof WebAutomationLanguage.TypeStatement && statements[i].onlyKeyups){
