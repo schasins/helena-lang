@@ -1,7 +1,7 @@
 describe("XPathList", function() {
 
-  var b = require('../../../lib/json2');
-  var a = require('../../../content/xpath_rep');
+  require('../../../lib/json2');
+  require('../../../content/xpath_rep');
 
   beforeEach(function() {
     // for a different module, it might be useful to put something in beforeEach.  but for this, not necessary
@@ -9,6 +9,7 @@ describe("XPathList", function() {
   });
 
   it("should use JSON", function() {
+    // this one doesn't need to be in here!  it's just a sample!  todo:remove eventually
     var a = {"a":"b", "2":3};
     var JSONAndBack = JSON.parse(JSON.stringify(a));
     expect(a).toEqual(JSONAndBack);
