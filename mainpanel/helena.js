@@ -5772,7 +5772,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var fullContinuation = continuation;
       if (program.restartOnFinish){
         // yep, we want to repeat.  time to make a new continuation that, once it finishes the original coninutation
-        // will make a new dataset and start over.
+        // will make a new dataset and start over.  the loop forever option/start again when done option
         fullContinuation = function(dataset, timeScraped){
           if (continuation) {continuation(dataset, timeScraped);}
           program.run(options, continuation, parameters, requireDataset);

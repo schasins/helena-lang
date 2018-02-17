@@ -30,6 +30,7 @@ var Environment = (function _Environment() { var pub = {};
         if (this.parent) {
           return this.parent.envLookup(name);
         } else {
+          alert("Tried to use something called " + name + ", but we don't know anything about it.")
           throw new ExecError(name + ' is not declared');
         }
       }
