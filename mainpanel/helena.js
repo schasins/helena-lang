@@ -564,11 +564,18 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (!program){return;}
       // addToolboxLabel(this.blocklyLabel, "web");
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
+
+      var handleNewUrl = function(newStr){
+                  var wal = getWAL(this.sourceBlock_);
+                  if (wal){
+                    wal.currentUrl = newStr;
+                  }
+                };
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
           this.appendDummyInput()
               .appendField("load")
-              .appendField(new Blockly.FieldTextInput("URL"), "url")
+              .appendField(new Blockly.FieldTextInput("URL", handleNewUrl), "url")
               .appendField("into")
               .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
           this.setPreviousStatement(true, null);
