@@ -1685,6 +1685,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.getCurrentVal = function _getCurrentVal(){
       // remember!  currentval is an object with text, link, source url, xpath, that stuff
       // so if the val is being used, we have to pull out just the text
+      if (!this.currentVal){
+        return "";
+      }
       if (this.attributeOption === AttributeOptions.TEXT){
         return this.currentVal.text;
       }
