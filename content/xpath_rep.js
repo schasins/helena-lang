@@ -3,9 +3,12 @@
  * (my easier to manipulate representation of xpaths)
  **********************************************************************/
 
- 'use strict'
+if (typeof XPathList !== 'object') {
+    XPathList = {};
+}
 
-var XPathList = (function _XPathList() { var pub = {};
+XPathList = (function _XPathList() { var pub = {};
+ 'use strict'
 
  pub.xPathToXPathList = function _xPathToXPathList(xpath){
   var xpathList = [];

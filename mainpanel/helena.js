@@ -564,11 +564,18 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (!program){return;}
       // addToolboxLabel(this.blocklyLabel, "web");
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
+
+      var handleNewUrl = function(newStr){
+                  var wal = getWAL(this.sourceBlock_);
+                  if (wal){
+                    wal.currentUrl = newStr;
+                  }
+                };
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
           this.appendDummyInput()
               .appendField("load")
-              .appendField(new Blockly.FieldTextInput("URL"), "url")
+              .appendField(new Blockly.FieldTextInput("URL", handleNewUrl), "url")
               .appendField("into")
               .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
           this.setPreviousStatement(true, null);
@@ -1250,7 +1257,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
-      if (!this.onlyKeyups && !this.onlyKeydowns){
+      if (this.onlyKeyups || this.onlyKeydowns || (this.currentTypedString && this.currentTypedString.hasText && !this.currentTypedString.hasText())){
+        return null;
+      }
+      else{
         this.block = workspace.newBlock(this.blocklyLabel);
         this.block.setFieldValue(this.pageVar.toString(), "page");
         attachToPrevBlock(this.block, prevBlock);
@@ -1261,10 +1271,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         }
 
         return this.block;
-      }
-      // let's make some new blocks for keyup and keydown only situations
-      else {
-        return null;
       }
     };
 
@@ -1803,7 +1809,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     Revival.addRevivalLabel(this);
     setBlocklyLabel(this, "string");
     var stringFieldName = 'stringFieldName';
-    if (currString){
+    if (currString || currString === ""){
       this.currentValue = currString;
     }
     else{
@@ -1829,6 +1835,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         return [""];
       }
     };
+
+    this.hasText = function _hasText(){
+      if (this.currentValue.length < 1){
+        return false;
+      }
+      return true;
+    }
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
       addToolboxLabel(this.blocklyLabel, "text");
@@ -4652,6 +4665,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return ["concatenate"];
     };
 
+    this.hasText = function _hasText(){
+      return true; // if we're messing around with a concat, seems like we must have text planned
+    }
+
     this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
       addToolboxLabel(this.blocklyLabel, "text");
       Blockly.Blocks[this.blocklyLabel] = {
@@ -5758,7 +5775,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var fullContinuation = continuation;
       if (program.restartOnFinish){
         // yep, we want to repeat.  time to make a new continuation that, once it finishes the original coninutation
-        // will make a new dataset and start over.
+        // will make a new dataset and start over.  the loop forever option/start again when done option
         fullContinuation = function(dataset, timeScraped){
           if (continuation) {continuation(dataset, timeScraped);}
           program.run(options, continuation, parameters, requireDataset);
@@ -6097,13 +6114,20 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var sets = [];
       for (var i = 0; i < statements.length; i++){
         if (statements[i] instanceof WebAutomationLanguage.TypeStatement && statements[i].onlyKeydowns){
+          // we're seeing typing, but only keydowns, so it might be the start of entering scraping mode
           keyIndexes.push(i);
           keysdown = keysdown.concat(statements[i].keyCodes);
         }
-        else if (keyIndexes.length > 0 && statements[i] instanceof WebAutomationLanguage.ScrapeStatement && statements[i].scrapingRelationItem()){
+        else if (keyIndexes.length > 0 && statements[i] instanceof WebAutomationLanguage.ScrapeStatement 
+                    && statements[i].scrapingRelationItem()){
+          // cool, we think we're in scraping mode, and we're scraping a relation-scraped thing, so no need to
+          // actually execute these events with Ringer
+          statements[i].contributesTrace = TraceContributions.FOCUS;
           continue;
         }
         else if (keyIndexes.length > 0 && statements[i] instanceof WebAutomationLanguage.TypeStatement && statements[i].onlyKeyups){
+          // ok, looks like we might be about to pop out of scraping mode
+
           keyIndexes.push(i);
           keysup = keysup.concat(statements[i].keyCodes);
 
@@ -6111,6 +6135,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // todo: is this a strong enough condition?
           keysdown.sort();
           keysup.sort();
+          // below: are we letting up all the same keys we put down before?  and are the keys from a set we might use for
+          // entering scraping mode?
           if (_.isEqual(keysdown, keysup) && isScrapingSet(keysdown)) {
             WALconsole.log("decided to remove set", keyIndexes, keysdown);
             sets.push(keyIndexes);
@@ -6120,6 +6146,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           }
         }
         else if (keyIndexes.length > 0 && !(statements[i] instanceof WebAutomationLanguage.ScrapeStatement && statements[i].scrapingRelationItem())){
+          // well drat.  we started doing something that's not scraping a relation item
+          // maybe clicked, or did another interaction, maybe just scraping something where we'll rely on ringer's node finding abilities
+          // but in either case, we need to actually run Ringer
           keyIndexes = [];
           keysdown = [];
           keysup = [];
