@@ -2052,6 +2052,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         vun.run(runObject, rbbcontinuation, rbboptions);
         var v = vun.getCurrentVal();
         var n = _.clone(vun.getCurrentNode());
+        if (!n){
+          n = {}; // an empty cell for cases where we never found the relevant node, since must send a node dict to server to store result
+        }
         n.scraped_attribute = this.variableUseNodes[i].getAttribute();
         cells.push(v);
         nodeCells.push(n);
