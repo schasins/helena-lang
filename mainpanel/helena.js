@@ -335,8 +335,16 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     } 
   }
 
+  var blocklyNames = [];
   function setBlocklyLabel(obj, label){
     obj.blocklyLabel = label;
+
+    // it's important that we keep track of what things within the WebAutomationLanguage object are blocks and which aren't
+    // this may be a convenient way to do it, since it's going to be obvious if you introduce a new block but forget to call this
+    // whereas if you introduce a new function and forget to add it to a blacklist, it'll get called randomly, will be hard to debug
+    var name = obj.___revivalLabel___;
+    blocklyNames.push(name);
+    blocklyNames = _.uniq(blocklyNames);
   }
 
   function addToolboxLabel(label, category){
@@ -6608,13 +6616,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   pub.updateBlocklyBlocks = function _updateBlocklyBlocks(program){
     // have to update the current set of blocks based on our pageVars, relations, so on
 
-    var blackList = ["updateBlocklyBlocks", "setHelenaToolId", "setUIObject", "getHelenaToolId", "statementType"];
-    // todo: might want a better approach than this
-
     // this is silly, but just making a new object for each of our statements is an easy way to get access to
     // the updateBlocklyBlock function and still keep it an instance method/right next to the genBlockly function
-    for (var prop in pub){
-      if (typeof pub[prop] === "function" && blackList.indexOf(prop) < 0){
+    for (var i = 0; i < blocklyNames.length; i++){
+      var prop = blocklyNames[i];
+      if (typeof pub[prop] === "function"){
           try{
             var obj = new pub[prop]();
           }
