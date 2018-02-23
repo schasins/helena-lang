@@ -297,15 +297,6 @@ var Scraping = (function _Scraping() { var pub = {};
     Highlight.clearHighlight(currentHighlightNode);
   };
 
-  // clicks during scraping mode are special.  don't want to follow links for example
-  document.addEventListener('click', scrapingClick, true);
-  function scrapingClick(event){
-    if (currentlyScraping()){
-      event.stopImmediatePropagation();
-      event.preventDefault();
-    }
-  }
-
   document.addEventListener('contextmenu', rerouteContextMenu, true);
   function rerouteContextMenu(event){
     if (currentlyScraping()){
