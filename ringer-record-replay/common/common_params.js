@@ -52,7 +52,7 @@ var TimeoutStrategy = {
       'paste': true,
       'reset': true,
       'resize': false,
-      'scroll': true,
+      'scroll': false,
       'select': true,
       'submit': true,
       'unload': false

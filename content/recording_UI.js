@@ -83,12 +83,7 @@ var RecordingHandlers = (function _RecordingHandlers() { var pub = {};
     }
   };
 
-  var addedOverlay = false;
-  pub.applyReplayOverlayIfAppropriate = function _applyReplayOverlayIfAppropriate(replayWindowId){
-    // only apply it if we're in the replay window, if we haven't already applied it, and if we're the top-level frame
-    console.log("applyReplayOverlayIfAppropriate", replayWindowId, windowId, addedOverlay);
-    if (replayWindowId === windowId && !addedOverlay && self === top){
-      // ok, we're a page in the current replay window.  put in an overlay
+  function addOverlayDiv(observer){
       var overlay = $("<div id='helena_overlay' style='position: fixed; width: 100%; height: 100%; \
                                     top: 0; left: 0; right: 0; bottom: 0; \
                                     background-color: rgba(0,0,0,0); \
@@ -98,11 +93,24 @@ var RecordingHandlers = (function _RecordingHandlers() { var pub = {};
         If you want to interact with this page anyway, click here to remove the overlay.  Keep in mind that navigating away from the current page may disrupt the Helena process.\
         </div>");
       overlay.append(messageDiv);
-      $("body").append(overlay);
+
       // if the user clicks on the box with the warning, go ahead and remove the whole overlay
+      // but stop the observer first, becuase we don't want to add it again because of the user's click and resultant removal
       messageDiv.click(function(){
+        observer.disconnect();
         overlay.remove();
       });
+
+      $("body").append(overlay);
+  }
+
+  var addedOverlay = false;
+  pub.applyReplayOverlayIfAppropriate = function _applyReplayOverlayIfAppropriate(replayWindowId){
+    // only apply it if we're in the replay window, if we haven't already applied it, and if we're the top-level frame
+    console.log("applyReplayOverlayIfAppropriate", replayWindowId, windowId, addedOverlay);
+    if (replayWindowId === windowId && !addedOverlay && self === top){
+      // ok, we're a page in the current replay window.  put in an overlay
+
       // and remember, don't add the overlay again in future
       addedOverlay = true;
 
@@ -118,14 +126,17 @@ var RecordingHandlers = (function _RecordingHandlers() { var pub = {};
           mutations.forEach(function(mutation) { 
               // stop observing while we edit it ourself
               observer.disconnect();
-              overlay.remove();
-              $("body").append(overlay);
+              $("#helena_overlay").remove();
+              addOverlayDiv(observer);
               // and start again
               observer.observe(target, config);
           });
       });
       // pass in the target node, as well as the observer options
       observer.observe(target, config);
+
+      // now actually add the overlay
+      addOverlayDiv(observer);
     }
   };
 

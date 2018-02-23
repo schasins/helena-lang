@@ -335,8 +335,16 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     } 
   }
 
+  var blocklyNames = [];
   function setBlocklyLabel(obj, label){
     obj.blocklyLabel = label;
+
+    // it's important that we keep track of what things within the WebAutomationLanguage object are blocks and which aren't
+    // this may be a convenient way to do it, since it's going to be obvious if you introduce a new block but forget to call this
+    // whereas if you introduce a new function and forget to add it to a blacklist, it'll get called randomly, will be hard to debug
+    var name = obj.___revivalLabel___;
+    blocklyNames.push(name);
+    blocklyNames = _.uniq(blocklyNames);
   }
 
   function addToolboxLabel(label, category){
@@ -564,11 +572,18 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (!program){return;}
       // addToolboxLabel(this.blocklyLabel, "web");
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
+
+      var handleNewUrl = function(newStr){
+                  var wal = getWAL(this.sourceBlock_);
+                  if (wal){
+                    wal.currentUrl = newStr;
+                  }
+                };
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
           this.appendDummyInput()
               .appendField("load")
-              .appendField(new Blockly.FieldTextInput("URL"), "url")
+              .appendField(new Blockly.FieldTextInput("URL", handleNewUrl), "url")
               .appendField("into")
               .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
           this.setPreviousStatement(true, null);
@@ -1684,6 +1699,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.getCurrentVal = function _getCurrentVal(){
       // remember!  currentval is an object with text, link, source url, xpath, that stuff
       // so if the val is being used, we have to pull out just the text
+      if (!this.currentVal){
+        return "";
+      }
       if (this.attributeOption === AttributeOptions.TEXT){
         return this.currentVal.text;
       }
@@ -2042,6 +2060,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         vun.run(runObject, rbbcontinuation, rbboptions);
         var v = vun.getCurrentVal();
         var n = _.clone(vun.getCurrentNode());
+        if (!n){
+          n = {}; // an empty cell for cases where we never found the relevant node, since must send a node dict to server to store result
+        }
         n.scraped_attribute = this.variableUseNodes[i].getAttribute();
         cells.push(v);
         nodeCells.push(n);
@@ -5765,7 +5786,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var fullContinuation = continuation;
       if (program.restartOnFinish){
         // yep, we want to repeat.  time to make a new continuation that, once it finishes the original coninutation
-        // will make a new dataset and start over.
+        // will make a new dataset and start over.  the loop forever option/start again when done option
         fullContinuation = function(dataset, timeScraped){
           if (continuation) {continuation(dataset, timeScraped);}
           program.run(options, continuation, parameters, requireDataset);
@@ -6104,13 +6125,20 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var sets = [];
       for (var i = 0; i < statements.length; i++){
         if (statements[i] instanceof WebAutomationLanguage.TypeStatement && statements[i].onlyKeydowns){
+          // we're seeing typing, but only keydowns, so it might be the start of entering scraping mode
           keyIndexes.push(i);
           keysdown = keysdown.concat(statements[i].keyCodes);
         }
-        else if (keyIndexes.length > 0 && statements[i] instanceof WebAutomationLanguage.ScrapeStatement && statements[i].scrapingRelationItem()){
+        else if (keyIndexes.length > 0 && statements[i] instanceof WebAutomationLanguage.ScrapeStatement 
+                    && statements[i].scrapingRelationItem()){
+          // cool, we think we're in scraping mode, and we're scraping a relation-scraped thing, so no need to
+          // actually execute these events with Ringer
+          statements[i].contributesTrace = TraceContributions.FOCUS;
           continue;
         }
         else if (keyIndexes.length > 0 && statements[i] instanceof WebAutomationLanguage.TypeStatement && statements[i].onlyKeyups){
+          // ok, looks like we might be about to pop out of scraping mode
+
           keyIndexes.push(i);
           keysup = keysup.concat(statements[i].keyCodes);
 
@@ -6118,6 +6146,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // todo: is this a strong enough condition?
           keysdown.sort();
           keysup.sort();
+          // below: are we letting up all the same keys we put down before?  and are the keys from a set we might use for
+          // entering scraping mode?
           if (_.isEqual(keysdown, keysup) && isScrapingSet(keysdown)) {
             WALconsole.log("decided to remove set", keyIndexes, keysdown);
             sets.push(keyIndexes);
@@ -6127,6 +6157,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           }
         }
         else if (keyIndexes.length > 0 && !(statements[i] instanceof WebAutomationLanguage.ScrapeStatement && statements[i].scrapingRelationItem())){
+          // well drat.  we started doing something that's not scraping a relation item
+          // maybe clicked, or did another interaction, maybe just scraping something where we'll rely on ringer's node finding abilities
+          // but in either case, we need to actually run Ringer
           keyIndexes = [];
           keysdown = [];
           keysup = [];
@@ -6583,13 +6616,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   pub.updateBlocklyBlocks = function _updateBlocklyBlocks(program){
     // have to update the current set of blocks based on our pageVars, relations, so on
 
-    var blackList = ["updateBlocklyBlocks", "setHelenaToolId", "setUIObject", "getHelenaToolId", "statementType"];
-    // todo: might want a better approach than this
-
     // this is silly, but just making a new object for each of our statements is an easy way to get access to
     // the updateBlocklyBlock function and still keep it an instance method/right next to the genBlockly function
-    for (var prop in pub){
-      if (typeof pub[prop] === "function" && blackList.indexOf(prop) < 0){
+    for (var i = 0; i < blocklyNames.length; i++){
+      var prop = blocklyNames[i];
+      if (typeof pub[prop] === "function"){
           try{
             var obj = new pub[prop]();
           }
