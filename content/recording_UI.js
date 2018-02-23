@@ -216,7 +216,11 @@ var Scraping = (function _Scraping() { var pub = {};
     return data;
   };
 
+  // Chrome on Windows records "hold down" a key differently (repeated events) than 
+  // Crhome on MacOS (one event). This filters out extra ctrl and alt key events from
+  // being recorded
   additional_recording_filters.scrape = function(eventData){
+    // key code 18: alt; key code 17: ctrl
     if ((eventData.keyCode === 18 || eventData.keyCode === 17) && (eventData.type === "keypress" || eventData.type === "keydown")){
       // we're going to see a ton of these because holding ctrl/alt for scraping mode makes them.  we're going to ignore, although this could cause problems for some interactions
       return true;
