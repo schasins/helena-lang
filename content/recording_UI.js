@@ -15,9 +15,9 @@ var RecordingHandlers = (function _RecordingHandlers() { var pub = {};
   // to replay them and the resulting script will fail without giving the user any information abtout the cause
   pub.contextmenuHandler = function _contextmenuHandler(event){
     if (currentlyRecording()){
+      // prevents right click from working
       event.preventDefault();
-      // TODO: scraping tool tip modification
-      // TODO: relation preview modification
+      alert("Trying to open a new tab? Try CTRL+Click instead!");
     }
   }
 
@@ -206,7 +206,12 @@ var Scraping = (function _Scraping() { var pub = {};
   };
 
   additional_recording_filters.scrape = function(eventData){
-    return false;
+    if ((eventData.keyCode === 18 || eventData.keyCode === 17) && (eventData.type === "keypress" || eventData.type === "keydown")){
+      // we're going to see a ton of these because holding ctrl/alt for scraping mode makes them.  we're going to ignore, although this could cause problems for some interactions
+      return true;
+    } else {
+      return false;
+    }
 
     /*
     if (eventData.keyCode === 66 && (eventData.type === "keypress" || eventData.type === "keydown")){
