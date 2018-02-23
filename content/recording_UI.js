@@ -297,6 +297,15 @@ var Scraping = (function _Scraping() { var pub = {};
     Highlight.clearHighlight(currentHighlightNode);
   };
 
+  // clicks during scraping mode are special.  don't want to follow links for example
+  document.addEventListener('click', scrapingClick, true);
+  function scrapingClick(event){
+    if (currentlyScraping()){
+      event.stopImmediatePropagation();
+      event.preventDefault();
+    }
+  }
+
   pub.scrapingCriteria = function _scrapingCriteria(event){
     return event.shiftKey && event.altKey; // convention is we need shift+alt+click to scrape
   }
