@@ -17,7 +17,13 @@ var RecordingHandlers = (function _RecordingHandlers() { var pub = {};
     if (currentlyRecording()){
       // prevents right click from working
       event.preventDefault();
-      alert("Trying to open a new tab? Try CTRL+Click instead!");
+      if (navigator.appVersion.toLocaleLowerCase().indexOf("win") !== -1) {
+        alert("Trying to open a new tab? Try CTRL+Click instead!");
+      } else if (navigator.appVersion.toLocaleLowerCase().indexOf("mac") !== -1) {
+        alert("Trying to open a new tab? Try CMD+Click instead!");
+      } else { // linux or unix, depends on computer 
+        alert("Trying to open a new tab? Use a keyboard shortcut (like CTRL+CLICK) instead!");
+      }
     }
   }
 
