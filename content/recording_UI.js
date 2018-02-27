@@ -15,9 +15,15 @@ var RecordingHandlers = (function _RecordingHandlers() { var pub = {};
   // to replay them and the resulting script will fail without giving the user any information abtout the cause
   pub.contextmenuHandler = function _contextmenuHandler(event){
     if (currentlyRecording()){
+      // prevents right click from working
       event.preventDefault();
-      // TODO: scraping tool tip modification
-      // TODO: relation preview modification
+      if (navigator.appVersion.toLocaleLowerCase().indexOf("win") !== -1) {
+        alert("Trying to open a new tab? Try CTRL+Click instead!");
+      } else if (navigator.appVersion.toLocaleLowerCase().indexOf("mac") !== -1) {
+        alert("Trying to open a new tab? Try CMD+Click instead!");
+      } else { // linux or unix, depends on computer 
+        alert("Trying to open a new tab? Use a keyboard shortcut (like CTRL+CLICK) instead!");
+      }
     }
   }
 
@@ -216,8 +222,17 @@ var Scraping = (function _Scraping() { var pub = {};
     return data;
   };
 
+  // Chrome on Windows records "hold down" a key differently (repeated events) than 
+  // Chrome on MacOS (one event). This filters out extra ctrl and alt key events from
+  // being recorded
   additional_recording_filters.scrape = function(eventData){
-    return false;
+    // key code 18: alt; key code 17: ctrl
+    if ((eventData.keyCode === 18 || eventData.keyCode === 17) && (eventData.type === "keypress" || eventData.type === "keydown")){
+      // we're going to see a ton of these because holding ctrl/alt for scraping mode makes them.  we're going to ignore, although this could cause problems for some interactions
+      return true;
+    } else {
+      return false;
+    }
 
     /*
     if (eventData.keyCode === 66 && (eventData.type === "keypress" || eventData.type === "keydown")){
