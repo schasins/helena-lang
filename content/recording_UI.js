@@ -261,6 +261,29 @@ var Scraping = (function _Scraping() { var pub = {};
     */
   }
 
+  let currKeyState = {}; // keeps track of the keys that are currently being pressed down
+
+  // Because Windows has this habit of recording multiple events for a continued 
+  // key press or key down, we want to throw out events that are repeats of events
+  // we've already seen. This change fixes a major issue with running Helena
+  // on Windows, in that scraping gets hung up on all the key presses instead
+  // of gathering data really fast. 
+  additional_recording_filters.ignoreExtraKeydowns = function(eventData){
+    if (eventData.type === "keypress" || eventData.type === "keydown") { // for now, we'll ignore multiple key presses for all keys (not just ctrl and alt)
+      if (!currKeyState[eventData.keyCode]) { // first seen, record that it's being pressed down
+        currKeyState[eventData.keyCode] = true;
+        return false;
+      } else { // not first seen, ignore
+        return true;
+      }
+    } else if (eventData.type === "keyup") { // key is no longer being pressed, no longer need to keep track of it
+      currKeyState[eventData.keyCode] = false;
+      return false;
+    }
+    return false;
+  }
+  additional_recording_filters_on.ignoreExtraKeydowns = true; // we always want this filter to be on when recording
+
   // must keep track of current hovered node so we can highlight it when the user enters scraping mode
   var mostRecentMousemoveTarget = null;
   document.addEventListener('mousemove', updateMousemoveTarget, true);
