@@ -18,11 +18,11 @@ var RecordingHandlers = (function _RecordingHandlers() { var pub = {};
       // prevents right click from working
       event.preventDefault();
       if (navigator.appVersion.toLocaleLowerCase().indexOf("win") !== -1) {
-        alert("Trying to open a new tab? Try CTRL+Click instead!");
+        alert("Trying to open a new tab? Try CTRL+click instead!");
       } else if (navigator.appVersion.toLocaleLowerCase().indexOf("mac") !== -1) {
-        alert("Trying to open a new tab? Try CMD+Click instead!");
+        alert("Trying to open a new tab? Try CMD+click instead!");
       } else { // linux or unix, depends on computer 
-        alert("Trying to open a new tab? Use a keyboard shortcut (like CTRL+CLICK) instead!");
+        alert("Trying to open a new tab? Use a keyboard shortcut (like CTRL+click) instead!");
       }
     }
   }
