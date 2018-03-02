@@ -6282,7 +6282,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
             // we'll do a bunch of stuff to pick a relation, then we'll call this function
             var handleSelectedRelation = function(data){
-              // handle the actual data the page sent us
+              // handle the actual data the page sent us, if we're still interested in adding loops
+
+              // if we're in this but the user has told us to stop trying to automatically add relations, let's stop
+              if (program.automaticLoopInsertionForbidden){
+                return; // don't even go running more ringer stuff if we're not interested in seeing more loops inserted
+              }
+
+              // ok, normal processing.  we want to add a loop for this relation
               if (data){
                 program.processLikelyRelation(data);
               }
@@ -6411,6 +6418,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     };
 
+    this.forbidAutomaticLoopInsertion = function(){
+      this.automaticLoopInsertionForbidden = true;
+    }
+
     this.processLikelyRelation = function _processLikelyRelation(data){
       WALconsole.log(data);
       if (pagesProcessed[data.page_var_name]){
@@ -6442,7 +6453,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
 
       WALconsole.log(pagesToNodes);
-      this.insertLoops(true);
+
+      if (!this.automaticLoopInsertionForbidden){
+        this.insertLoops(true);
+      }
 
       // give the text relations back to the UI-handling component so we can display to user
       return this.relations;
