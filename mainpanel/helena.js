@@ -4416,12 +4416,41 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.recordedNodeSnapshot = mainpanelRep;
       this.recordedNodeSnapshot.baseURI = mainpanelRep.source_url; // make sure we can compare urls
     }
+
     this.sameNode = function _sameNode(otherNodeVariable){
       var nr1 = this.recordedNodeSnapshot;
       var nr2 = otherNodeVariable.recordedNodeSnapshot;
       var ans = nr1.xpath === nr2.xpath && nr1.text === nr2.text && nr1.baseURI === nr2.baseURI; // baseURI is the url on which the ndoe was found
       return ans;
     }
+
+    this.getName = function _getName(){
+      if (thisName){
+        return thisName;
+      }
+      if (this.name){
+        return this.name; // this is here for backwards compatibility.
+      }
+      return thisName;
+    }
+    this.setName = function _setName(name){
+      // don't set it to the original name unless nothing else has that name yet
+      var otherNodeVariableWithThisName = getNodeVariableByName(name);
+      if (!otherNodeVariableWithThisName){
+        thisName = name;
+      }
+      else{
+        if (otherNodeVariableWithThisName === this){
+          // we're renaming it to the same thing.  no need to do anything
+          return;
+        }
+        this.setName("alt_" + name);
+      }
+    };
+
+    /*-------------------
+    Initializaiton stuff
+    -------------------*/
 
     var thisName = null;
 
@@ -4432,7 +4461,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // ok, we already have a node variable for representing this.  just return that
           var theRightNode = allNodeVariablesSeenSoFar[i];
           // first update all the attributes based on how we now want to use the node
-          // todo: right here, make sure we're not making a node variable with the same name as another...
           if (name) {theRightNode.setName(name);}
           if (mainpanelRep) {theRightNode.mainpanelRep = mainpanelRep;}
           if (source) {theRightNode.nodeSource = source;}
@@ -4448,9 +4476,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         name = "thing_" + nodeVariablesCounter;
       }
 
-      // todo: right here make sure we're not making a node variable with the same name as another
-      // todo: let's make the name hidden.  don't want to be able to change it except here
-      thisName = name;
+      this.setName(name);
       this.imgData = imgData;
       this.nodeSource = source;
 
@@ -4465,20 +4491,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         return this.getName();
       }
       return this.imgData;
-    };
-
-    this.getName = function _getName(){
-      if (thisName){
-        return thisName;
-      }
-      if (this.name){
-        return this.name; // this is here for backwards compatibility.
-      }
-      return thisName;
-    }
-    this.setName = function _setName(name){
-      // todo: make sure we can't do this unless the name doesn't give it same name as another node
-      thisName = name;
     };
 
     this.recordTimeText = function _recordTimeText(){
