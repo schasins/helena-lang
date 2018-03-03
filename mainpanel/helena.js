@@ -4416,6 +4416,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.recordedNodeSnapshot = mainpanelRep;
       this.recordedNodeSnapshot.baseURI = mainpanelRep.source_url; // make sure we can compare urls
     }
+    // ok, but also sometimes we get the recorded snapshot, which records text in the textcontent field
+    // but we'll want to reason about the text field
+    if (this.recordedNodeSnapshot.textContent){
+      this.recordedNodeSnapshot.text = this.recordedNodeSnapshot.textContent;
+    }
 
     this.sameNode = function _sameNode(otherNodeVariable){
       var nr1 = this.recordedNodeSnapshot;
