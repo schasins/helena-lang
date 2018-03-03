@@ -230,7 +230,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // not ok to just overwrite currentNode, because there may be multiple statements using the old
           // currentNode, and becuase we're interested in keeping naming consistent, they should keep using it
           // so...just overwrite some things
-          statement.currentNode.name = name;
+          statement.currentNode.setName(name);
           statement.currentNode.nodeRep = nodeRep;
           statement.currentNode.setSource(NodeSources.RELATIONEXTRACTOR);
           // statement.currentNode = new WebAutomationLanguage.NodeVariable(name, nodeRep, null, null, NodeSources.RELATIONEXTRACTOR); // note that this means the elements in the firstRowXPaths and the elements in columns must be aligned!
@@ -4397,7 +4397,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   function getNodeVariableByName(name){
     for (var i = 0; i < allNodeVariablesSeenSoFar.length; i++){
-      if (allNodeVariablesSeenSoFar[i].name === name){
+      if (allNodeVariablesSeenSoFar[i].getName() === name){
         return allNodeVariablesSeenSoFar[i];
       }
     }
@@ -4423,6 +4423,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return ans;
     }
 
+    var thisName = null;
+
     if (this.recordedNodeSnapshot){ // go through here if they provided either a snapshot or a mainpanel rep
       // actually go through and compare to all prior nodes
       for (var i = 0; i < allNodeVariablesSeenSoFar.length; i++){
@@ -4430,7 +4432,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // ok, we already have a node variable for representing this.  just return that
           var theRightNode = allNodeVariablesSeenSoFar[i];
           // first update all the attributes based on how we now want to use the node
-          if (name) {theRightNode.name = name;}
+          // todo: right here, make sure we're not making a node variable with the same name as another...
+          if (name) {theRightNode.setName(name);}
           if (mainpanelRep) {theRightNode.mainpanelRep = mainpanelRep;}
           if (source) {theRightNode.nodeSource = source;}
           if (recordedNodeSnapshot){ theRightNode.recordedNodeSnapshot = recordedNodeSnapshot; }
@@ -4445,7 +4448,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         name = "thing_" + nodeVariablesCounter;
       }
 
-      this.name = name;
+      // todo: right here make sure we're not making a node variable with the same name as another
+      // todo: let's make the name hidden.  don't want to be able to change it except here
+      thisName = name;
       this.imgData = imgData;
       this.nodeSource = source;
 
@@ -4457,16 +4462,23 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.toString = function _toString(alreadyBound, pageVar){
       if (alreadyBound === undefined){ alreadyBound = true;} 
       if (alreadyBound){
-        return this.name;
+        return this.getName();
       }
       return this.imgData;
     };
 
     this.getName = function _getName(){
-      return this.name;
+      if (thisName){
+        return thisName;
+      }
+      if (this.name){
+        return this.name; // this is here for backwards compatibility.
+      }
+      return thisName;
     }
     this.setName = function _setName(name){
-      this.name = name;
+      // todo: make sure we can't do this unless the name doesn't give it same name as another node
+      thisName = name;
     };
 
     this.recordTimeText = function _recordTimeText(){
@@ -4484,12 +4496,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.setCurrentNodeRep = function _setCurrentNodeRep(environment, nodeRep){
       // todo: should be a better way to get env
-      WALconsole.log("setCurrentNodeRep", this.name, nodeRep);
-      environment.envBind(this.name, nodeRep);
+      WALconsole.log("setCurrentNodeRep", this.getName(), nodeRep);
+      environment.envBind(this.getName(), nodeRep);
     };
 
     this.currentNodeRep = function _currentNodeRep(environment){
-      return _.clone(environment.envLookup(this.name)); // don't want to let someone call this and start messing with the enviornment representation, so clone
+      return _.clone(environment.envLookup(this.getName())); // don't want to let someone call this and start messing with the enviornment representation, so clone
     };
 
     this.currentText = function _currentText(environment){
@@ -4828,6 +4840,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
 
       // clear out whatever was in there before
+      // todo: don't always want to clear out everything.  what about when we have some other roots?
       workspace.clear();
 
       helenaSeqToBlocklySeq(statementLs, workspace);
