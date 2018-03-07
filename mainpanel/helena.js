@@ -4418,7 +4418,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
     // ok, but also sometimes we get the recorded snapshot, which records text in the textcontent field
     // but we'll want to reason about the text field
-    if (this.recordedNodeSnapshot.textContent){
+    if (this.recordedNodeSnapshot && this.recordedNodeSnapshot.textContent){
       this.recordedNodeSnapshot.text = this.recordedNodeSnapshot.textContent;
     }
 
