@@ -4237,7 +4237,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                                                 relation.messageRelationRepresentation(), 
                                                 tabId, frame, 
                                                 // question: is it ok to insist that every single frame returns a non-null one?  maybe have a timeout?  maybe accept once we have at least one good response from one of the frames?
-                                                function _getRelationItemsHandler(response) { WALconsole.log("Receiving response: ", frame, response); if (response !== null && response !== undefined) {handleNewRelationItemsFromFrame(response, frame);}}); // when get response, call handleNewRelationItemsFromFrame (defined above) to pick from the frames' answers
+                                                function _getRelationItemsHandler(response) { 
+                                                  console.log("Receiving response: ", frame, response); 
+                                                  if (response !== null && response !== undefined) {handleNewRelationItemsFromFrame(response, frame);}}); // when get response, call handleNewRelationItemsFromFrame (defined above) to pick from the frames' answers
           };
           // here's the function for sending the message until we decide we're done with the current attempt to get new rows, or until actually get the answer
           MiscUtilities.repeatUntil(sendGetRelationItems, function _checkDone(){return doneArray[currentGetRowsCounter] || relationItemsRetrieved[frame];},function(){}, 1000, true);
@@ -4418,14 +4420,18 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
     // ok, but also sometimes we get the recorded snapshot, which records text in the textcontent field
     // but we'll want to reason about the text field
+    // nope, the textContent can totally be different from text
+    // have to just start recording textContent of all the relation-scraped nodes
+    /*
     if (this.recordedNodeSnapshot && this.recordedNodeSnapshot.textContent){
       this.recordedNodeSnapshot.text = this.recordedNodeSnapshot.textContent;
     }
+    */
 
     this.sameNode = function _sameNode(otherNodeVariable){
       var nr1 = this.recordedNodeSnapshot;
       var nr2 = otherNodeVariable.recordedNodeSnapshot;
-      var ans = nr1.xpath === nr2.xpath && nr1.text === nr2.text && nr1.baseURI === nr2.baseURI; // baseURI is the url on which the ndoe was found
+      var ans = nr1.xpath === nr2.xpath && nr1.textContent === nr2.textContent && nr1.baseURI === nr2.baseURI; // baseURI is the url on which the ndoe was found
       return ans;
     }
 
