@@ -4430,19 +4430,19 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
 
     this.getName = function _getName(){
-      if (thisName){
-        return thisName;
+      if (this.___privateName___){
+        return this.___privateName___;
       }
       if (this.name){
         return this.name; // this is here for backwards compatibility.
       }
-      return thisName;
+      return this.___privateName___;
     }
     this.setName = function _setName(name){
       // don't set it to the original name unless nothing else has that name yet
       var otherNodeVariableWithThisName = getNodeVariableByName(name);
       if (!otherNodeVariableWithThisName){
-        thisName = name;
+        this.___privateName___ = name;
       }
       else{
         if (otherNodeVariableWithThisName === this){
@@ -4457,7 +4457,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     Initializaiton stuff
     -------------------*/
 
-    var thisName = null;
+    this.___privateName___ = null;
 
     if (this.recordedNodeSnapshot){ // go through here if they provided either a snapshot or a mainpanel rep
       // actually go through and compare to all prior nodes
