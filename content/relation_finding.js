@@ -511,7 +511,18 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     if (likeliest_sibling !== null){
       positive_nodes.push(likeliest_sibling);
     }
-    return synthesizeSelector(positive_nodes, [], columns);
+    var selector = synthesizeSelector(positive_nodes, [], columns);
+    var relation = pub.interpretRelationSelector(selector);
+
+    for (var i = 0; i < relation.length; i++){
+      var relRow = relation[i];
+      var foundTheRow = _.reduce(relRow, function(acc, cell){return acc || (cell === rowNodes[0]);}, false);
+      if (foundTheRow){
+        // awesome.  we found a row of the relation that includes the first row node
+        selector.exclude_first = i;
+      }
+    }
+    return selector;
   }
 
   function combinations(arr) {
@@ -882,13 +893,16 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
 
     // we're going to do something a little different for the case where one or more nodes come from pulldown menus
     var pulldownxpaths = [];
-    for (var i = 0; i < xpaths.length; i++){
-      var xpath = xpaths[i].toLowerCase();
-      if (xpath.indexOf("/select[") > -1){
-        // ok, we've grabbed something from a pulldown
-        pulldownxpaths.push(xpath);
-      }
+    if (xpaths){
+      for (var i = 0; i < xpaths.length; i++){
+        var xpath = xpaths[i].toLowerCase();
+        if (xpath.indexOf("/select[") > -1){
+          // ok, we've grabbed something from a pulldown
+          pulldownxpaths.push(xpath);
+        }
+      }      
     }
+
     // for the non-pulldown xpaths, we'll proceed with normal processing
     xpaths = _.difference(xpaths, pulldownxpaths);
     // for pulldown xpaths, we'll do something different
@@ -1261,6 +1275,9 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       // actually remove the node from positive, add to negative
       var ind = currentSelectorToEdit.positive_nodes.indexOf(nodeToRemove);
       currentSelectorToEdit.positive_nodes.splice(ind, 1);
+      if (!currentSelectorToEdit.negative_nodes){
+        currentSelectorToEdit.negative_nodes = [];
+      }
       currentSelectorToEdit.negative_nodes.push(nodeToRemove);
     }
     // we've done all our highlight stuff, know we no longer need that
