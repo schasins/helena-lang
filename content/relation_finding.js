@@ -1389,6 +1389,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     data.tag = next_or_more_button.prop("tagName");
     data.text = next_or_more_button.text();
     data.id = next_or_more_button.attr("id");
+    data.class = next_or_more_button.attr("class");
     data.src = next_or_more_button.prop('src');
     data.xpath = nodeToXPath(event.target);
     data.frame_id = SimpleRecord.getFrameId();
@@ -1412,6 +1413,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     var next_or_more_button_tag = next_button_data.tag;
     var next_or_more_button_text = next_button_data.text;
     var next_or_more_button_id = next_button_data.id;
+    var next_or_more_button_class = next_button_data.class;
     var next_or_more_button_xpath = next_button_data.xpath;
     var next_or_more_button_src = next_button_data.src;
     var button = null;
@@ -1426,22 +1428,29 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
         button = $("#"+next_or_more_button_id);
       }
       else{
-        //see which candidate has the right text and closest xpath
-        var min_distance = 999999;
-        var min_candidate = null;
-        for (var i=0; i<candidate_buttons.length; i++){
-          var candidate_xpath = nodeToXPath(candidate_buttons[i]);
-          var distance = MiscUtilities.levenshteinDistance(candidate_xpath,next_or_more_button_xpath);
-          if (distance<min_distance){
-            min_distance = distance;
-            min_candidate = candidate_buttons[i];
+        // if not and demo button had class, try using the class{
+          var cbuttons = candidate_buttons.filter(function(){return $(this).attr("class") === next_or_more_button_class;});
+          if (cbuttons.length === 1){
+            return cbuttons[0];
           }
-        }
-        if (min_candidate === null){
-          WALconsole.log("couldn't find an appropriate 'more' button");
-          WALconsole.log(next_or_more_button_tag, next_or_more_button_id, next_or_more_button_text, next_or_more_button_xpath);
-        }
-        button = min_candidate;
+          else{
+            //see which candidate has the right text and closest xpath
+            var min_distance = 999999;
+            var min_candidate = null;
+            for (var i=0; i<candidate_buttons.length; i++){
+              var candidate_xpath = nodeToXPath(candidate_buttons[i]);
+              var distance = MiscUtilities.levenshteinDistance(candidate_xpath,next_or_more_button_xpath);
+              if (distance<min_distance){
+                min_distance = distance;
+                min_candidate = candidate_buttons[i];
+              }
+            }
+            if (min_candidate === null){
+              WALconsole.log("couldn't find an appropriate 'more' button");
+              WALconsole.log(next_or_more_button_tag, next_or_more_button_id, next_or_more_button_text, next_or_more_button_xpath);
+            }
+            button = min_candidate;
+          }
       }
     }
     WALconsole.log("button", button);
