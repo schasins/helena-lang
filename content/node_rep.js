@@ -66,6 +66,51 @@ NodeRep = (function _NodeRep() { var pub = {};
 	}
 
 	function getElementTextHelper(el) {
+		// Text node (3) or CDATA node (4) - return its text
+		if ( (el.nodeType === 3) || (el.nodeType === 4) ) {
+				return el.nodeValue.trim();
+		// If node is an element (1) and an img, input[type=image], or area element, return its alt text
+		}
+		else if ( (el.nodeType === 1)) {
+		var text = "";
+
+			// Traverse children unless this is a script or style element
+			if (  !el.tagName.match(/^(script|style)$/i)) {
+				// var text = "";
+				var children = el.childNodes;
+				for (var i = 0, l = children.length; i < l; i++) {
+						var newText = getElementText(children[i]);
+						if (newText == null || newText == undefined){
+							newText = "";
+						}
+						
+						if (newText.length > 0){
+							text+=newText+"\n";
+						}
+				}
+			}
+
+			if ((el.tagName.toLowerCase() == 'img') ||
+					(el.tagName.toLowerCase() == 'area') ||
+					((el.tagName.toLowerCase() == 'input') && el.getAttribute('type') 
+						&& (el.getAttribute('type').toLowerCase() == 'image'))) {
+				text += el.getAttribute('alt') || "";
+			}
+
+			if (el.tagName.toLowerCase() == 'img') { 
+				text += " url(" + el.src + ")";
+			} else if (el.style && el.style.backgroundImage) {
+				text += " " + el.style.backgroundImage; // "image url(the_url)"
+			}
+	
+			text = text.trim();
+			return text; // debugging checks
+		}
+
+		return null; // debugging check
+	}
+
+	function getElementTextHelperOld(el) {
 	    var text = '';
 	    // Text node (3) or CDATA node (4) - return its text
 	    if ( (el.nodeType === 3) || (el.nodeType === 4) ) {
@@ -100,4 +145,6 @@ NodeRep = (function _NodeRep() { var pub = {};
 	        return text;
 	    }
 	}
-return pub;}());
+
+	return pub;
+}());
