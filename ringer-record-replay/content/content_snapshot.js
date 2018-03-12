@@ -115,6 +115,7 @@ var snapshotBranch = null;
         }
       }
     }
+
     return returnVal;
   }
 

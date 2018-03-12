@@ -15,9 +15,15 @@ var RecordingHandlers = (function _RecordingHandlers() { var pub = {};
   // to replay them and the resulting script will fail without giving the user any information abtout the cause
   pub.contextmenuHandler = function _contextmenuHandler(event){
     if (currentlyRecording()){
+      // prevents right click from working
       event.preventDefault();
-      // TODO: scraping tool tip modification
-      // TODO: relation preview modification
+      if (navigator.appVersion.toLocaleLowerCase().indexOf("win") !== -1) {
+        alert("Trying to open a new tab? Try CTRL+click instead!");
+      } else if (navigator.appVersion.toLocaleLowerCase().indexOf("mac") !== -1) {
+        alert("Trying to open a new tab? Try CMD+click instead!");
+      } else { // linux or unix, depends on computer 
+        alert("Trying to open a new tab? Use a keyboard shortcut (like CTRL+click) instead!");
+      }
     }
   }
 
@@ -216,8 +222,17 @@ var Scraping = (function _Scraping() { var pub = {};
     return data;
   };
 
+  // Chrome on Windows records "hold down" a key differently (repeated events) than 
+  // Chrome on MacOS (one event). This filters out extra ctrl and alt key events from
+  // being recorded
   additional_recording_filters.scrape = function(eventData){
-    return false;
+    // key code 18: alt; key code 17: ctrl
+    if ((eventData.keyCode === 18 || eventData.keyCode === 17) && (eventData.type === "keypress" || eventData.type === "keydown")){
+      // we're going to see a ton of these because holding ctrl/alt for scraping mode makes them.  we're going to ignore, although this could cause problems for some interactions
+      return true;
+    } else {
+      return false;
+    }
 
     /*
     if (eventData.keyCode === 66 && (eventData.type === "keypress" || eventData.type === "keydown")){
@@ -245,6 +260,33 @@ var Scraping = (function _Scraping() { var pub = {};
     return false;
     */
   }
+
+  let currKeyState = {}; // keeps track of the keys that are currently being pressed down
+
+  // Because Windows has this habit of producing multiple keypress, keydown events 
+  // for a continued key press, we want to throw out events that are repeats of events
+  // we've already seen. This change fixes a major issue with running Helena
+  // on Windows, in that the top-level tool chooses to ignore events that can be
+  // accomplished without running Ringer (e.g. scraping relation items), but keydown
+  // events can only be accomplished by Ringer.  So replay gets slow because of having to
+  // replay all the Ringer events for each row of the relation.
+  // note: if we run into issues where holding a key down in a recording produces a bad replay,
+  // look here first
+  additional_recording_filters.ignoreExtraKeydowns = function(eventData){
+    if (eventData.type === "keypress" || eventData.type === "keydown") { // for now, we'll ignore multiple keypresses for all keys (not just ctrl and alt)
+      if (!currKeyState[eventData.keyCode]) { // first seen, record that it's being pressed down
+        currKeyState[eventData.keyCode] = true;
+        return false;
+      } else { // not first seen, ignore
+        return true;
+      }
+    } else if (eventData.type === "keyup") { // key is no longer being pressed, no longer need to keep track of it
+      currKeyState[eventData.keyCode] = false;
+      return false;
+    }
+    return false;
+  }
+  additional_recording_filters_on.ignoreExtraKeydowns = true; // we always want this filter to be on when recording
 
   // must keep track of current hovered node so we can highlight it when the user enters scraping mode
   var mostRecentMousemoveTarget = null;

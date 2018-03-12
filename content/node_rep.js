@@ -9,6 +9,7 @@ NodeRep = (function _NodeRep() { var pub = {};
 	  if (node === null){
 	    return {
 	    	text: "", 
+	    	textContent: "",
 	    	link: "", 
 	    	xpath: "", 
 	    	value: "",
@@ -20,6 +21,7 @@ NodeRep = (function _NodeRep() { var pub = {};
 	  }
 	  return {
 	  	text: NodeRep.nodeToText(node), 
+	  	textContent: node.textContent, // it's ok if this is null or whatever.  we won't show this to the user.  just need it for aligning with ringer-scraped nodes
 	  	link: NodeRep.nodeToLink(node), 
 	  	xpath: nodeToXPath(node), 
 	  	value: NodeRep.nodeToValue(node),

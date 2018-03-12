@@ -230,7 +230,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // not ok to just overwrite currentNode, because there may be multiple statements using the old
           // currentNode, and becuase we're interested in keeping naming consistent, they should keep using it
           // so...just overwrite some things
-          statement.currentNode.name = name;
+          statement.currentNode.setName(name);
           statement.currentNode.nodeRep = nodeRep;
           statement.currentNode.setSource(NodeSources.RELATIONEXTRACTOR);
           // statement.currentNode = new WebAutomationLanguage.NodeVariable(name, nodeRep, null, null, NodeSources.RELATIONEXTRACTOR); // note that this means the elements in the firstRowXPaths and the elements in columns must be aligned!
@@ -4237,7 +4237,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                                                 relation.messageRelationRepresentation(), 
                                                 tabId, frame, 
                                                 // question: is it ok to insist that every single frame returns a non-null one?  maybe have a timeout?  maybe accept once we have at least one good response from one of the frames?
-                                                function _getRelationItemsHandler(response) { WALconsole.log("Receiving response: ", frame, response); if (response !== null && response !== undefined) {handleNewRelationItemsFromFrame(response, frame);}}); // when get response, call handleNewRelationItemsFromFrame (defined above) to pick from the frames' answers
+                                                function _getRelationItemsHandler(response) { 
+                                                  console.log("Receiving response: ", frame, response); 
+                                                  if (response !== null && response !== undefined) {handleNewRelationItemsFromFrame(response, frame);}}); // when get response, call handleNewRelationItemsFromFrame (defined above) to pick from the frames' answers
           };
           // here's the function for sending the message until we decide we're done with the current attempt to get new rows, or until actually get the answer
           MiscUtilities.repeatUntil(sendGetRelationItems, function _checkDone(){return doneArray[currentGetRowsCounter] || relationItemsRetrieved[frame];},function(){}, 1000, true);
@@ -4397,7 +4399,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   function getNodeVariableByName(name){
     for (var i = 0; i < allNodeVariablesSeenSoFar.length; i++){
-      if (allNodeVariablesSeenSoFar[i].name === name){
+      if (allNodeVariablesSeenSoFar[i].getName() === name){
         return allNodeVariablesSeenSoFar[i];
       }
     }
@@ -4416,12 +4418,52 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.recordedNodeSnapshot = mainpanelRep;
       this.recordedNodeSnapshot.baseURI = mainpanelRep.source_url; // make sure we can compare urls
     }
+    // ok, but also sometimes we get the recorded snapshot, which records text in the textcontent field
+    // but we'll want to reason about the text field
+    // nope, the textContent can totally be different from text
+    // have to just start recording textContent of all the relation-scraped nodes
+    /*
+    if (this.recordedNodeSnapshot && this.recordedNodeSnapshot.textContent){
+      this.recordedNodeSnapshot.text = this.recordedNodeSnapshot.textContent;
+    }
+    */
+
     this.sameNode = function _sameNode(otherNodeVariable){
       var nr1 = this.recordedNodeSnapshot;
       var nr2 = otherNodeVariable.recordedNodeSnapshot;
-      var ans = nr1.xpath === nr2.xpath && nr1.text === nr2.text && nr1.baseURI === nr2.baseURI; // baseURI is the url on which the ndoe was found
+      var ans = nr1.xpath === nr2.xpath && nr1.textContent === nr2.textContent && nr1.baseURI === nr2.baseURI; // baseURI is the url on which the ndoe was found
       return ans;
     }
+
+    this.getName = function _getName(){
+      if (this.___privateName___){
+        return this.___privateName___;
+      }
+      if (this.name){
+        return this.name; // this is here for backwards compatibility.
+      }
+      return this.___privateName___;
+    }
+    this.setName = function _setName(name){
+      // don't set it to the original name unless nothing else has that name yet
+      var otherNodeVariableWithThisName = getNodeVariableByName(name);
+      if (!otherNodeVariableWithThisName){
+        this.___privateName___ = name;
+      }
+      else{
+        if (otherNodeVariableWithThisName === this){
+          // we're renaming it to the same thing.  no need to do anything
+          return;
+        }
+        this.setName("alt_" + name);
+      }
+    };
+
+    /*-------------------
+    Initializaiton stuff
+    -------------------*/
+
+    this.___privateName___ = null;
 
     if (this.recordedNodeSnapshot){ // go through here if they provided either a snapshot or a mainpanel rep
       // actually go through and compare to all prior nodes
@@ -4430,7 +4472,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // ok, we already have a node variable for representing this.  just return that
           var theRightNode = allNodeVariablesSeenSoFar[i];
           // first update all the attributes based on how we now want to use the node
-          if (name) {theRightNode.name = name;}
+          if (name) {theRightNode.setName(name);}
           if (mainpanelRep) {theRightNode.mainpanelRep = mainpanelRep;}
           if (source) {theRightNode.nodeSource = source;}
           if (recordedNodeSnapshot){ theRightNode.recordedNodeSnapshot = recordedNodeSnapshot; }
@@ -4445,7 +4487,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         name = "thing_" + nodeVariablesCounter;
       }
 
-      this.name = name;
+      this.setName(name);
       this.imgData = imgData;
       this.nodeSource = source;
 
@@ -4457,16 +4499,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.toString = function _toString(alreadyBound, pageVar){
       if (alreadyBound === undefined){ alreadyBound = true;} 
       if (alreadyBound){
-        return this.name;
+        return this.getName();
       }
       return this.imgData;
-    };
-
-    this.getName = function _getName(){
-      return this.name;
-    }
-    this.setName = function _setName(name){
-      this.name = name;
     };
 
     this.recordTimeText = function _recordTimeText(){
@@ -4484,12 +4519,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.setCurrentNodeRep = function _setCurrentNodeRep(environment, nodeRep){
       // todo: should be a better way to get env
-      WALconsole.log("setCurrentNodeRep", this.name, nodeRep);
-      environment.envBind(this.name, nodeRep);
+      WALconsole.log("setCurrentNodeRep", this.getName(), nodeRep);
+      environment.envBind(this.getName(), nodeRep);
     };
 
     this.currentNodeRep = function _currentNodeRep(environment){
-      return _.clone(environment.envLookup(this.name)); // don't want to let someone call this and start messing with the enviornment representation, so clone
+      return _.clone(environment.envLookup(this.getName())); // don't want to let someone call this and start messing with the enviornment representation, so clone
     };
 
     this.currentText = function _currentText(environment){
@@ -4828,6 +4863,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
 
       // clear out whatever was in there before
+      // todo: don't always want to clear out everything.  what about when we have some other roots?
       workspace.clear();
 
       helenaSeqToBlocklySeq(statementLs, workspace);
@@ -6282,7 +6318,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
             // we'll do a bunch of stuff to pick a relation, then we'll call this function
             var handleSelectedRelation = function(data){
-              // handle the actual data the page sent us
+              // handle the actual data the page sent us, if we're still interested in adding loops
+
+              // if we're in this but the user has told us to stop trying to automatically add relations, let's stop
+              if (program.automaticLoopInsertionForbidden){
+                return; // don't even go running more ringer stuff if we're not interested in seeing more loops inserted
+              }
+
+              // ok, normal processing.  we want to add a loop for this relation
               if (data){
                 program.processLikelyRelation(data);
               }
@@ -6411,6 +6454,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     };
 
+    this.forbidAutomaticLoopInsertion = function(){
+      this.automaticLoopInsertionForbidden = true;
+    }
+
     this.processLikelyRelation = function _processLikelyRelation(data){
       WALconsole.log(data);
       if (pagesProcessed[data.page_var_name]){
@@ -6442,7 +6489,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
 
       WALconsole.log(pagesToNodes);
-      this.insertLoops(true);
+
+      if (!this.automaticLoopInsertionForbidden){
+        this.insertLoops(true);
+      }
 
       // give the text relations back to the UI-handling component so we can display to user
       return this.relations;
