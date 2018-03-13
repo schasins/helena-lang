@@ -110,9 +110,13 @@ function ParameterizedTrace(trace){
 				// if the next thing isn't a key event or if we've switched nodes, we're done with the current string!  (assuming we have a current string right now)
 				if (curr_string.length > 0){
 					WALconsole.log("processString", curr_string);
-					processString(parameter_name, original_string, curr_string, char_indexes, i - 1);
+					var currIndex = processString(parameter_name, original_string, curr_string, char_indexes, i - 1);
 					curr_string = "";
 					char_indexes = [];
+					if (currIndex){
+						i = currIndex; // have to update this, because processString might have shortened the trace
+						continue; // have to continue so the if statement below doesn't fire until we do i++
+					}
 				}
 			}
 			if (_.contains(["keydown", "keypress", "keyup", "input", "textInput"], event_data.type)){
@@ -133,7 +137,10 @@ function ParameterizedTrace(trace){
 		}
 		// and let's check whatever we had at the end if it hadn't been checked yet
 		if (curr_string.length > 0){
-			processString(parameter_name, original_string, curr_string, char_indexes, trace.length - 1);
+			var currIndex = processString(parameter_name, original_string, curr_string, char_indexes, trace.length - 1);
+			if (currIndex){
+				i = currIndex; // have to update this, because processString might have shortened the trace
+			}
 		}
 	};
 	
@@ -227,7 +234,9 @@ function ParameterizedTrace(trace){
 			trace = trace.slice(0,start_target_typing_index)
 			.concat([param_event])
 			.concat(trace.slice(stop_target_typing_index, trace.length));
+			var currIndex = trace.indexOf(param_event);
 			WALconsole.log("putting a hole in for a string", original_string_initial_case);
+			return currIndex;
 		}
 	}
 	this.useTypedString = function(parameter_name, string){
