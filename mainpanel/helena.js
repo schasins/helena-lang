@@ -3040,6 +3040,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var availableAnnotationItems = this.availableAnnotationItems;
       var annotationItems = this.annotationItems;
       console.log("in genBlocklyNode", this, this.name, ancestorAnnotations, requiredAncestorAnnotations);
+
       Blockly.Blocks[customBlocklyLabel] = {
         init: function() {
           console.log("in init", ancestorAnnotations, requiredAncestorAnnotations);
@@ -3056,8 +3057,21 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             if (i > 0){
               extra = ",  ";
             }
+            var toggleItemUse = null;
+            (function(){
+              var ai = availableAnnotationItems[i];
+              toggleItemUse = function(){
+                var ind = annotationItems.indexOf(ai);
+                if (ind >= 0){
+                  annotationItems.splice(ind, 1);
+                }
+                else{
+                  annotationItems.push(ai);
+                }
+              }
+            })();
             fieldsSoFar = fieldsSoFar.appendField(extra + annotationItemToString(availableAnnotationItems[i]) + ":")
-            .appendField(new Blockly.FieldCheckbox(onNow), annotationItemToString(availableAnnotationItems[i]));
+            .appendField(new Blockly.FieldCheckbox(onNow, toggleItemUse), annotationItemToString(availableAnnotationItems[i]));
           }
           if (ancestorAnnotations.length > 0){
             fieldsSoFar = this.appendDummyInput().appendField("other entitites: ");
