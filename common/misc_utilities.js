@@ -189,7 +189,7 @@ var utilities = (function _utilities() { var pub = {};
                     chrome.tabs.sendMessage(tabs[i].id, msg); 
                 }
                 catch(err) {
-                    WALconsole.warn("failure to send message:", msg);
+                    // WALconsole.warn("failure to send message:", msg);
                 }
                 tabs_messaged ++;
               }
