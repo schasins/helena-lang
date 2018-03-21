@@ -4445,6 +4445,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.sameNode = function _sameNode(otherNodeVariable){
       var nr1 = this.recordedNodeSnapshot;
       var nr2 = otherNodeVariable.recordedNodeSnapshot;
+      if (nr1.xpath === "" || nr2.xpath === ""){
+        // don't return that things line up just because we failed to find a node.
+        // it will make us try to redefine the same thing over and over, and we'll get errors from that
+        return false;
+      }
       var ans = nr1.xpath === nr2.xpath && nr1.textContent === nr2.textContent && nr1.baseURI === nr2.baseURI; // baseURI is the url on which the ndoe was found
       return ans;
     }
