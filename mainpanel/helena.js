@@ -6271,7 +6271,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return statements;
     }
 
-    this.processServerRelations = function _processServerRelations(resp, currentStartIndex, tabsToCloseAfter, tabMapping){
+    this.processServerRelations = function _processServerRelations(resp, currentStartIndex, tabsToCloseAfter, tabMapping, windowId){
       if (currentStartIndex === undefined){currentStartIndex = 0;}
       if (tabsToCloseAfter === undefined){tabsToCloseAfter = [];}
       if (tabMapping === undefined){tabMapping = {};}
@@ -6280,196 +6280,213 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
       var startIndex = currentStartIndex;
 
-      // let's find all the statements that should open new pages (where we'll need to try relations)
-      for (var i = currentStartIndex; i < program.statements.length; i++){
-        if (program.statements[i].outputPageVars && program.statements[i].outputPageVars.length > 0){
-          // todo: for now this code assumes there's exactly one outputPageVar.  this may not always be true!  but dealing with it now is a bad use of time
-          var targetPageVar = program.statements[i].outputPageVars[0];
-          WALconsole.log("processServerrelations going for index:", i, targetPageVar);
+      var runRelationFindingInNewWindow = function(windowId){
+        // let's find all the statements that should open new pages (where we'll need to try relations)
+        for (var i = currentStartIndex; i < program.statements.length; i++){
+          if (program.statements[i].outputPageVars && program.statements[i].outputPageVars.length > 0){
+            // todo: for now this code assumes there's exactly one outputPageVar.  this may not always be true!  but dealing with it now is a bad use of time
+            var targetPageVar = program.statements[i].outputPageVars[0];
+            WALconsole.log("processServerrelations going for index:", i, targetPageVar);
 
-          // this is one of the points to which we'll have to replay
-          var statementSlice = program.statements.slice(startIndex, i + 1);
-          var trace = [];
-          _.each(statementSlice, function(statement){trace = trace.concat(statement.cleanTrace);});
-          //_.each(trace, function(ev){EventM.clearDisplayInfo(ev);}); // strip the display info back out from the event objects
+            // this is one of the points to which we'll have to replay
+            var statementSlice = program.statements.slice(startIndex, i + 1);
+            var trace = [];
+            _.each(statementSlice, function(statement){trace = trace.concat(statement.cleanTrace);});
+            //_.each(trace, function(ev){EventM.clearDisplayInfo(ev);}); // strip the display info back out from the event objects
 
-          WALconsole.log("processServerrelations program: ", program);
-          WALconsole.log("processServerrelations trace indexes: ", startIndex, i);
-          WALconsole.log("processServerrelations trace:", trace.length);
+            WALconsole.log("processServerrelations program: ", program);
+            WALconsole.log("processServerrelations trace indexes: ", startIndex, i);
+            WALconsole.log("processServerrelations trace:", trace.length);
 
-          var nextIndex = i + 1;
+            var nextIndex = i + 1;
 
-          // ok, we have a slice of the statements that should produce one of our pages. let's replay
-          SimpleRecord.replay(trace, {tabMapping: tabMapping}, function(replayObj){
-            // continuation
-            WALconsole.log("replayobj", replayObj);
+            // ok, we have a slice of the statements that should produce one of our pages. let's replay
+            SimpleRecord.replay(trace, {tabMapping: tabMapping, targetWindowId: windowId}, function(replayObj){
+              // continuation
+              WALconsole.log("replayobj", replayObj);
 
-            // what's the tab that now has the target page?
-            var replayTrace = replayObj.record.events;
-            var lastCompletedEvent = TraceManipulationUtilities.lastTopLevelCompletedEvent(replayTrace);
-            var lastCompletedEventTabId = TraceManipulationUtilities.tabId(lastCompletedEvent);
-            // what tabs did we make in the interaction in general?
-            tabsToCloseAfter = tabsToCloseAfter.concat(TraceManipulationUtilities.tabsInTrace(replayTrace));
+              // what's the tab that now has the target page?
+              var replayTrace = replayObj.record.events;
+              var lastCompletedEvent = TraceManipulationUtilities.lastTopLevelCompletedEvent(replayTrace);
+              var lastCompletedEventTabId = TraceManipulationUtilities.tabId(lastCompletedEvent);
+              // what tabs did we make in the interaction in general?
+              tabsToCloseAfter = tabsToCloseAfter.concat(TraceManipulationUtilities.tabsInTrace(replayTrace));
+              // also sometimes it's important that we bring this tab (on which we're about to do relation finding)
+              // to be focused, so that it will get loaded and we'll be able to find the relation
+              chrome.tabs.update(lastCompletedEventTabId, {"active": true}, function(tab){ });
+              // I know I know, I should really have all the rest of this inside the callback for the tab update
+              // but we didn't even do this in the past and it's pretty fast...
 
-            // let's do some trace alignment to figure out a tab mapping
-            var newMapping = tabMappingFromTraces(trace, replayTrace);
-            tabMapping = _.extend(tabMapping, newMapping);
-            WALconsole.log(newMapping, tabMapping);
+              // let's do some trace alignment to figure out a tab mapping
+              var newMapping = tabMappingFromTraces(trace, replayTrace);
+              tabMapping = _.extend(tabMapping, newMapping);
+              WALconsole.log(newMapping, tabMapping);
 
-            // and what are the server-suggested relations we want to send?
-            var resps = resp.pages;
-            var suggestedRelations = null;
-            for (var i = 0; i < resps.length; i++){
-              var pageVarName = resps[i].page_var_name;
-              if (pageVarName === targetPageVar.name){
-                suggestedRelations = [resps[i].relations.same_domain_best_relation, resps[i].relations.same_url_best_relation];
-                for (var j = 0; j < suggestedRelations.length; j++){
-                  if (suggestedRelations[j] === null){ continue; }
-                    suggestedRelations[j] = ServerTranslationUtilities.unJSONifyRelation(suggestedRelations[j]); // is this the best place to deal with going between our object attributes and the server strings?
+              // and what are the server-suggested relations we want to send?
+              var resps = resp.pages;
+              var suggestedRelations = null;
+              for (var i = 0; i < resps.length; i++){
+                var pageVarName = resps[i].page_var_name;
+                if (pageVarName === targetPageVar.name){
+                  suggestedRelations = [resps[i].relations.same_domain_best_relation, resps[i].relations.same_url_best_relation];
+                  for (var j = 0; j < suggestedRelations.length; j++){
+                    if (suggestedRelations[j] === null){ continue; }
+                      suggestedRelations[j] = ServerTranslationUtilities.unJSONifyRelation(suggestedRelations[j]); // is this the best place to deal with going between our object attributes and the server strings?
+                  }
                 }
               }
-            }
-            if (suggestedRelations === null){
-              WALconsole.log("Panic!  We found a page in our outputPageVars that wasn't in our request to the server for relations that might be relevant on that page.");
-            }
-
-            var framesHandled = {};
-
-            // we'll do a bunch of stuff to pick a relation, then we'll call this function
-            var handleSelectedRelation = function(data){
-              // handle the actual data the page sent us, if we're still interested in adding loops
-
-              // if we're in this but the user has told us to stop trying to automatically add relations, let's stop
-              if (program.automaticLoopInsertionForbidden){
-                return; // don't even go running more ringer stuff if we're not interested in seeing more loops inserted
+              if (suggestedRelations === null){
+                WALconsole.log("Panic!  We found a page in our outputPageVars that wasn't in our request to the server for relations that might be relevant on that page.");
               }
 
-              // ok, normal processing.  we want to add a loop for this relation
-              if (data){
-                program.processLikelyRelation(data);
-              }
-              // update the control panel display
-              UIObject.updateDisplayedRelations(true); // true because we're still unearthing interesting relations, so should indicate we're in progress
-              // now let's go through this process all over again for the next page, if there is one
-              WALconsole.log("going to processServerRelations with nextIndex: ", nextIndex);
-              program.processServerRelations(resp, nextIndex, tabsToCloseAfter, tabMapping);
-            };
+              var framesHandled = {};
 
-            // this function will select the correct relation from amongst a bunch of frames' suggested relatoins
-            var processedTheLikeliestRelation = false;
-            var pickLikelyRelation = function(){
-              if (processedTheLikeliestRelation){
-                return; // already did this.  don't repeat
-              }
-              for (var key in framesHandled){
-                if (framesHandled[key] === false){
-                  return; // nope, not ready yet.  wait till all the frames have given answers
+              // we'll do a bunch of stuff to pick a relation, then we'll call this function
+              var handleSelectedRelation = function(data){
+                // handle the actual data the page sent us, if we're still interested in adding loops
+
+                // if we're in this but the user has told us to stop trying to automatically add relations, let's stop
+                if (program.automaticLoopInsertionForbidden){
+                  return; // don't even go running more ringer stuff if we're not interested in seeing more loops inserted
                 }
-              }
-              WALconsole.log("framesHandled", framesHandled); // todo: this is just debugging
 
-              var dataObjs = _.map(Object.keys(framesHandled), function(key){ return framesHandled[key]; });
-              WALconsole.log("dataObjs", dataObjs);
-              // todo: should probably do a fancy similarity thing here, but for now we'll be casual
-              // we'll sort by number of cells, then return the first one that shares a url with our spec nodes, or the first one if none share that url
-              dataObjs = _.filter(dataObjs, function(obj){return obj !== null && obj !== undefined;});
-              var sortedDataObjs = _.sortBy(dataObjs, function(data){ if (!data || !data.first_page_relation || !data.first_page_relation[0]){return -1;} else {return data.first_page_relation.length * data.first_page_relation[0].length; }}); // ascending
-        sortedDataObjs = sortedDataObjs.reverse();
-              WALconsole.log("sortedDataObjs", sortedDataObjs);
-              var frameUrls = pagesToFrameUrls[targetPageVar.name];
-              WALconsole.log("frameUrls", frameUrls, pagesToFrameUrls, targetPageVar.name);
-              var mostFrequentFrameUrl = _.chain(frameUrls).countBy().pairs().max(_.last).head().value(); // a silly one-liner for getting the most freq
-              _.each(sortedDataObjs, function(data){
-                if (data.url === mostFrequentFrameUrl){
-                  // ok, this is the one
-                  // now that we've picked a particular relation, from a particular frame, actually process it
-                  processedTheLikeliestRelation = true;
-                  handleSelectedRelation(data);
+                // ok, normal processing.  we want to add a loop for this relation
+                if (data){
+                  program.processLikelyRelation(data);
+                }
+                // update the control panel display
+                UIObject.updateDisplayedRelations(true); // true because we're still unearthing interesting relations, so should indicate we're in progress
+                // now let's go through this process all over again for the next page, if there is one
+                WALconsole.log("going to processServerRelations with nextIndex: ", nextIndex);
+                program.processServerRelations(resp, nextIndex, tabsToCloseAfter, tabMapping, windowId);
+              };
+
+              // this function will select the correct relation from amongst a bunch of frames' suggested relatoins
+              var processedTheLikeliestRelation = false;
+              var pickLikelyRelation = function(){
+                if (processedTheLikeliestRelation){
+                  return; // already did this.  don't repeat
+                }
+                for (var key in framesHandled){
+                  if (framesHandled[key] === false){
+                    return; // nope, not ready yet.  wait till all the frames have given answers
+                  }
+                }
+                WALconsole.log("framesHandled", framesHandled); // todo: this is just debugging
+
+                var dataObjs = _.map(Object.keys(framesHandled), function(key){ return framesHandled[key]; });
+                WALconsole.log("dataObjs", dataObjs);
+                // todo: should probably do a fancy similarity thing here, but for now we'll be casual
+                // we'll sort by number of cells, then return the first one that shares a url with our spec nodes, or the first one if none share that url
+                dataObjs = _.filter(dataObjs, function(obj){return obj !== null && obj !== undefined;});
+                var sortedDataObjs = _.sortBy(dataObjs, function(data){ if (!data || !data.first_page_relation || !data.first_page_relation[0]){return -1;} else {return data.first_page_relation.length * data.first_page_relation[0].length; }}); // ascending
+          sortedDataObjs = sortedDataObjs.reverse();
+                WALconsole.log("sortedDataObjs", sortedDataObjs);
+                var frameUrls = pagesToFrameUrls[targetPageVar.name];
+                WALconsole.log("frameUrls", frameUrls, pagesToFrameUrls, targetPageVar.name);
+                var mostFrequentFrameUrl = _.chain(frameUrls).countBy().pairs().max(_.last).head().value(); // a silly one-liner for getting the most freq
+                _.each(sortedDataObjs, function(data){
+                  if (data.url === mostFrequentFrameUrl){
+                    // ok, this is the one
+                    // now that we've picked a particular relation, from a particular frame, actually process it
+                    processedTheLikeliestRelation = true;
+                    handleSelectedRelation(data);
+                    return;
+                  }
+                });
+                // drat, none of them had the exact same url.  ok, let's just pick the first
+                if (sortedDataObjs.length < 1){
+                  WALconsole.log("Aaaaaaaaaaah there aren't any frames that offer good relations!  Why???");
                   return;
                 }
-              });
-              // drat, none of them had the exact same url.  ok, let's just pick the first
-              if (sortedDataObjs.length < 1){
-                WALconsole.log("Aaaaaaaaaaah there aren't any frames that offer good relations!  Why???");
-                return;
-              }
-              processedTheLikeliestRelation = true;
-              handleSelectedRelation(sortedDataObjs[0]);
-            };
-
-            function sendMessageForFrames(frames){
-              framesHandled = {};
-                frames.forEach(function(frame){
-                  // keep track of which frames need to respond before we'll be read to advance
-                  WALconsole.log("frameId", frame);
-                  framesHandled[frame] = false;
-                });
-                frames.forEach(function(frame) {
-                    // for each frame in the target tab, we want to see if the frame suggests a good relation.  once they've all made their suggestions
-                    // we'll pick the one we like best
-                    // todo: is there a better way?  after all, we do know the frame in which the user interacted with the first page at original record-time
-                    
-                    // here's the function for sending the message once
-                    var getLikelyRelationFunc = function(){
-                      utilities.sendFrameSpecificMessage("mainpanel", "content", "likelyRelation", 
-                                                          {xpaths: pagesToNodes[targetPageVar.name], pageVarName: targetPageVar.name, serverSuggestedRelations: suggestedRelations}, 
-                                                          lastCompletedEventTabId, frame, 
-                                                          // question: is it ok to insist that every single frame returns a non-null one?  maybe have a timeout?  maybe accept once we have at least one good response from one of the frames?
-                                                          function(response) { if (response) {response.frame = frame; framesHandled[frame] = response; pickLikelyRelation();}}); // when get response, call pickLikelyRelation (defined above) to pick from the frames' answers
-                    };
-
-                    // here's the function for sending the message until we get the answer
-                    var getLikelyRelationFuncUntilAnswer = function(){
-                      if (framesHandled[frame]){ return; } // cool, already got the answer, stop asking
-                      getLikelyRelationFunc(); // send that message
-                      setTimeout(getLikelyRelationFuncUntilAnswer, 5000); // come back and send again if necessary
-                    };
-
-                    // actually call it
-                    getLikelyRelationFuncUntilAnswer();
-
-                });
-            }
-
-            var allFrames = pagesToFrames[targetPageVar.name];
-            allFrames = _.uniq(allFrames);
-            if (allFrames.length === 1 && allFrames[0] === -1){
-              // cool, it's just the top-level frame
-              // just do the top-level iframe, and that will be faster
-              sendMessageForFrames([0]); // assumption: 0 is the id for the top-level frame
-            }
-            else{
-              // ok, we'll have to ask the tab what frames are in it
-              // let's get some info from the pages, and when we get that info back we can come back and deal with more script segments
-              var checkFramesFunc = function(){
-                chrome.webNavigation.getAllFrames({tabId: lastCompletedEventTabId}, function(details) {
-                                console.log("about to send to frames, tabId", lastCompletedEventTabId);
-                                var frames = _.map(details, function(d){return d.frameId;});
-                                sendMessageForFrames(frames);
-                              });
+                processedTheLikeliestRelation = true;
+                handleSelectedRelation(sortedDataObjs[0]);
               };
-              setTimeout(checkFramesFunc, 0); // for pages that take a long time to actually load the right page (redirects), can increase this; todo: fix it a real way by trying over and over until we get a reasonable answer
-            }
 
-          });
-          return; // all later indexes will be handled by the recursion instead of the rest of the loop
+              function sendMessageForFrames(frames){
+                framesHandled = {};
+                  frames.forEach(function(frame){
+                    // keep track of which frames need to respond before we'll be read to advance
+                    WALconsole.log("frameId", frame);
+                    framesHandled[frame] = false;
+                  });
+                  frames.forEach(function(frame) {
+                      // for each frame in the target tab, we want to see if the frame suggests a good relation.  once they've all made their suggestions
+                      // we'll pick the one we like best
+                      // todo: is there a better way?  after all, we do know the frame in which the user interacted with the first page at original record-time
+                      
+                      // here's the function for sending the message once
+                      var getLikelyRelationFunc = function(){
+                        utilities.sendFrameSpecificMessage("mainpanel", "content", "likelyRelation", 
+                                                            {xpaths: pagesToNodes[targetPageVar.name], pageVarName: targetPageVar.name, serverSuggestedRelations: suggestedRelations}, 
+                                                            lastCompletedEventTabId, frame, 
+                                                            // question: is it ok to insist that every single frame returns a non-null one?  maybe have a timeout?  maybe accept once we have at least one good response from one of the frames?
+                                                            function(response) { if (response) {response.frame = frame; framesHandled[frame] = response; pickLikelyRelation();}}); // when get response, call pickLikelyRelation (defined above) to pick from the frames' answers
+                      };
+
+                      // here's the function for sending the message until we get the answer
+                      var getLikelyRelationFuncUntilAnswer = function(){
+                        if (framesHandled[frame]){ return; } // cool, already got the answer, stop asking
+                        getLikelyRelationFunc(); // send that message
+                        setTimeout(getLikelyRelationFuncUntilAnswer, 5000); // come back and send again if necessary
+                      };
+
+                      // actually call it
+                      getLikelyRelationFuncUntilAnswer();
+
+                  });
+              }
+
+              var allFrames = pagesToFrames[targetPageVar.name];
+              allFrames = _.uniq(allFrames);
+              if (allFrames.length === 1 && allFrames[0] === -1){
+                // cool, it's just the top-level frame
+                // just do the top-level iframe, and that will be faster
+                sendMessageForFrames([0]); // assumption: 0 is the id for the top-level frame
+              }
+              else{
+                // ok, we'll have to ask the tab what frames are in it
+                // let's get some info from the pages, and when we get that info back we can come back and deal with more script segments
+                var checkFramesFunc = function(){
+                  chrome.webNavigation.getAllFrames({tabId: lastCompletedEventTabId}, function(details) {
+                                  console.log("about to send to frames, tabId", lastCompletedEventTabId);
+                                  var frames = _.map(details, function(d){return d.frameId;});
+                                  sendMessageForFrames(frames);
+                                });
+                };
+                setTimeout(checkFramesFunc, 0); // for pages that take a long time to actually load the right page (redirects), can increase this; todo: fix it a real way by trying over and over until we get a reasonable answer
+              }
+
+            });
+            return; // all later indexes will be handled by the recursion instead of the rest of the loop
+          }
         }
+        // ok we hit the end of the loop without returning after finding a new page to work on.  time to close tabs
+        tabsToCloseAfter = _.uniq(tabsToCloseAfter); 
+        console.log("tabsToCloseAfter", tabsToCloseAfter);     
+        // commenting out the actual tab closing for debugging purposes
+        /*
+        for (var i = 0; i < tabsToCloseAfter.length; i++){
+          console.log("processServerRelations removing tab", tabsToCloseAfter[i]);
+          chrome.tabs.remove(tabsToCloseAfter[i], function(){
+            // do we need to do anything?
+          }); 
+        }
+        */
+        // let's also update the ui to indicate that we're no longer looking
+        UIObject.updateDisplayedRelations(false);
+
+      };
+
+      // if this is our first time calling this function, we'll need to make a new window for our exploration of pages
+      // so we don't just choose a random one
+      // but if we've already started, no need, can juse use the windowId we already know
+      if (!windowId){
+        MiscUtilities.makeNewRecordReplayWindow(runRelationFindingInNewWindow);
       }
-      // ok we hit the end of the loop without returning after finding a new page to work on.  time to close tabs
-      tabsToCloseAfter = _.uniq(tabsToCloseAfter); 
-      console.log("tabsToCloseAfter", tabsToCloseAfter);     
-      // commenting out the actual tab closing for debugging purposes
-      /*
-      for (var i = 0; i < tabsToCloseAfter.length; i++){
-        console.log("processServerRelations removing tab", tabsToCloseAfter[i]);
-        chrome.tabs.remove(tabsToCloseAfter[i], function(){
-          // do we need to do anything?
-        }); 
+      else{
+        runRelationFindingInNewWindow(windowId);
       }
-      */
-      // let's also update the ui to indicate that we're no longer looking
-      UIObject.updateDisplayedRelations(false);
-      
 
     };
 
