@@ -6473,6 +6473,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           }); 
         }
         */
+        chrome.windows.remove(windowId);
         // let's also update the ui to indicate that we're no longer looking
         UIObject.updateDisplayedRelations(false);
 
