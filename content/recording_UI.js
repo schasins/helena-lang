@@ -179,9 +179,11 @@ var Tooltip = (function _Tooltip() { var pub = {};
     var $node = $(node);
     // var nodeText = MiscUtilities.scrapeConditionString+" to scrape:<br>"+NodeRep.nodeToText(node)+"<br>"+MiscUtilities.scrapeConditionLinkString+" to scrape:<br>"+NodeRep.nodeToLink(node);
     var nodeText = NodeRep.nodeToText(node);
-    nodeText = nodeText.replace(/\n/g, "<br>");
-    if (nodeText.length > 400){
-      nodeText = nodeText.slice(0,200)+"..."+nodeText.slice(nodeText.length - 200, nodeText.length);
+    if (nodeText){
+      nodeText = nodeText.replace(/\n/g, "<br>");
+      if (nodeText.length > 400){
+        nodeText = nodeText.slice(0,200)+"..."+nodeText.slice(nodeText.length - 200, nodeText.length);
+      }
     }
     var offset = $node.offset();
     var boundingBox = node.getBoundingClientRect();
