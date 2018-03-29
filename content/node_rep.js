@@ -100,9 +100,9 @@ NodeRep = (function _NodeRep() { var pub = {};
 			}
 
 			if (el.tagName.toLowerCase() == 'img') { 
-				text += " url(" + el.src + ")";
+				text += " image(" + el.src + ")";
 			} else if (el.style && el.style.backgroundImage) {
-				text += " " + el.style.backgroundImage; // "image url(the_url)"
+				text += " image" + el.style.backgroundImage; // "image url(the_url)"
 			}
 	
 			text = text.trim();
