@@ -111,7 +111,7 @@ NodeRep = (function _NodeRep() { var pub = {};
 
 			var title = el.getAttribute('title');
 			if (title){
-				text += title;
+				text += " " + title;
 			}
 	
 			text = text.trim();

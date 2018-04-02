@@ -171,7 +171,7 @@ function currentlyScraping(){
  **********************************************************************/
 
 var Tooltip = (function _Tooltip() { var pub = {};
-  var tooltipColorDefault = "rgba(255, 255, 255, 0.8)";
+  var tooltipColorDefault = "rgba(255, 255, 255, 0.9)";
   var tooltipBorderColorDefault = "#B0B0B0";
   pub.scrapingTooltip = function _scrapingTooltip(node, tooltipColor, tooltipBorderColor){
     if(tooltipColor === undefined) { tooltipColor = tooltipColorDefault;}
