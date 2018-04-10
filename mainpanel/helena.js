@@ -3120,21 +3120,21 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               fieldsSoFar = fieldsSoFar.appendField(skippingOptions[i]);
               if (i === 2){
                 var curLogicalTime = entityScope.logicalTime;
-                if (!curLogicalTime){ curLogicalTime = 1; }
+                if (curLogicalTime !== 0 && !curLogicalTime){ curLogicalTime = 1; }
                 console.log("curLogicalTime", curLogicalTime);
                 var logicalTimeFieldName = "logicalTime";
-                var textInput = new Blockly.FieldTextInput(curLogicalTime, function(){
+                var textInput = new Blockly.FieldTextInput(curLogicalTime.toString(), function(){
                   Blockly.FieldTextInput.numberValidator(); 
                   entityScope.logicalTime = parseInt(that.getFieldValue(logicalTimeFieldName));});
                 fieldsSoFar = fieldsSoFar.appendField(textInput, logicalTimeFieldName).appendField(" scrapes.");
-                if (!entityScope.logicalTime){entityScope.logicalTime = 1;}
+                if (entityScope.logicalTime !== 0 && !entityScope.logicalTime){entityScope.logicalTime = 1;}
               }
               if (i === 3){
                 var curPhysicalTime = entityScope.physicalTime;
-                if (!curPhysicalTime){ curPhysicalTime = 1; }
+                if (curPhysicalTime !== 0 && !curPhysicalTime){ curPhysicalTime = 1; }
                 console.log("curPhysicalTime", curPhysicalTime);
                 var physicalTimeFieldName = "physicalTime";
-                var textInput = new Blockly.FieldTextInput(curPhysicalTime, function(){
+                var textInput = new Blockly.FieldTextInput(curPhysicalTime.toString(), function(){
                   Blockly.FieldTextInput.numberValidator(); 
                   entityScope.physicalTime = parseInt(that.getFieldValue(physicalTimeFieldName));});
                 fieldsSoFar = fieldsSoFar.appendField(textInput, physicalTimeFieldName);
@@ -3145,7 +3145,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                 }
                 // here we actually set the entityScope's time unit, since no guarantee the user will interact with that pulldown and trigger the setting, but we have to show something, so want what we show to match with prog representation
                 if (!entityScope.physicalTimeUnit){entityScope.physicalTimeUnit = TimeUnits.YEARS;}
-                if (!entityScope.physicalTime){entityScope.physicalTime = 1;}
+                if (entityScope.physicalTime !== 0 && !entityScope.physicalTime){entityScope.physicalTime = 1;}
                 var timeUnitsFieldName = "timeunits";
                 fieldsSoFar = fieldsSoFar.appendField(new Blockly.FieldDropdown(options, function(newVal){entityScope.physicalTimeUnit = newVal; console.log(entityScope.physicalTimeUnit);}), timeUnitsFieldName);
                 fieldsSoFar = fieldsSoFar.appendField(".");
@@ -4687,7 +4687,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.originalTabId = function _originalTabId(){
       WALconsole.log(this.recordTimeFrameData);
-      return this.recordTimeFrameData.tab;
+      if (this.recordTimeFrameData){
+        return this.recordTimeFrameData.tab;
+      }
+      return null;
     }
 
     this.currentTabId = function _currentTabId(){
