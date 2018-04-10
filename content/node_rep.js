@@ -53,15 +53,19 @@ NodeRep = (function _NodeRep() { var pub = {};
 		return node.value;
 	};
 
-	function getElementText(el){
+	function getElementText(el, recurse){
+		if (recurse === undefined){recurse = true;}
 	  var text = getElementTextHelper(el);
 	  if (text == null || text == undefined || text == ""){ // should empty text also be null?
 	  	if (el.value){
 	  		text = el.value; // for the case where we get null text because it's an input with a value, should scrape the value
 	  	}
 	  	else{
-	    	return null;
-	  	}
+	  		if (recurse){
+	  			return getElementText(el.parentNode, false); // desperate times call for desperate measures;  if we're about to return null, try returning the parent instead
+	  		}
+	  		return null;
+	    }
 	  }
 	  text = text.trim();
 	  return text;
@@ -81,7 +85,7 @@ NodeRep = (function _NodeRep() { var pub = {};
 				// var text = "";
 				var children = el.childNodes;
 				for (var i = 0, l = children.length; i < l; i++) {
-						var newText = getElementText(children[i]);
+						var newText = getElementTextHelper(children[i]);
 						if (newText == null || newText == undefined){
 							newText = "";
 						}
@@ -100,9 +104,14 @@ NodeRep = (function _NodeRep() { var pub = {};
 			}
 
 			if (el.tagName.toLowerCase() == 'img') { 
-				text += " url(" + el.src + ")";
+				text += " image(" + el.src + ")";
 			} else if (el.style && el.style.backgroundImage) {
-				text += " " + el.style.backgroundImage; // "image url(the_url)"
+				text += " image" + el.style.backgroundImage; // "image url(the_url)"
+			}
+
+			var title = el.getAttribute('title');
+			if (title){
+				text += " " + title;
 			}
 	
 			text = text.trim();

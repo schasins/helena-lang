@@ -752,8 +752,14 @@ function fixDeltas(recordDeltas, replayDeltas, lastTarget) {
     if (delta.type == 'Property is different.') {
       var divProp = delta.divergingProp;
       if (params.replay.compensation == CompensationAction.FORCED) {
-        WALconsole.log("updated prop", divProp, " to ", delta.changed.prop[divProp]);
-        element[divProp] = delta.changed.prop[divProp];
+        try{
+          element[divProp] = delta.changed.prop[divProp];
+          WALconsole.log("updated prop", divProp, " to ", delta.changed.prop[divProp]);
+        }
+        catch(err){
+          WALconsole.warn("Attempted to update prop", divProp, delta.orig.prop[divProp]);
+        }
+        
       }
     }
   }

@@ -171,7 +171,7 @@ function currentlyScraping(){
  **********************************************************************/
 
 var Tooltip = (function _Tooltip() { var pub = {};
-  var tooltipColorDefault = "#DBDBDB";
+  var tooltipColorDefault = "rgba(255, 255, 255, 0.9)";
   var tooltipBorderColorDefault = "#B0B0B0";
   pub.scrapingTooltip = function _scrapingTooltip(node, tooltipColor, tooltipBorderColor){
     if(tooltipColor === undefined) { tooltipColor = tooltipColorDefault;}
@@ -179,24 +179,32 @@ var Tooltip = (function _Tooltip() { var pub = {};
     var $node = $(node);
     // var nodeText = MiscUtilities.scrapeConditionString+" to scrape:<br>"+NodeRep.nodeToText(node)+"<br>"+MiscUtilities.scrapeConditionLinkString+" to scrape:<br>"+NodeRep.nodeToLink(node);
     var nodeText = NodeRep.nodeToText(node);
-    if (nodeText.length > 100){
-      nodeText = nodeText.slice(0,50)+"..."+nodeText.slice(nodeText.length - 50, nodeText.length);
+    if (nodeText){
+      nodeText = nodeText.replace(/\n/g, "<br>");
+      if (nodeText.length > 400){
+        nodeText = nodeText.slice(0,200)+"..."+nodeText.slice(nodeText.length - 200, nodeText.length);
+      }
     }
     var offset = $node.offset();
     var boundingBox = node.getBoundingClientRect();
     var newDiv = $('<div>'+nodeText+'<div/>');
     var width = boundingBox.width;
-    if (width < 40){width = 40;}
+    var threshold = 150;
+    if (width < threshold){width = threshold;}
 
     newDiv.attr('id', 'vpbd-hightlight');
+    // newDiv.css('min-width', width);
+    // newDiv.css('width', 'auto');
     newDiv.css('width', width);
     newDiv.css('top', offset.top+boundingBox.height);
     newDiv.css('left', offset.left);
     newDiv.css('position', 'absolute');
     newDiv.css('z-index', 2147483647);
     newDiv.css('background-color', tooltipColor);
-    newDiv.css('border', 'solid 1px '+tooltipBorderColor);
-    newDiv.css('opacity', .9);
+    newDiv.css('box-shadow', '0px 0px 5px grey');
+    newDiv.css('padding', '3px');
+    newDiv.css('overflow', 'hidden');
+    newDiv.css('overflow-wrap', 'break-word');
     $(document.body).append(newDiv);
   }
 
