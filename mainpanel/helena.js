@@ -3294,6 +3294,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var targetUrl = 'http://kaofang.cs.berkeley.edu:8080/transactionexists';
       if (inParallelMode){
         targetUrl = 'http://kaofang.cs.berkeley.edu:8080/locktransaction';
+        if (this.descendIntoLocks){
+          // this one's a weird case.  in this case, we're actually re-entering a skip block already locked by another worker
+          // because it has descendant work that we can help with and because we want good load balancing
+          targetUrl = 'http://kaofang.cs.berkeley.edu:8080/takeblockduringdescent';
+        }
       }
 
       // you only need to talk to the server if you're actually going to act (skip) now on the knowledge of the duplicate
@@ -5760,6 +5765,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
     }
 
+    function turnOffDescentIntoLockedSkipBlocks(){
+      program.traverse(function(statement){
+        if (statement instanceof pub.DuplicateAnnotation){
+          statement.descendIntoLocks = false;
+        }
+      });
+    }
+
     function runInternals(program, parameters, dataset, options, continuation){
 
       // first let's make the runObject that we'll use for all the rest
@@ -5786,6 +5799,41 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         datasetsScraped.push(runObject.dataset.id);
         runObject.program.runBasicBlock(runObject, runObject.program.loopyStatements, function(){
 
+          // ok, we're done.  unless!  are we in parallel mode?  if we're in parallel mode, let's go back
+          // and help any workers that are stragglers
+
+          
+          // before we start running, let's check if we need to update the continuation in order to make it loop on this script forever
+          // (if it's one of those programs where we're supposed to go back and run again as soon as we finish)
+          // or if we need to loop again to descend into locked skip blocks
+          if (options.parallel){
+            // ok, we're ready to do our descent into parallelizing at lower skip blocks
+            // todo: this should really grab all the skip blocks at a given level
+            // this code will work as long as all skip blocks are nested one inside one, as when our pbd system writes them
+            var normalModeSkipBlock = function(statement){
+              return (statement instanceof pub.DuplicateAnnotation && statement.descendIntoLocks === false);
+            };
+            var nextSkipBlockToSwitch = firstTrueStatementTraverse(program.loopyStatements, normalModeSkipBlock);
+            if (nextSkipBlockToSwitch){
+              nextSkipBlockToSwitch.descendIntoLocks = true;
+            }
+            var nextSkipBlockToSwitchHasParallelizableSubcomponents = firstTrueStatementTraverse(program.loopyStatements, normalModeSkipBlock);
+
+            if (nextSkipBlockToSwitch && nextSkipBlockToSwitchHasParallelizableSubcomponents){
+              // we only want to do another run if there are actually parallelizable subcomponents of the thing we just switched
+              // otherwise it's useless to send more workers after the skip blocks that have already been locked by other workers
+              // but here we have both, so let's actually run again
+              runInternals(program, parameters, dataset, options, continuation); // todo: do we need to do anything to clean up here?  is program state ok?
+              // now return so we don't do the normal whatToDoWhenWereDone stuff that we'll do when we've really finished
+              return;
+            }
+            else{
+              // ok, we wanted to find a next skip block, but we ran out.  let's set them all back to false
+              turnOffDescentIntoLockedSkipBlocks();
+              // next we'll fall through out of this if statement and do the normal processing for being done, actually close the dataset and all
+            }
+          }
+
           function whatToDoWhenWereDone(){
             scrapingRunsCompleted += 1;
             console.log("scrapingRunsCompleted", scrapingRunsCompleted);
@@ -5796,6 +5844,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             recordingWindowIds = _.without(recordingWindowIds, windowId); // take that window back out of the allowable recording set
             // go ahead and actually close the window so we don't have chrome memory leaking all over the place.
             chrome.windows.remove(windowId);
+
+
             // if there was a continuation provided for when we're done, do it
             if (continuation){
               continuation(runObject.dataset, timeScraped);
@@ -5838,6 +5888,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           }
         }
       }
+
+      turnOffDescentIntoLockedSkipBlocks(); // in case we left the last run in a bad state, let's go ahead and make sure we'll parallelize at top level
 
       // before we start running, let's check if we need to update the continuation in order to make it loop on this script forever
       // (if it's one of those programs where we're supposed to go back and run again as soon as we finish)
