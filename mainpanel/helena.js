@@ -5851,7 +5851,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             console.log(runObject.dataset.id, timeScraped);
             recordingWindowIds = _.without(recordingWindowIds, windowId); // take that window back out of the allowable recording set
             // go ahead and actually close the window so we don't have chrome memory leaking all over the place.
-            chrome.windows.remove(windowId);
+            // todo: put this back in!
+            //chrome.windows.remove(windowId);
 
 
             // if there was a continuation provided for when we're done, do it

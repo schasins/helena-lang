@@ -1417,16 +1417,38 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     pub.highlightCurrentSelector(); // rehighlight the relaiton items
   }
 
-  function rightText(next_button_data, node){
+  function rightText(next_button_data, node, prior_next_button_text){
     // either there's an actual image and it's the same, or the text is the same
     if (next_button_data.src){
       return (node.prop('src') === next_button_data.src);
     }
-    return (node.text() === next_button_data.text);
+    if (!prior_next_button_text || isNaN(prior_next_button_text)){
+      // we don't have a past next button or the past next button wasn't numeric.  so just look for the exact text
+      return (node.text() === next_button_data.text);
+    }
+    else{
+      // it was a number!  so we're looking for the next number bigger than this one...
+      // oh cool, there's been a prior next button, and it had a number text
+      // we'd better look for a button like it but that has a bigger number...
+      // todo: make this more robust
+      var prior = parseInt(prior_next_button_text);
+      var currNodeText = node.text();
+      if (isNaN(currNodeText)){
+        return false;
+      }
+      var curr = parseInt(currNodeText);
+      if (curr > prior){
+        return true;
+      }
+    }
+    return false;
   }
 
   function findNextButton(next_button_data, prior_next_button_text){
-    console.log(next_button_data, prior_next_button_text);
+      console.log("findNextButton", next_button_data, prior_next_button_text, !isNaN(prior_next_button_text));
+    if (!isNaN(prior_next_button_text)){
+      console.log(next_button_data, prior_next_button_text);
+    }
     WALconsole.log(next_button_data);
     var next_or_more_button_tag = next_button_data.tag;
     var next_or_more_button_text = next_button_data.text;
@@ -1435,7 +1457,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     var next_or_more_button_xpath = next_button_data.xpath;
     var next_or_more_button_src = next_button_data.src;
     var button = null;
-    var candidate_buttons = $(next_or_more_button_tag).filter(function(){ return rightText(next_button_data, $(this));});
+    var candidate_buttons = $(next_or_more_button_tag).filter(function(){ return rightText(next_button_data, $(this), prior_next_button_text);});
     //hope there's only one button
     if (candidate_buttons.length === 1){
       button = candidate_buttons[0];
@@ -1450,6 +1472,30 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
           var cbuttons = candidate_buttons.filter(function(){return $(this).attr("class") === next_or_more_button_class;});
           if (cbuttons.length === 1){
             return cbuttons[0];
+          }
+          // ok, another case where we probably want to decide based on sharing class
+          // is the case where we have numeric next buttons
+          if (!isNaN(prior_next_button_text)){
+            // let's go through and just figure out which one has the next highest number relative to the prior next button text
+            var lsToSearch = cbuttons;
+            if (cbuttons.length < 1){
+              lsToSearch = candidate_buttons;
+            }
+            var priorButtonNum = parseInt(prior_next_button_text);
+            var lowestNumSoFar = Number.MAX_VALUE;
+            var lowestNodeSoFar = null
+            for (var i = 0; i < lsToSearch.length; i++){
+              var button = lsToSearch[i];
+              var buttonText = button.text();
+              var buttonNum = parseInt(buttonText);
+              if (buttonNum < lowestNumSoFar && buttonNum > priorButtonNum){
+                lowestNumSoFar = buttonNum;
+                lowestNodeSoFar = button;
+              }
+            }
+            if (lowestNodeSoFar){
+              return lowestNodeSoFar;
+            }
           }
           else{
             //see which candidate has the right text and closest xpath
