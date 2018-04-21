@@ -1425,7 +1425,8 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     return (node.text() === next_button_data.text);
   }
 
-  function findNextButton(next_button_data){
+  function findNextButton(next_button_data, prior_next_button_text){
+    console.log(next_button_data, prior_next_button_text);
     WALconsole.log(next_button_data);
     var next_or_more_button_tag = next_button_data.tag;
     var next_or_more_button_text = next_button_data.text;
@@ -1529,7 +1530,8 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     }
     else if (next_button_type === NextTypes.MOREBUTTON || next_button_type === NextTypes.NEXTBUTTON){
       WALconsole.namedLog("nextInteraction", "msg.next_button_selector", msg.next_button_selector);
-      var button = findNextButton(msg.next_button_selector);
+      var button = findNextButton(msg.next_button_selector, msg.prior_next_button_text);
+      utilities.sendMessage("content", "mainpanel", "nextButtonText", {text: button.textContent});
       if (button !== null){
         WALconsole.namedLog("nextInteraction", "clicked next or more button");
         button.click();

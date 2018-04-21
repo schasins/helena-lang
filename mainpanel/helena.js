@@ -4297,6 +4297,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
 
     var getNextRowCounter = 0;
+    var currNextButtonText = null; // for next buttons that are actually counting (page 1, 2, 3...), it's useful to keep track of this
     this.getNextRow = function _getNextRow(pageVar, callback){ // has to be called on a page, since a relation selector can be applied to many pages.  higher-level tool must control where to apply
 
       // ok, what's the page info on which we're manipulating this relation?
@@ -4344,6 +4345,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           continueWithANewPage();
         });
 
+        utilities.listenForMessageOnce("content", "mainpanel", "nextButtonText", function _nextButtonText(data){
+          currNextButtonText = data.text;
+        });
+
+
         // here's us telling the content script to take care of clicking on the next button, more button, etc
         if (!pageVar.currentTabId()){ WALconsole.log("Hey!  How'd you end up trying to click next button on a page for which you don't have a current tab id??  That doesn't make sense.", pageVar); }
         var timeWhenStartedRequestingNextInteraction = (new Date()).getTime();
@@ -4375,7 +4381,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // ok, haven't hit the timeout so just keep trying the next interaction
           var currentGetNextRowCounter = getNextRowCounter;
           WALconsole.namedLog("getRelationItems", currentGetNextRowCounter, "requestNext");
-          utilities.sendMessage("mainpanel", "content", "runNextInteraction", relation.messageRelationRepresentation(), null, null, [pageVar.currentTabId()]);};
+          var msg = relation.messageRelationRepresentation();
+          msg.prior_next_button_text = currNextButtonText;
+          utilities.sendMessage("mainpanel", "content", "runNextInteraction", msg, null, null, [pageVar.currentTabId()]);};
         MiscUtilities.repeatUntil(sendRunNextInteraction, function(){return stopRequestingNext;},function(){}, 17000, false);
       }
       else {
