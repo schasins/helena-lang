@@ -1445,10 +1445,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
   }
 
   function findNextButton(next_button_data, prior_next_button_text){
-      console.log("findNextButton", next_button_data, prior_next_button_text, !isNaN(prior_next_button_text));
-    if (!isNaN(prior_next_button_text)){
-      console.log(next_button_data, prior_next_button_text);
-    }
+    WALconsole.namedLog("findNextButton", next_button_data, prior_next_button_text, !isNaN(prior_next_button_text));
     WALconsole.log(next_button_data);
     var next_or_more_button_tag = next_button_data.tag;
     var next_or_more_button_text = next_button_data.text;
@@ -1458,24 +1455,33 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     var next_or_more_button_src = next_button_data.src;
     var button = null;
     var candidate_buttons = $(next_or_more_button_tag).filter(function(){ return rightText(next_button_data, $(this), prior_next_button_text);});
+    WALconsole.namedLog("findNextButton", "candidate_buttons", candidate_buttons);
+
+    var doNumberVersion = prior_next_button_text && !isNaN(prior_next_button_text);
+
     //hope there's only one button
-    if (candidate_buttons.length === 1){
+    if (candidate_buttons.length === 1 && !doNumberVersion){
+      WALconsole.namedLog("findNextButton", "only one button");
       button = candidate_buttons[0];
     }
     else{
       //if not and demo button had id, try using the id
-      if (next_or_more_button_id !== undefined && next_or_more_button_id !== ""){
+      if (next_or_more_button_id !== undefined && next_or_more_button_id !== "" && !doNumberVersion){
+        WALconsole.namedLog("findNextButton", "we had an id")
         button = $("#"+next_or_more_button_id);
       }
       else{
         // if not and demo button had class, try using the class{
           var cbuttons = candidate_buttons.filter(function(){return $(this).attr("class") === next_or_more_button_class;});
-          if (cbuttons.length === 1){
+          if (cbuttons.length === 1  && !doNumberVersion){
+            WALconsole.namedLog("findNextButton", "filtered by class and there was only one");
             return cbuttons[0];
           }
           // ok, another case where we probably want to decide based on sharing class
           // is the case where we have numeric next buttons
+          var lowestNodeSoFar = null
           if (!isNaN(prior_next_button_text)){
+            WALconsole.namedLog("findNextButton", "filtered by class and now trying to do numeric");
             // let's go through and just figure out which one has the next highest number relative to the prior next button text
             var lsToSearch = cbuttons;
             if (cbuttons.length < 1){
@@ -1483,19 +1489,22 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
             }
             var priorButtonNum = parseInt(prior_next_button_text);
             var lowestNumSoFar = Number.MAX_VALUE;
-            var lowestNodeSoFar = null
-            for (var i = 0; i < lsToSearch.length; i++){
-              var button = lsToSearch[i];
+            WALconsole.namedLog("findNextButton", "potential buttons", lsToSearch);
+            lsToSearch.each(function(idx, li) {
+              var button = $(li);
               var buttonText = button.text();
+              console.log("button", button, buttonText);
               var buttonNum = parseInt(buttonText);
+              console.log("comparison", buttonNum, lowestNumSoFar, priorButtonNum, buttonNum < lowestNumSoFar, buttonNum > priorButtonNum);
               if (buttonNum < lowestNumSoFar && buttonNum > priorButtonNum){
                 lowestNumSoFar = buttonNum;
                 lowestNodeSoFar = button;
               }
-            }
-            if (lowestNodeSoFar){
-              return lowestNodeSoFar;
-            }
+            });
+          }
+          if (lowestNodeSoFar){
+            WALconsole.namedLog("findNextButton", "numeric worked");
+            return lowestNodeSoFar.get(0);
           }
           else{
             //see which candidate has the right text and closest xpath
@@ -1513,11 +1522,12 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
               WALconsole.log("couldn't find an appropriate 'more' button");
               WALconsole.log(next_or_more_button_tag, next_or_more_button_id, next_or_more_button_text, next_or_more_button_xpath);
             }
+            console.log("all right, last restort");
             button = min_candidate;
           }
       }
     }
-    WALconsole.log("button", button);
+    WALconsole.namedLog("findNextButton", "chosen button", button);
     return button;
   }
 
@@ -1577,9 +1587,10 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     else if (next_button_type === NextTypes.MOREBUTTON || next_button_type === NextTypes.NEXTBUTTON){
       WALconsole.namedLog("nextInteraction", "msg.next_button_selector", msg.next_button_selector);
       var button = findNextButton(msg.next_button_selector, msg.prior_next_button_text);
-      utilities.sendMessage("content", "mainpanel", "nextButtonText", {text: button.textContent});
       if (button !== null){
+        utilities.sendMessage("content", "mainpanel", "nextButtonText", {text: button.textContent});
         WALconsole.namedLog("nextInteraction", "clicked next or more button");
+        console.log("About to click on node", button, button.textContent);
         button.click();
         /*
         $button = $(button);

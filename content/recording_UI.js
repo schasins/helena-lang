@@ -131,6 +131,7 @@ var RecordingHandlers = (function _RecordingHandlers() { var pub = {};
       var observer = new MutationObserver(function(mutations) {
           mutations.forEach(function(mutation) { 
               // stop observing while we edit it ourself
+              console.log("paused observing");
               observer.disconnect();
               $("#helena_overlay").remove();
               addOverlayDiv(observer);
