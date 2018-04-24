@@ -184,7 +184,7 @@ function ParameterizedTrace(trace){
 			var start_target_typing_index = first_key_event_index;
 			for (var i = first_key_event_index; i < last_key_index; i++){
 				var event = trace[i];
-				if (event.type === "dom" && event.data.type === last_event_type){
+				if (event.type === "dom" && event.data.type === last_event_type && event.target.snapshot.value){
 					// cool, we're on the last event in a particular key sequence.  does it have the whole left in the value yet?
 					var lowerCurrString = event.target.snapshot.value.toLowerCase();
 					if (lowerCurrString.indexOf(left + original_string[0]) > -1){
@@ -201,7 +201,7 @@ function ParameterizedTrace(trace){
 			var stop_target_typing_index = last_key_index; // we know it's there by the last key, so that's a safe bet
 			for (var i = start_target_typing_index; i < last_key_index; i++){
 				var event = trace[i];
-				if (event.type === "dom" && event.data.type === last_event_type){
+				if (event.type === "dom" && event.data.type === last_event_type && event.target.snapshot.value){
 					// cool, we're on the last event in a particular key sequence.  does it have the whole left in the value yet?
 					if (event.target.snapshot.value.toLowerCase().indexOf(original_string) > -1){
 						stop_target_typing_index = i + 1;

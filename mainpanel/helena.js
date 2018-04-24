@@ -337,6 +337,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   var blocklyNames = [];
   function setBlocklyLabel(obj, label){
+    console.log("setBlocklyLabel", obj, label, obj.___revivalLabel___);
     obj.blocklyLabel = label;
 
     // it's important that we keep track of what things within the WebAutomationLanguage object are blocks and which aren't
@@ -6740,5 +6741,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
   }
 
+  new pub.WaitStatement(); // make one so we'll add the blocklylabel
   return pub;
 }());
