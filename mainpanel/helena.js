@@ -415,6 +415,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // so we'll need to associate these invibislbe statements with others
         // and then the only thing we'll need to do is when we go the other direction (blockly->helena)
         // we'll have to do some special processing to put them back in the normal structure
+        statementsLs[i].nullBlockly = true;
 
         // one special case.  if we don't have a non-null lastblock, we'll have to keep this for later
         // we prefer to make things tails of earlier statements, but we can make some heads if necessary
@@ -5278,6 +5279,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                 || statement instanceof WebAutomationLanguage.PulldownInteractionStatement
                 );
     }
+    function ringerBasedButNotScraping(statement){
+      return (ringerBased(statement) && !(statement instanceof WebAutomationLanguage.ScrapeStatement));
+    }
 
     function determineNextBlockStartIndex(loopyStatements){
       var nextBlockStartIndex = loopyStatements.length;
@@ -6239,6 +6243,29 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // if we ever get a sequence within the statements that's a keydown statement, then only scraping statements, then a keyup, assume we can toss the keyup and keydown ones
 
       WALconsole.log("markNonTraceContributingStatements", statements);
+
+      // ok first some special handling for cases where the only statements in the block aren't ringer-y at all
+      // it's possible that this will sometimes screw things up.  if you ever get annoying weird behavior, 
+      // where the page stops reacting correctly, this might be a place to look
+      // but it's just so annoying when the scripts are slow on things that don't need to be slow.  so we're
+      // gonna do it anyway
+
+      var allNonRinger = true;
+      for (var i = 0; i < statements.length; i++){
+        //console.log("ringerBasedButNotScraping", ringerBasedButNotScraping(statements[i]), statements[i]);
+        if (ringerBasedButNotScraping(statements[i]) && !statements[i].nullBlockly){
+          allNonRinger = false;
+          break;
+        }
+      }
+      if (allNonRinger){
+        //console.log("Cool, found a situation where we can ignore all statements", statements);
+        for (var i = 0; i < statements.length; i++){
+          statements[i].contributesTrace = TraceContributions.NONE;
+        }
+        return statements;
+      }
+
       var keyIndexes = [];
       var keysdown = [];
       var keysup = [];
