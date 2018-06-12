@@ -5881,7 +5881,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
 
     var internalOptions = ["skipMode", "breakMode", "skipCommitInThisIteration"]; // wonder if these shouldn't be moved to runObject instead of options.  yeah.  should do that.
-    var recognizedOptions = ["dataset_id", "ignoreEntityScope", "breakAfterXDuplicatesInARow", "nameAddition", "simulateError", "parallel", "hashBasedParallel"];
+    var recognizedOptions = ["dataset_id", "ignoreEntityScope", "breakAfterXDuplicatesInARow", "nameAddition", "simulateError", "parallel", "hashBasedParallel", "restartOnFinish"];
     this.run = function _run(options, continuation, parameters, requireDataset){
       if (options === undefined){options = {};}
       if (parameters === undefined){parameters = {};}
@@ -5907,7 +5907,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // before we start running, let's check if we need to update the continuation in order to make it loop on this script forever
       // (if it's one of those programs where we're supposed to go back and run again as soon as we finish)
       var fullContinuation = continuation;
-      if (program.restartOnFinish){
+      if (program.restartOnFinish || options.restartOnFinish === true){
         // yep, we want to repeat.  time to make a new continuation that, once it finishes the original coninutation
         // will make a new dataset and start over.  the loop forever option/start again when done option
         fullContinuation = function(dataset, timeScraped){
