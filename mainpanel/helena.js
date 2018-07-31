@@ -1646,7 +1646,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             if (varNamesDropDown.length > 0){
               this.appendValueInput('NodeVariableUse')
                   .appendField(new Blockly.FieldDropdown(varNamesDropDown, handleVarChange), varNameFieldName)
-                  .appendField(new Blockly.FieldDropdown(attributesDropDown, handleAttributeChange), attributeFieldName);
+                  
+                  .appendField(new Blockly.FieldDropdown(attributesDropDown, handleAttributeChange), attributeFieldName)
+                  
+                  ;
               
               this.setOutput(true, 'NodeVariableUse');
               this.setColour(25);
@@ -1660,7 +1663,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                 setWAL(this, new pub.NodeVariableUse());
                 var name = varNamesDropDown[0][0];
                 getWAL(this).nodeVar = getNodeVariableByName(name); // since this is what it'll show by default, better act as though that's true
+                
                 getWAL(this).attributeOption = AttributeOptions.TEXT;
+                
               }
             }
           }
@@ -1673,7 +1678,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // nope!  this one doesn't attach to prev! attachToPrevBlock(this.block, prevBlock);
       setWAL(this.block, this);
       this.block.setFieldValue(this.nodeVar.getName(), varNameFieldName);
+      
       this.block.setFieldValue(this.attributeOption, attributeFieldName);
+      
       return this.block;
     };
 
@@ -3533,14 +3540,17 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               .appendField("for each row in")
               .appendField(new Blockly.FieldDropdown(relationsDropDown), "list")        
               .appendField("in")
-              .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page")        
+              .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page")  
+               
               .appendField("(")
               .appendField(new Blockly.FieldCheckbox("TRUE", useInfiniteRows), 'infiniteRowsCheckbox')
               .appendField("for all rows,")
               .appendField(new Blockly.FieldCheckbox("TRUE", dontUseInfiniteRows), 'limitedRowsCheckbox')
               .appendField("for the first")
               .appendField(new Blockly.FieldNumber(20, 0, null, null, handleMaxRowsChange), maxRowsFieldName)      
-              .appendField("rows)");
+              .appendField("rows)")
+              
+              ;
           this.appendStatementInput("statements") // important for our processing that we always call this statements
               .setCheck(null)
               .appendField("do");
@@ -3559,6 +3569,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (this.pageVar){
         this.block.setFieldValue(this.pageVar.toString(), "page");
       }
+      
       if (this.maxRows){
         this.block.setFieldValue(this.maxRows, maxRowsFieldName);
         this.block.setFieldValue("FALSE", "infiniteRowsCheckbox");
@@ -3567,6 +3578,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // we're using infinite rows
         this.block.setFieldValue("FALSE", "limitedRowsCheckbox");
       }
+      
       attachToPrevBlock(this.block, prevBlock);
 
       // handle the body statements
@@ -5861,7 +5873,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
             // if there was a continuation provided for when we're done, do it
             if (continuation){
-              continuation(runObject.dataset, timeScraped);
+              continuation(runObject.dataset, timeScraped, runObject.tab);
             }
           }
 
@@ -5910,9 +5922,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (program.restartOnFinish || options.restartOnFinish === true){
         // yep, we want to repeat.  time to make a new continuation that, once it finishes the original coninutation
         // will make a new dataset and start over.  the loop forever option/start again when done option
-        fullContinuation = function(dataset, timeScraped){
-          if (continuation) {continuation(dataset, timeScraped);}
-          program.run(options, continuation, parameters, requireDataset);
+        fullContinuation = function(dataset, timeScraped, tabId){
+          if (continuation) {continuation(dataset, timeScraped, options);}
+          program.run(options, continuation, parameters, tabId);
         }
       }
 
@@ -5946,9 +5958,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
     };
 
-    this.restartFromBeginning = function _restartFromBeginning(runObjectOld){
+    this.restartFromBeginning = function _restartFromBeginning(runObjectOld, continuation){
       // basically same as above, but store to the same dataset (for now, dataset id also controls which saved annotations we're looking at)
-      runObjectOld.program.run({dataset_id: runObjectOld.dataset.id});
+      runObjectOld.program.run({dataset_id: runObjectOld.dataset.id}, continuation);
     };
 
     this.stopRunning = function _stopRunning(runObject){
