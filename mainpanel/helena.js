@@ -2951,11 +2951,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   var SkippingStrategies = {
     ALWAYS: "always",
     NEVER: "never",
+    ONERUNLOGICAL: "onerunlogical",
     SOMETIMESPHYSICAL: "physical",
     SOMETIMESLOGICAL: "logical"
   };
 
   var duplicateAnnotationCounter = 0;
+  // pub.skipblock pub.entityscope this is the thing that we actually officially call skip blocks
   pub.DuplicateAnnotation = function _EntityScope(annotationItems, availableAnnotationItems, bodyStatements){
     Revival.addRevivalLabel(this);
     setBlocklyLabel(this, "duplicate_annotation");
@@ -3095,10 +3097,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
           fieldsSoFar = this.appendDummyInput().appendField("When should we skip an item? ");
           var skippingOptions = ["Never skip, even if it's a duplicate.", 
-          "Skip if the script has ever scraped a duplicate.", 
-          "Skip if the script scraped a duplicate in the last", 
-          "Skip if the script scraped a duplicate in the last"];
-          var skippingStrategies = [SkippingStrategies.NEVER, SkippingStrategies.ALWAYS, SkippingStrategies.SOMETIMESLOGICAL, SkippingStrategies.SOMETIMESPHYSICAL];
+          "Skip if we've ever scraped a duplicate.", 
+          "Skip if we scraped a duplicate in the same run.", 
+          "Skip if we scraped a duplicate in the last", 
+          "Skip if we scraped a duplicate in the last"];
+          var skippingStrategies = [SkippingStrategies.NEVER, SkippingStrategies.ALWAYS, SkippingStrategies.ONERUNLOGICAL, SkippingStrategies.SOMETIMESLOGICAL, SkippingStrategies.SOMETIMESPHYSICAL];
           
           var that = this;
           var allSkippingStrategyCheckboxes = [];
@@ -3126,7 +3129,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               fieldsSoFar = that.appendDummyInput().appendField(
                 new Blockly.FieldCheckbox(onNow, function(){skippingStrategyChangeHandler(thisSkippingStrategy)}), thisSkippingStrategy);
               fieldsSoFar = fieldsSoFar.appendField(skippingOptions[i]);
-              if (i === 2){
+              if (i === 3){
                 var curLogicalTime = entityScope.logicalTime;
                 if (curLogicalTime !== 0 && !curLogicalTime){ curLogicalTime = 1; }
                 console.log("curLogicalTime", curLogicalTime);
@@ -3134,10 +3137,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                 var textInput = new Blockly.FieldTextInput(curLogicalTime.toString(), function(){
                   Blockly.FieldTextInput.numberValidator(); 
                   entityScope.logicalTime = parseInt(that.getFieldValue(logicalTimeFieldName));});
-                fieldsSoFar = fieldsSoFar.appendField(textInput, logicalTimeFieldName).appendField(" scrapes.");
+                fieldsSoFar = fieldsSoFar.appendField(textInput, logicalTimeFieldName).appendField(" runs.");
                 if (entityScope.logicalTime !== 0 && !entityScope.logicalTime){entityScope.logicalTime = 1;}
               }
-              if (i === 3){
+              if (i === 4){
                 var curPhysicalTime = entityScope.physicalTime;
                 if (curPhysicalTime !== 0 && !curPhysicalTime){ curPhysicalTime = 1; }
                 console.log("curPhysicalTime", curPhysicalTime);
@@ -3388,6 +3391,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var strat = this.skippingStrategy;
       if (strat === SkippingStrategies.ALWAYS){
         // actually don't need to do anything.  the default looks through the whole log and skips if there's any duplicate match
+      }
+      else if (strat === SkippingStrategies.ONERUNLOGICAL){
+        rep.logical_time_diff = 0; // we're allowed to go back exactly 0 logical runs, must only reason about this logical run.
       }
       else if (strat === SkippingStrategies.SOMETIMESPHYSICAL){
         rep.physical_time_diff_seconds = this.physicalTime * multipliersForSeconds[this.physicalTimeUnit];
