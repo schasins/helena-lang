@@ -3795,7 +3795,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     var currentRowsCounter = -1;
 
-    this.getNextRow = function _getNextRow(pageVar, callback){ // has to be called on a page, to match the signature for the non-text relations, but we'll ignore the pagevar
+    this.getNextRow = function _getNextRow(runObject, pageVar, callback){ // has to be called on a page, to match the signature for the non-text relations, but we'll ignore the pagevar
       if (currentRowsCounter + 1 >= this.relation.length){
         callback(false); // no more rows -- let the callback know we're done
       }
@@ -4066,11 +4066,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return {id: this.id, name: this.name, selector: this.selector, selector_version: this.selectorVersion, exclude_first: this.excludeFirst, columns: this.columns, next_type: this.nextType, next_button_selector: this.nextButtonSelector, url: this.url, num_rows_in_demonstration: this.numRowsInDemo};
     };
 
-    this.noMoreRows = function _noMoreRows(pageVar, callback, prinfo, allowMoreNextInteractions){
+    this.noMoreRows = function _noMoreRows(runObject, pageVar, callback, prinfo, allowMoreNextInteractions){
       // first let's see if we can try running the next interaction again to get some fresh stuff.  maybe that just didn't go through?
-      if (allowMoreNextInteractions && prinfo.currentNextInteractionAttempts < 3){
+      var nextButtonAttemptsToAllowThreshold = runObject.program.nextButtonAttemptsThreshold;
+      if (!nextButtonAttemptsToAllowThreshold){ nextButtonAttemptsToAllowThreshold = DefaultHelenaValues.nextButtonAttemptsThreshold;}
+      if (allowMoreNextInteractions && prinfo.currentNextInteractionAttempts < nextButtonAttemptsToAllowThreshold){
+        WALconsole.log("ok, we're going to try calling getNextRow again, running the next interaction again.  currentNextInteractionAttempts: "+prinfo.currentNextInteractionAttempts);
         prinfo.runNextInteraction = true; // so that we don't fall back into trying to grab rows from current page when what we really want is to run the next interaction again.
-        this.getNextRow(pageVar, callback);
+        this.getNextRow(runObject, pageVar, callback);
       }
       else{
         // no more rows -- let the callback know we're done
@@ -4108,7 +4111,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     var relationItemsRetrieved = {};
     var missesSoFar = {}; // may still be interesting to track misses.  may choose to send an extra next button press, something like that
     // the function that we'll call when we actually have to go back to a page for freshRelationItems
-    function getRowsFromPageVar(pageVar, callback, prinfo){
+    function getRowsFromPageVar(runObject, pageVar, callback, prinfo){
       
       if (!pageVar.currentTabId()){ WALconsole.warn("Hey!  How'd you end up trying to find a relation on a page for which you don't have a current tab id??  That doesn't make sense.", pageVar); }
   
@@ -4206,7 +4209,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         if (!stillPossibleMoreItems){
           WALconsole.namedLog("getRelationItems", "all frames say we're done", getRowsCounter);
           doneArray[getRowsCounter] = true;
-          relation.noMoreRows(pageVar, callback, prinfo, false); // false because shouldn't try pressing the next button
+          relation.noMoreRows(runObject, runObject, pageVar, callback, prinfo, false); // false because shouldn't try pressing the next button
         }
 
       };
@@ -4239,7 +4242,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
         WALconsole.namedLog("getRelationItems", "all defined and couldn't find any relation items from any frames", getRowsCounter);
         doneArray[getRowsCounter] = true;
-        relation.noMoreRows(pageVar, callback, prinfo, true); // true because should allow trying the next button
+        relation.noMoreRows(runObject, pageVar, callback, prinfo, true); // true because should allow trying the next button
       }
 
       // let's go ask all the frames to give us relation items for the relation
@@ -4277,10 +4280,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           MiscUtilities.repeatUntil(sendGetRelationItems, function _checkDone(){return doneArray[currentGetRowsCounter] || relationItemsRetrieved[frame];},function(){}, 1000, true);
         });
         // and let's make sure that after our chosen timeout, we'll stop and just process whatever we have
-        var desiredTimeout = 30000; // todo: this timeout should be configurable by the user
+        var desiredTimeout = runObject.program.relationFindingTimeoutThreshold;
+        if (!desiredTimeout){ desiredTimeout = DefaultHelenaValues.relationFindingTimeoutThreshold;} // todo: this timeout should be configurable by the user, relation seconds timeout
         setTimeout(
           function _reachedTimeoutHandler(){
-            WALconsole.namedLog("getRelationItems", "Reached timeout", currentGetRowsCounter);
+            WALconsole.namedLog("getRelationItems", "Reached timeout, giving up on currentGetRows", currentGetRowsCounter);
             if (!doneArray[currentGetRowsCounter]){
               doneArray[currentGetRowsCounter] = false;
               processEndOfCurrentGetRows(pageVar, callback, prinfo);
@@ -4311,7 +4315,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     var getNextRowCounter = 0;
     var currNextButtonText = null; // for next buttons that are actually counting (page 1, 2, 3...), it's useful to keep track of this
-    this.getNextRow = function _getNextRow(pageVar, callback){ // has to be called on a page, since a relation selector can be applied to many pages.  higher-level tool must control where to apply
+    this.getNextRow = function _getNextRow(runObject, pageVar, callback){ // has to be called on a page, since a relation selector can be applied to many pages.  higher-level tool must control where to apply
 
       // ok, what's the page info on which we're manipulating this relation?
       WALconsole.log(pageVar.pageRelations);
@@ -4325,7 +4329,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       WALconsole.log("getnextrow", this, prinfo.currentRowsCounter);
       if ((prinfo.currentRows === null || prinfo.needNewRows) && !prinfo.runNextInteraction){
         // cool!  no data right now, so we have to go to the page and ask for some
-        getRowsFromPageVar(pageVar, callback, prinfo);
+        getRowsFromPageVar(runObject, pageVar, callback, prinfo);
       }
       else if ((prinfo.currentRows && prinfo.currentRowsCounter + 1 >= prinfo.currentRows.length) || prinfo.runNextInteraction){
         prinfo.runNextInteraction = false; // have to turn that flag back off so we don't fall back into here after running the next interaction
@@ -4344,7 +4348,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         var continueWithANewPage = function _continueWithANewPage(){
           // cool, and now let's start the process of retrieving fresh items by calling this function again
           prinfo.needNewRows = true;
-          relation.getNextRow(pageVar, callback);
+          relation.getNextRow(runObject, pageVar, callback);
         };
 
         // here's what we want to do once we've actually clicked on the next button, more button, etc
@@ -4354,6 +4358,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           var currentGetNextRowCounter = getNextRowCounter;
           WALconsole.namedLog("getRelationItems", currentGetNextRowCounter, "got nextinteraction ack");
           prinfo.currentNextInteractionAttempts += 1;
+          WALconsole.log("we've tried to run the get next interaction again, got an acknowledgment, so now we'll stop requesting next");
           stopRequestingNext = true;
           continueWithANewPage();
         });
@@ -4366,11 +4371,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // here's us telling the content script to take care of clicking on the next button, more button, etc
         if (!pageVar.currentTabId()){ WALconsole.log("Hey!  How'd you end up trying to click next button on a page for which you don't have a current tab id??  That doesn't make sense.", pageVar); }
         var timeWhenStartedRequestingNextInteraction = (new Date()).getTime();
+        var relationFindingTimeout = 120000; // 2 minutes timeout for when we just try reloading the page; todo: is this something we even hit?
         var sendRunNextInteraction = function(){
+          WALconsole.log("we're trying to send a next interaction again");
           var currTime = (new Date()).getTime();
           // let's check if we've hit our timeout
-          if ((currTime - timeWhenStartedRequestingNextInteraction) > 120000){
-            // ok, it's been two minutes and the next button still didn't work.  let's try refreshing the tab
+          if ((currTime - timeWhenStartedRequestingNextInteraction) > relationFindingTimeout){
+            // ok, we've crossed the threshold time and the next button still didn't work.  let's try refreshing the tab
+            WALconsole.log("we crossed the time out between when we started requesting the next interaction and now.  we're going to try refreshing");
             stopRequestingNext = true;
 
             function callb() {
@@ -4381,6 +4389,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                     WALconsole.warn("No idea what to do, so we're breaking -- a list page just wasn't present, so didn't know what to do next.");
                     return;
                 } else {
+                    WALconsole.log("refreshing the page now.");
                     // Tab exists.  so we can try reloading it, see how it goes
                     chrome.tabs.reload(pageVar.currentTabId(), {}, function(){
                       // ok, good, it's reloaded.  ready to go on with normal processing as though this reloaded page is our new page
@@ -5715,7 +5724,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           }
         }
 
-        loopStatement.relation.getNextRow(loopStatement.pageVar, function(moreRows){
+        loopStatement.relation.getNextRow(runObject, loopStatement.pageVar, function(moreRows){
           if (!moreRows){
             // hey, we're done!
             WALconsole.namedLog("rbb", "no more rows");
