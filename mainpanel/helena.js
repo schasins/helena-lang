@@ -6419,6 +6419,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             var nextIndex = i + 1;
 
             // ok, we have a slice of the statements that should produce one of our pages. let's replay
+            // todo, if we fail to find it with this approach, start running additional statements
+            // (seomtimes the relation is only displayed after user clicks on an element, that kind of thing)
             SimpleRecord.replay(trace, {tabMapping: tabMapping, targetWindowId: windowId}, function(replayObj){
               // continuation
               WALconsole.log("replayobj", replayObj);
@@ -6478,6 +6480,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                 WALconsole.log("going to processServerRelations with nextIndex: ", nextIndex);
                 program.processServerRelations(resp, nextIndex, tabsToCloseAfter, tabMapping, windowId);
               };
+
+              if (UIObject.handleFunctionForSkippingToNextPageOfRelationFinding){
+                UIObject.handleFunctionForSkippingToNextPageOfRelationFinding(handleSelectedRelation);
+              }
 
               // this function will select the correct relation from amongst a bunch of frames' suggested relatoins
               var processedTheLikeliestRelation = false;
