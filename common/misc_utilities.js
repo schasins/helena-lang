@@ -862,5 +862,12 @@ var XMLBuilder = (function _XMLBuilder() { var pub = {};
 
 return pub; }());
 
+var DefaultHelenaValues = (function _DefaultHelenaValues() { var pub = {};
+
+  pub.nextButtonAttemptsThreshold = 3;
+  pub.relationFindingTimeoutThreshold = 10000;
+
+return pub; }());
+
 
 

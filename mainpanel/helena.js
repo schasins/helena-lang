@@ -1647,7 +1647,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             if (varNamesDropDown.length > 0){
               this.appendValueInput('NodeVariableUse')
                   .appendField(new Blockly.FieldDropdown(varNamesDropDown, handleVarChange), varNameFieldName)
-                  .appendField(new Blockly.FieldDropdown(attributesDropDown, handleAttributeChange), attributeFieldName);
+                  
+                  .appendField(new Blockly.FieldDropdown(attributesDropDown, handleAttributeChange), attributeFieldName)
+                  
+                  ;
               
               this.setOutput(true, 'NodeVariableUse');
               this.setColour(25);
@@ -1661,7 +1664,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                 setWAL(this, new pub.NodeVariableUse());
                 var name = varNamesDropDown[0][0];
                 getWAL(this).nodeVar = getNodeVariableByName(name); // since this is what it'll show by default, better act as though that's true
+                
                 getWAL(this).attributeOption = AttributeOptions.TEXT;
+                
               }
             }
           }
@@ -1674,7 +1679,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // nope!  this one doesn't attach to prev! attachToPrevBlock(this.block, prevBlock);
       setWAL(this.block, this);
       this.block.setFieldValue(this.nodeVar.getName(), varNameFieldName);
+      
       this.block.setFieldValue(this.attributeOption, attributeFieldName);
+      
       return this.block;
     };
 
@@ -2945,11 +2952,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   var SkippingStrategies = {
     ALWAYS: "always",
     NEVER: "never",
+    ONERUNLOGICAL: "onerunlogical",
     SOMETIMESPHYSICAL: "physical",
     SOMETIMESLOGICAL: "logical"
   };
 
   var duplicateAnnotationCounter = 0;
+  // pub.skipblock pub.entityscope this is the thing that we actually officially call skip blocks
   pub.DuplicateAnnotation = function _EntityScope(annotationItems, availableAnnotationItems, bodyStatements){
     Revival.addRevivalLabel(this);
     setBlocklyLabel(this, "duplicate_annotation");
@@ -3089,10 +3098,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
           fieldsSoFar = this.appendDummyInput().appendField("When should we skip an item? ");
           var skippingOptions = ["Never skip, even if it's a duplicate.", 
-          "Skip if the script has ever scraped a duplicate.", 
-          "Skip if the script scraped a duplicate in the last", 
-          "Skip if the script scraped a duplicate in the last"];
-          var skippingStrategies = [SkippingStrategies.NEVER, SkippingStrategies.ALWAYS, SkippingStrategies.SOMETIMESLOGICAL, SkippingStrategies.SOMETIMESPHYSICAL];
+          "Skip if we've ever scraped a duplicate.", 
+          "Skip if we scraped a duplicate in the same run.", 
+          "Skip if we scraped a duplicate in the last", 
+          "Skip if we scraped a duplicate in the last"];
+          var skippingStrategies = [SkippingStrategies.NEVER, SkippingStrategies.ALWAYS, SkippingStrategies.ONERUNLOGICAL, SkippingStrategies.SOMETIMESLOGICAL, SkippingStrategies.SOMETIMESPHYSICAL];
           
           var that = this;
           var allSkippingStrategyCheckboxes = [];
@@ -3120,7 +3130,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               fieldsSoFar = that.appendDummyInput().appendField(
                 new Blockly.FieldCheckbox(onNow, function(){skippingStrategyChangeHandler(thisSkippingStrategy)}), thisSkippingStrategy);
               fieldsSoFar = fieldsSoFar.appendField(skippingOptions[i]);
-              if (i === 2){
+              if (i === 3){
                 var curLogicalTime = entityScope.logicalTime;
                 if (curLogicalTime !== 0 && !curLogicalTime){ curLogicalTime = 1; }
                 console.log("curLogicalTime", curLogicalTime);
@@ -3128,10 +3138,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                 var textInput = new Blockly.FieldTextInput(curLogicalTime.toString(), function(){
                   Blockly.FieldTextInput.numberValidator(); 
                   entityScope.logicalTime = parseInt(that.getFieldValue(logicalTimeFieldName));});
-                fieldsSoFar = fieldsSoFar.appendField(textInput, logicalTimeFieldName).appendField(" scrapes.");
+                fieldsSoFar = fieldsSoFar.appendField(textInput, logicalTimeFieldName).appendField(" runs.");
                 if (entityScope.logicalTime !== 0 && !entityScope.logicalTime){entityScope.logicalTime = 1;}
               }
-              if (i === 3){
+              if (i === 4){
                 var curPhysicalTime = entityScope.physicalTime;
                 if (curPhysicalTime !== 0 && !curPhysicalTime){ curPhysicalTime = 1; }
                 console.log("curPhysicalTime", curPhysicalTime);
@@ -3383,6 +3393,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (strat === SkippingStrategies.ALWAYS){
         // actually don't need to do anything.  the default looks through the whole log and skips if there's any duplicate match
       }
+      else if (strat === SkippingStrategies.ONERUNLOGICAL){
+        rep.logical_time_diff = 0; // we're allowed to go back exactly 0 logical runs, must only reason about this logical run.
+      }
       else if (strat === SkippingStrategies.SOMETIMESPHYSICAL){
         rep.physical_time_diff_seconds = this.physicalTime * multipliersForSeconds[this.physicalTimeUnit];
       }
@@ -3534,14 +3547,17 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               .appendField("for each row in")
               .appendField(new Blockly.FieldDropdown(relationsDropDown), "list")        
               .appendField("in")
-              .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page")        
+              .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page")  
+               
               .appendField("(")
               .appendField(new Blockly.FieldCheckbox("TRUE", useInfiniteRows), 'infiniteRowsCheckbox')
               .appendField("for all rows,")
               .appendField(new Blockly.FieldCheckbox("TRUE", dontUseInfiniteRows), 'limitedRowsCheckbox')
               .appendField("for the first")
               .appendField(new Blockly.FieldNumber(20, 0, null, null, handleMaxRowsChange), maxRowsFieldName)      
-              .appendField("rows)");
+              .appendField("rows)")
+              
+              ;
           this.appendStatementInput("statements") // important for our processing that we always call this statements
               .setCheck(null)
               .appendField("do");
@@ -3560,6 +3576,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (this.pageVar){
         this.block.setFieldValue(this.pageVar.toString(), "page");
       }
+      
       if (this.maxRows){
         this.block.setFieldValue(this.maxRows, maxRowsFieldName);
         this.block.setFieldValue("FALSE", "infiniteRowsCheckbox");
@@ -3568,6 +3585,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // we're using infinite rows
         this.block.setFieldValue("FALSE", "limitedRowsCheckbox");
       }
+      
       attachToPrevBlock(this.block, prevBlock);
 
       // handle the body statements
@@ -3784,7 +3802,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     var currentRowsCounter = -1;
 
-    this.getNextRow = function _getNextRow(pageVar, callback){ // has to be called on a page, to match the signature for the non-text relations, but we'll ignore the pagevar
+    this.getNextRow = function _getNextRow(runObject, pageVar, callback){ // has to be called on a page, to match the signature for the non-text relations, but we'll ignore the pagevar
       if (currentRowsCounter + 1 >= this.relation.length){
         callback(false); // no more rows -- let the callback know we're done
       }
@@ -4055,11 +4073,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return {id: this.id, name: this.name, selector: this.selector, selector_version: this.selectorVersion, exclude_first: this.excludeFirst, columns: this.columns, next_type: this.nextType, next_button_selector: this.nextButtonSelector, url: this.url, num_rows_in_demonstration: this.numRowsInDemo};
     };
 
-    this.noMoreRows = function _noMoreRows(pageVar, callback, prinfo, allowMoreNextInteractions){
+    this.noMoreRows = function _noMoreRows(runObject, pageVar, callback, prinfo, allowMoreNextInteractions){
       // first let's see if we can try running the next interaction again to get some fresh stuff.  maybe that just didn't go through?
-      if (allowMoreNextInteractions && prinfo.currentNextInteractionAttempts < 3){
+      var nextButtonAttemptsToAllowThreshold = runObject.program.nextButtonAttemptsThreshold;
+      if (!nextButtonAttemptsToAllowThreshold){ nextButtonAttemptsToAllowThreshold = DefaultHelenaValues.nextButtonAttemptsThreshold;}
+      if (allowMoreNextInteractions && prinfo.currentNextInteractionAttempts < nextButtonAttemptsToAllowThreshold){
+        WALconsole.log("ok, we're going to try calling getNextRow again, running the next interaction again.  currentNextInteractionAttempts: "+prinfo.currentNextInteractionAttempts);
         prinfo.runNextInteraction = true; // so that we don't fall back into trying to grab rows from current page when what we really want is to run the next interaction again.
-        this.getNextRow(pageVar, callback);
+        this.getNextRow(runObject, pageVar, callback);
       }
       else{
         // no more rows -- let the callback know we're done
@@ -4097,7 +4118,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     var relationItemsRetrieved = {};
     var missesSoFar = {}; // may still be interesting to track misses.  may choose to send an extra next button press, something like that
     // the function that we'll call when we actually have to go back to a page for freshRelationItems
-    function getRowsFromPageVar(pageVar, callback, prinfo){
+    function getRowsFromPageVar(runObject, pageVar, callback, prinfo){
       
       if (!pageVar.currentTabId()){ WALconsole.warn("Hey!  How'd you end up trying to find a relation on a page for which you don't have a current tab id??  That doesn't make sense.", pageVar); }
   
@@ -4195,7 +4216,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         if (!stillPossibleMoreItems){
           WALconsole.namedLog("getRelationItems", "all frames say we're done", getRowsCounter);
           doneArray[getRowsCounter] = true;
-          relation.noMoreRows(pageVar, callback, prinfo, false); // false because shouldn't try pressing the next button
+          relation.noMoreRows(runObject, runObject, pageVar, callback, prinfo, false); // false because shouldn't try pressing the next button
         }
 
       };
@@ -4228,7 +4249,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
         WALconsole.namedLog("getRelationItems", "all defined and couldn't find any relation items from any frames", getRowsCounter);
         doneArray[getRowsCounter] = true;
-        relation.noMoreRows(pageVar, callback, prinfo, true); // true because should allow trying the next button
+        relation.noMoreRows(runObject, pageVar, callback, prinfo, true); // true because should allow trying the next button
       }
 
       // let's go ask all the frames to give us relation items for the relation
@@ -4266,10 +4287,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           MiscUtilities.repeatUntil(sendGetRelationItems, function _checkDone(){return doneArray[currentGetRowsCounter] || relationItemsRetrieved[frame];},function(){}, 1000, true);
         });
         // and let's make sure that after our chosen timeout, we'll stop and just process whatever we have
-        var desiredTimeout = 30000; // todo: this timeout should be configurable by the user
+        var desiredTimeout = runObject.program.relationFindingTimeoutThreshold;
+        if (!desiredTimeout){ desiredTimeout = DefaultHelenaValues.relationFindingTimeoutThreshold;} // todo: this timeout should be configurable by the user, relation seconds timeout
         setTimeout(
           function _reachedTimeoutHandler(){
-            WALconsole.namedLog("getRelationItems", "Reached timeout", currentGetRowsCounter);
+            WALconsole.namedLog("getRelationItems", "Reached timeout, giving up on currentGetRows", currentGetRowsCounter);
             if (!doneArray[currentGetRowsCounter]){
               doneArray[currentGetRowsCounter] = false;
               processEndOfCurrentGetRows(pageVar, callback, prinfo);
@@ -4300,7 +4322,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     var getNextRowCounter = 0;
     var currNextButtonText = null; // for next buttons that are actually counting (page 1, 2, 3...), it's useful to keep track of this
-    this.getNextRow = function _getNextRow(pageVar, callback){ // has to be called on a page, since a relation selector can be applied to many pages.  higher-level tool must control where to apply
+    this.getNextRow = function _getNextRow(runObject, pageVar, callback){ // has to be called on a page, since a relation selector can be applied to many pages.  higher-level tool must control where to apply
 
       // ok, what's the page info on which we're manipulating this relation?
       WALconsole.log(pageVar.pageRelations);
@@ -4314,7 +4336,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       WALconsole.log("getnextrow", this, prinfo.currentRowsCounter);
       if ((prinfo.currentRows === null || prinfo.needNewRows) && !prinfo.runNextInteraction){
         // cool!  no data right now, so we have to go to the page and ask for some
-        getRowsFromPageVar(pageVar, callback, prinfo);
+        getRowsFromPageVar(runObject, pageVar, callback, prinfo);
       }
       else if ((prinfo.currentRows && prinfo.currentRowsCounter + 1 >= prinfo.currentRows.length) || prinfo.runNextInteraction){
         prinfo.runNextInteraction = false; // have to turn that flag back off so we don't fall back into here after running the next interaction
@@ -4333,7 +4355,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         var continueWithANewPage = function _continueWithANewPage(){
           // cool, and now let's start the process of retrieving fresh items by calling this function again
           prinfo.needNewRows = true;
-          relation.getNextRow(pageVar, callback);
+          relation.getNextRow(runObject, pageVar, callback);
         };
 
         // here's what we want to do once we've actually clicked on the next button, more button, etc
@@ -4343,6 +4365,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           var currentGetNextRowCounter = getNextRowCounter;
           WALconsole.namedLog("getRelationItems", currentGetNextRowCounter, "got nextinteraction ack");
           prinfo.currentNextInteractionAttempts += 1;
+          WALconsole.log("we've tried to run the get next interaction again, got an acknowledgment, so now we'll stop requesting next");
           stopRequestingNext = true;
           continueWithANewPage();
         });
@@ -4355,11 +4378,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // here's us telling the content script to take care of clicking on the next button, more button, etc
         if (!pageVar.currentTabId()){ WALconsole.log("Hey!  How'd you end up trying to click next button on a page for which you don't have a current tab id??  That doesn't make sense.", pageVar); }
         var timeWhenStartedRequestingNextInteraction = (new Date()).getTime();
+        var relationFindingTimeout = 120000; // 2 minutes timeout for when we just try reloading the page; todo: is this something we even hit?
         var sendRunNextInteraction = function(){
+          WALconsole.log("we're trying to send a next interaction again");
           var currTime = (new Date()).getTime();
           // let's check if we've hit our timeout
-          if ((currTime - timeWhenStartedRequestingNextInteraction) > 120000){
-            // ok, it's been two minutes and the next button still didn't work.  let's try refreshing the tab
+          if ((currTime - timeWhenStartedRequestingNextInteraction) > relationFindingTimeout){
+            // ok, we've crossed the threshold time and the next button still didn't work.  let's try refreshing the tab
+            WALconsole.log("we crossed the time out between when we started requesting the next interaction and now.  we're going to try refreshing");
             stopRequestingNext = true;
 
             function callb() {
@@ -4370,6 +4396,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                     WALconsole.warn("No idea what to do, so we're breaking -- a list page just wasn't present, so didn't know what to do next.");
                     return;
                 } else {
+                    WALconsole.log("refreshing the page now.");
                     // Tab exists.  so we can try reloading it, see how it goes
                     chrome.tabs.reload(pageVar.currentTabId(), {}, function(){
                       // ok, good, it's reloaded.  ready to go on with normal processing as though this reloaded page is our new page
@@ -5704,7 +5731,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           }
         }
 
-        loopStatement.relation.getNextRow(loopStatement.pageVar, function(moreRows){
+        loopStatement.relation.getNextRow(runObject, loopStatement.pageVar, function(moreRows){
           if (!moreRows){
             // hey, we're done!
             WALconsole.namedLog("rbb", "no more rows");
@@ -5862,7 +5889,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
             // if there was a continuation provided for when we're done, do it
             if (continuation){
-              continuation(runObject.dataset, timeScraped);
+              continuation(runObject.dataset, timeScraped, runObject.tab);
             }
           }
 
@@ -5882,7 +5909,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
 
     var internalOptions = ["skipMode", "breakMode", "skipCommitInThisIteration"]; // wonder if these shouldn't be moved to runObject instead of options.  yeah.  should do that.
-    var recognizedOptions = ["dataset_id", "ignoreEntityScope", "breakAfterXDuplicatesInARow", "nameAddition", "simulateError", "parallel", "hashBasedParallel"];
+    var recognizedOptions = ["dataset_id", "ignoreEntityScope", "breakAfterXDuplicatesInARow", "nameAddition", "simulateError", "parallel", "hashBasedParallel", "restartOnFinish"];
     this.run = function _run(options, continuation, parameters, requireDataset){
       if (options === undefined){options = {};}
       if (parameters === undefined){parameters = {};}
@@ -5908,12 +5935,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // before we start running, let's check if we need to update the continuation in order to make it loop on this script forever
       // (if it's one of those programs where we're supposed to go back and run again as soon as we finish)
       var fullContinuation = continuation;
-      if (program.restartOnFinish){
+      if (program.restartOnFinish || options.restartOnFinish === true){
         // yep, we want to repeat.  time to make a new continuation that, once it finishes the original coninutation
         // will make a new dataset and start over.  the loop forever option/start again when done option
-        fullContinuation = function(dataset, timeScraped){
-          if (continuation) {continuation(dataset, timeScraped);}
-          program.run(options, continuation, parameters, requireDataset);
+        fullContinuation = function(dataset, timeScraped, tabId){
+          if (continuation) {continuation(dataset, timeScraped, options);}
+          program.run(options, continuation, parameters, tabId);
         }
       }
 
@@ -5947,9 +5974,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
     };
 
-    this.restartFromBeginning = function _restartFromBeginning(runObjectOld){
+    this.restartFromBeginning = function _restartFromBeginning(runObjectOld, continuation){
       // basically same as above, but store to the same dataset (for now, dataset id also controls which saved annotations we're looking at)
-      runObjectOld.program.run({dataset_id: runObjectOld.dataset.id});
+      runObjectOld.program.run({dataset_id: runObjectOld.dataset.id}, continuation);
     };
 
     this.stopRunning = function _stopRunning(runObject){
@@ -6393,6 +6420,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             var nextIndex = i + 1;
 
             // ok, we have a slice of the statements that should produce one of our pages. let's replay
+            // todo, if we fail to find it with this approach, start running additional statements
+            // (seomtimes the relation is only displayed after user clicks on an element, that kind of thing)
             SimpleRecord.replay(trace, {tabMapping: tabMapping, targetWindowId: windowId}, function(replayObj){
               // continuation
               WALconsole.log("replayobj", replayObj);
@@ -6452,6 +6481,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                 WALconsole.log("going to processServerRelations with nextIndex: ", nextIndex);
                 program.processServerRelations(resp, nextIndex, tabsToCloseAfter, tabMapping, windowId);
               };
+
+              if (UIObject.handleFunctionForSkippingToNextPageOfRelationFinding){
+                UIObject.handleFunctionForSkippingToNextPageOfRelationFinding(handleSelectedRelation);
+              }
 
               // this function will select the correct relation from amongst a bunch of frames' suggested relatoins
               var processedTheLikeliestRelation = false;
