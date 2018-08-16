@@ -5626,7 +5626,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // first check if we're supposed to pause, stop execution if yes
       WALconsole.namedLog("rbb", "runObject.userPaused", runObject.userPaused);
       if (runObject.userPaused){
-        runObject.resumeContinuation = function(){program.runBasicBlock(runObject, loopyStatements, callback, options);};
+        var repWindowId = currentReplayWindowId;
+        currentReplayWindowId = null;
+        runObject.resumeContinuation = function(){
+          currentReplayWindowId = repWindowId;
+          program.runBasicBlock(runObject, loopyStatements, callback, options);};
         WALconsole.log("paused");
         return;
       }
