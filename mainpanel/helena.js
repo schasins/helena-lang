@@ -4491,7 +4491,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // it will make us try to redefine the same thing over and over, and we'll get errors from that
         return false;
       }
-      var ans = nr1.xpath === nr2.xpath && nr1.textContent === nr2.textContent && nr1.baseURI === nr2.baseURI; // baseURI is the url on which the ndoe was found
+      var ans = nr1.xpath === nr2.xpath && nr1.baseURI === nr2.baseURI; // baseURI is the url on which the ndoe was found
       return ans;
     }
 
