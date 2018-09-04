@@ -1777,8 +1777,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             setWAL(this, new pub.Number());
           }
 
+          var block = this;
           this.appendDummyInput()
-              .appendField(new Blockly.FieldNumber(defaultNum, null, null, null, function(newNum){getWAL(this.sourceBlock_).currentValue = newNum;}), numberFieldName);
+              .appendField(new Blockly.FieldNumber(defaultNum, null, null, null, 
+                function(newNum){getWAL(block).currentValue = newNum;}), numberFieldName);
 
           this.setOutput(true, 'number');
           this.setColour(25);
@@ -6833,15 +6835,21 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     // this is silly, but just making a new object for each of our statements is an easy way to get access to
     // the updateBlocklyBlock function and still keep it an instance method/right next to the genBlockly function
-    for (var i = 0; i < blocklyNames.length; i++){
-      var prop = blocklyNames[i];
+    var toolBoxBlocks = ["Number", "NodeVariableUse", "String", "Concatenate", "IfStatement", "ContinueStatement", "BinOpString", "BinOpNum",
+      "BackStatement", "ClosePageStatement", "WaitStatement", "WaitUntilUserReadyStatement", "SayStatement"];
+    // let's also add in other nodes which may not have been used in programs so far, but which we want to include in the toolbox no matter what
+    var origBlocks = blocklyNames;
+    var allDesiredBlocks = origBlocks.concat(toolBoxBlocks);
+
+    for (var i = 0; i < allDesiredBlocks.length; i++){
+      var prop = allDesiredBlocks[i];
       if (typeof pub[prop] === "function"){
           try{
             var obj = new pub[prop]();
           }
           catch(err){
-            WALconsole.log("Couldn't create new object for prop:", prop, "probably by design.");
-            WALconsole.log(err);
+            console.log("Couldn't create new object for prop:", prop, "probably by design.");
+            console.log(err);
           }
           if (obj && obj.updateBlocklyBlock){
             if (program){
@@ -6854,6 +6862,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
     }
 
+    // let's just warn about what things (potentially blocks!) aren't being included
+    for (var prop in pub){
+      if (allDesiredBlocks.indexOf(prop) < 0){
+        WALconsole.log("NOT INCLUDING PROP:", prop);
+      }
+    }
     return;
   };
 
