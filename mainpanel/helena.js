@@ -3721,6 +3721,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   }
 
   function usedByTextStatement(statement, parameterizeableStrings){
+    if (!parameterizeableStrings){
+      return false;
+    }
     if (!(statement instanceof WebAutomationLanguage.TypeStatement || statement instanceof WebAutomationLanguage.LoadStatement)){
       return false;
     }
@@ -4085,7 +4088,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (!((statement instanceof WebAutomationLanguage.ScrapeStatement) || (statement instanceof WebAutomationLanguage.ClickStatement) || (statement instanceof WebAutomationLanguage.TypeStatement) || (statement instanceof WebAutomationLanguage.LoadStatement) || (statement instanceof WebAutomationLanguage.PulldownInteractionStatement))){
         return false;
       }
-      if (statement.pageVar && this.pageVarName === statement.pageVar.name && this.firstRowXPaths.indexOf(statement.node) > -1){
+      if (statement.pageVar && this.pageVarName === statement.pageVar.name && this.firstRowXPaths && this.firstRowXPaths.indexOf(statement.node) > -1){
         return true;
       }
       if (usedByTextStatement(statement, this.firstRowTexts)){
