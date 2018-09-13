@@ -77,7 +77,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   // helper function.  returns the StatementType (see above) that we should associate with the argument event, or null if the event is invisible
   pub.statementType = function _statementType(ev){
-    if (ev.type === "completed"){
+    if (ev.type === "completed" || ev.type === "manualload"){
       if (!EventM.getVisible(ev)){
         return null; // invisible, so we don't care where this goes
       }
@@ -1317,6 +1317,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return pbvs;
     };
 
+    var statement = this;
+
     this.parameterizeForString = function(relation, column, nodeRep, string){
       if (string === null || string === undefined){
         // can't parameterize for a cell that has null text
@@ -1326,17 +1328,38 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var startIndex = this.typedStringLower.indexOf(textLower);
       if (startIndex > -1){
         // cool, this is the column for us then
+
+        statement.relation = relation;
+        statement.columnObj = column;
+        var name = column.name;
+
         var components = [];
         var left = string.slice(0, startIndex);
         if (left.length > 0){
-          components.push(left);
+          components.push(new WebAutomationLanguage.String(left));
         }
-        components.push(new WebAutomationLanguage.NodeVariable(column.name, nodeRep, null, null, NodeSources.RELATIONEXTRACTOR));
+
+        var nodevaruse = new pub.NodeVariableUse();
+        nodevaruse.nodeVar = getNodeVariableByName(name);
+        nodevaruse.attributeOption = AttributeOptions.TEXT;
+        components.push(nodevaruse);
+
         var right = string.slice(startIndex + this.typedString.length, string.length);
         if (right.length > 0){
-          components.push(right);
+          components.push(new WebAutomationLanguage.String(right));
         }
-        this.currentTypedString = new WebAutomationLanguage.Concatenate(components);
+
+        var finalNode = null;
+        if (components.length == 1){
+          finalNode = components[0];
+        }
+        else if (components.length == 2){
+          finalNode = new WebAutomationLanguage.Concatenate(components[0], components[1]);
+        }
+        else if (components.length === 3){
+          finalNode = new WebAutomationLanguage.Concatenate(components[0], new WebAutomationLanguage.Concatenate(components[1], components[2]));
+        }
+        this.currentTypedString = finalNode;
         this.typedStringParameterizationRelation = relation;
         return true;
       }
@@ -4754,12 +4777,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   };
 
-  pub.Concatenate = function _Concatenate(){
+  pub.Concatenate = function _Concatenate(left, right){
     Revival.addRevivalLabel(this);
     setBlocklyLabel(this, "concatenate");
 
-    this.left = null;
-    this.right = null;
+    this.left = left;
+    this.right = right;
 
     this.remove = function _remove(){
       this.parent.removeChild(this);
@@ -5802,7 +5825,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
         if (skipMode || breakMode){
           // in this case, when we're basically 'continue'ing, we should do nothing, so just go on to the next statement without doing anything else
-          program.runBasicBlock(runObject, loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback, options);
+          program.runBasicBlock(runObject, loopyStatements.slice(1, loopyStatements.length), callback, options);
           return;
         }
 

@@ -438,7 +438,8 @@ var Replay = (function ReplayClosure() {
   Replay.prototype = {
     replayableEvents: {
       dom: 'simulateDomEvent',
-      completed: 'simulateCompletedEvent'
+      completed: 'simulateCompletedEvent',
+      manualload: 'simulateManualLoadEvent'
     },
     addonReset: [],
     addonTiming: [],
@@ -1134,6 +1135,7 @@ var Replay = (function ReplayClosure() {
 
       var e = events[index];
       var type = e.type;
+      console.log("event running", e);
 
       /* Find the replay function associated with the event type */
       var replayFunctionName = this.replayableEvents[type];
@@ -1152,6 +1154,23 @@ var Replay = (function ReplayClosure() {
       //console.log(completed_events);
       var eventIds = _.map(completed_events, function(event){return event.meta.id});
       return eventIds;
+    },
+    simulateManualLoadEvent: function _simulateManualLoadEvent(e){
+      this.index ++; // advance to next event
+      this.setNextTimeout(0);
+      /*
+      console.log("simulating manual load", e);
+      var that = this;
+      var options = {url: e.data.url, active: true};
+      if (this.targetWindowId){
+        options.windowId = this.targetWindowId;
+      }
+      chrome.tabs.create(options, function(){
+        that.index ++; // advance to next event
+        that.setNextTimeout(0); 
+      });
+      */
+      // commented out the above because for now we just do it via forced completed events (with forceReplay); may want to change this in future
     },
     currentCompletedObservationFailures: 0,
     simulateCompletedEvent: function _simulateCompletedEvent(e){
@@ -1758,7 +1777,7 @@ function addWebRequestEvent(details, type) {
   // -1 means the request is not associated with a particular tab
   if (details.tabId > -1){
     chrome.tabs.get(details.tabId, function (tab) {
-      if (!tab){
+      if (!tab && type != "manualload"){
         WALconsole.warn("No tab.windowId!  This is bad fro addWebRequestEvent.");
         return;
       }
@@ -1778,6 +1797,18 @@ chrome.webRequest.onBeforeRequest.addListener(function(details) {
 chrome.webRequest.onCompleted.addListener(function(details) {
   bgLog.log('completed', details);
   addWebRequestEvent(details, 'completed');
+}, filter);
+
+chrome.webNavigation.onCommitted.addListener(function(details) {
+  bgLog.log('onCreatedNavigationTarget', details);
+  var transitionTypesThatIndicateManuallyLoadedPage = ["auto_bookmark", "reload", "typed"];
+  if (transitionTypesThatIndicateManuallyLoadedPage.indexOf(details.transitionType) > -1){
+    // ok, this one indicates a manual load, so add it
+
+    // as a special case, let's throw away manual loads that happen automatically when we just open a new tab (loading the new tab contents)
+      console.log(details);
+      addWebRequestEvent(details, 'manualload');
+  }
 }, filter);
 
 ports.sendToAll({type: 'params', value: params});
