@@ -2581,6 +2581,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.traverse = function _traverse(fn, fn2){
       fn(this);
+
+      if (this.textToSay){
+        this.textToSay.traverse(fn, fn2);
+      }
+
       fn2(this);
     };
 
