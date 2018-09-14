@@ -652,10 +652,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.args = function _args(environment){
       var args = [];
       if (this.currentUrl instanceof WebAutomationLanguage.NodeVariable){
-        args.push({type:"url", value: this.currentUrl.currentText(environment)});
+        args.push({type:"url", value: this.currentUrl.currentText(environment).trim()});
       }
       else{
-        args.push({type:"url", value: this.currentUrl}); // if it's not a var use, it's just a string
+        args.push({type:"url", value: this.currentUrl.trim()}); // if it's not a var use, it's just a string
       }
       return args;
     };
@@ -1312,7 +1312,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         pbvs.push({type:"node", value: this.node});
       }
       if (this.typedString !== this.currentTypedString){
-        pbvs.push({type:"typedString", value: this.typedString});
+        if (this.typedString.length > 0){
+          pbvs.push({type:"typedString", value: this.typedString});
+        }
       }
       return pbvs;
     };

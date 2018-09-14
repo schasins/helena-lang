@@ -94,6 +94,24 @@ function ParameterizedTrace(trace){
 	var first_event_type = "keydown";
 	var last_event_type = "keyup";
 	var data_carrier_type = "textInput";
+
+	function replaceSliceWithParamEvent(trace, parameter_name, text_input_event, original_string_initial_case, start_target_typing_index, stop_target_typing_index){
+		//now make our param event
+		var param_event = {"type": "string_parameterize", 
+		"parameter_name": parameter_name, 
+		"text_input_event": text_input_event, 
+		"orig_value": original_string_initial_case,
+		"value": ""};
+		// now remove the unnecessary events, replace with param event
+		// todo: note that this is a bad bad approach!  learn from CoScripter!  replay all low-level events!  (also see verion in structured codebase)
+		// but it's in here now becuase recreating each keypress is a pain that I want to put off until later, and this works for current apps
+		trace = trace.slice(0,start_target_typing_index)
+		.concat([param_event])
+		.concat(trace.slice(stop_target_typing_index, trace.length));
+		var currIndex = trace.indexOf(param_event);
+		WALconsole.log("putting a hole in for a string", original_string_initial_case);
+		return trace;
+	}
 	
 	this.parameterizeTypedString = function(parameter_name, original_string){
 		WALconsole.log("parameterizing string ",parameter_name, original_string);
@@ -101,6 +119,19 @@ function ParameterizedTrace(trace){
 		var curr_string = "";
 		var char_indexes = [];
 		var started_char = false;
+
+		// first things first, let's see if there's just a textinput event that adds the whole thing
+		for (var i = 0; i < trace.length; i++){
+			if (trace[i].type === "dom" && trace[i].data.type === "textInput"){
+				var typed = trace[i].data.data;
+				if (typed.toLowerCase() === original_string.toLowerCase()){
+					// great, this is the one
+					trace = replaceSliceWithParamEvent(trace, parameter_name, trace[i], original_string, i, i)
+					return;
+				}
+			}
+		}
+
 		for (var i = 0; i< trace.length; i++){
 			if (trace[i].type !== "dom"){ continue;} //ok to drop these from script, so ok to skip
 			var event_data = trace[i].data;
@@ -222,21 +253,8 @@ function ParameterizedTrace(trace){
 			if (text_input_event === null){
 				WALconsole.log("uh oh, one of our assumptions broken. no textinput event.");
 			}
-			//now make our param event
-			var param_event = {"type": "string_parameterize", 
-			"parameter_name": parameter_name, 
-			"text_input_event": text_input_event, 
-			"orig_value": original_string_initial_case,
-			"value": ""};
-			// now remove the unnecessary events, replace with param event
-			// todo: note that this is a bad bad approach!  learn from CoScripter!  replay all low-level events!  (also see verion in structured codebase)
-			// but it's in here now becuase recreating each keypress is a pain that I want to put off until later, and this works for current apps
-			trace = trace.slice(0,start_target_typing_index)
-			.concat([param_event])
-			.concat(trace.slice(stop_target_typing_index, trace.length));
-			var currIndex = trace.indexOf(param_event);
-			WALconsole.log("putting a hole in for a string", original_string_initial_case);
-			return currIndex;
+			trace = replaceSliceWithParamEvent(trace, parameter_name, text_input_event, original_string_initial_case, start_typing_index, stop_target_typing_index);
+			return start_target_typing_index + 1;
 		}
 	}
 	this.useTypedString = function(parameter_name, string){
