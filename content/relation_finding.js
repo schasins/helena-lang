@@ -1568,20 +1568,28 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       var crd = currentRelationData[sid];
       var knowTheLastElement = false;
       // let's try scrolling to last element if we know it
-      if (crd && crd.length > 0 && crd[crd.length - 1] && crd[crd.length - 1].length > 0){
-        var lastRowReps = crd[crd.length - 1];
-        var lastElementXpath = lastRowReps[lastRowReps.length - 1].xpath;
-        var lastElementNodes = xPathToNodes(lastElementXpath);
-        if (lastElementNodes.length > 0){
-          var lastElement = lastElementNodes[0];
-          lastElement.scrollIntoView();
-          knowTheLastElement = true;
+      // sometimes it's important to scroll through the range of data, not go directly to the end, 
+      // so we'll try scrolling to each in turn
+      if (crd){
+        for (var i = 0; i < crd.length; i++){
+          var row = crd[i];
+          for (var j = 0; j < row.length; j++){
+            var elem = row[j];
+            var elemNodes = xPathToNodes(elem.xpath);
+            if (elemNodes.length > 0){
+              var elemNode = elemNodes[0];
+              elemNode.scrollIntoView();
+              knowTheLastElement = true;
+            }
+          }
         }
       }
       // but if we don't know it, just try scrolling window to the bottom
       // sadly, this doesn't work for everything.  (for instance, if have an overlay with a relation, the overlay may not get scrolled w window scroll)
       if (!knowTheLastElement){
-        window.scrollTo(0, document.body.scrollHeight);
+        for (var i = 0; i < 1; i+= 0.01){
+          window.scrollTo(0, document.body.scrollHeight*i);
+        }
       }
     }
     else if (next_button_type === NextTypes.MOREBUTTON || next_button_type === NextTypes.NEXTBUTTON){
