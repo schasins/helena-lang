@@ -3782,7 +3782,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.nodeVariables = function _nodeVariables(){
       var firstRowNodeReps = this.firstRowNodeRepresentations();
-      if (!this.nodeVars){
+      if (!this.nodeVars || this.nodeVars.length < 1){
         this.nodeVars = [];
         for (var i = 0; i < this.columns.length; i++){
           this.nodeVars.push(new WebAutomationLanguage.NodeVariable(this.columns[i].name, firstRowNodeReps[i], null, null, NodeSources.RELATIONEXTRACTOR));
@@ -3924,7 +3924,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.nodeVariables = function _NodeVariables(){
-      if (!this.nodeVars){
+      if (!this.nodeVars || this.nodeVars.length < 1){
         this.nodeVars = [];
         var nodeReps = this.firstRowNodeRepresentations();
         for (var i = 0; i < nodeReps.length; i++){
@@ -4507,7 +4507,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     if (!recordedNodeSnapshot && mainpanelRep){
       // when we make a node variable based on a cell of a relation, we may not have access to the full node snapshot
       this.recordedNodeSnapshot = mainpanelRep;
-      this.recordedNodeSnapshot.baseURI = mainpanelRep.source_url; // make sure we can compare urls
     }
     // ok, but also sometimes we get the recorded snapshot, which records text in the textcontent field
     // but we'll want to reason about the text field
@@ -4527,7 +4526,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // it will make us try to redefine the same thing over and over, and we'll get errors from that
         return false;
       }
-      var ans = nr1.xpath === nr2.xpath && nr1.baseURI === nr2.baseURI; // baseURI is the url on which the ndoe was found
+      var ans = nr1.xpath === nr2.xpath && nr1.source_url === nr2.source_url; // baseURI is the url on which the ndoe was found
       return ans;
     }
 

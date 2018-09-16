@@ -122,6 +122,8 @@ function getFeatures(element){
     info.previousElementSiblingText = prev.textContent;
   }
 
+  info.source_url = window.location.href;
+
   var boundingBox = element.getBoundingClientRect();
   for (var prop in boundingBox) {
     if (boundingBox.hasOwnProperty(prop)) {

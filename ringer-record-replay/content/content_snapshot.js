@@ -51,6 +51,8 @@ var snapshotBranch = null;
         // do nothing
       }
     }
+    // let's add one special one that's useful for some purposes
+    mapping.source_url = window.location.href;
 
     // for some pages, the strings for various text-y things get crazy long
     // we're going to play around with truncating them to see if this helps with some memory issues
