@@ -50,6 +50,13 @@ var EventM = (function _EventM() {
     ev.additionalDataTmp.display.visible = val;
   };
 
+  pub.getManual = function _getManual(ev){
+    return ev.additionalDataTmp.display.manual;
+  };
+  pub.setManual = function _setManual(ev, val){
+    ev.additionalDataTmp.display.manual = val;
+  };
+
   pub.getLoadOutputPageVar = function _getLoadOutputPageVar(ev){
     return ev.additionalDataTmp.display.pageVarId;
   };
@@ -152,7 +159,7 @@ var ReplayScript = (function _ReplayScript() {
 
   // strip out events that weren't performed in the window we created for recording
   function windowFilter(trace, windowId){
-    return _.filter(trace, function(event){return (event.data && event.data.windowId === windowId) || (event.frame && event.frame.windowId === windowId);});
+    return _.filter(trace, function(event){return (event.type === "manualload") || (event.data && event.data.windowId === windowId) || (event.frame && event.frame.windowId === windowId);});
   }
 
   // strip out the 'stopped' events
@@ -175,11 +182,66 @@ var ReplayScript = (function _ReplayScript() {
     return str;
   }
 
+  function canonicalizeUrl(url){
+    url = url.replace(/\/+$/g, ''); // trim slashes from the end
+    return url;
+  }
+
   // user doesn't need to see load events for loads that load URLs whose associated DOM trees the user never actually uses
   function markUnnecessaryLoads(trace){
     var domEvents =  _.filter(trace, function(ev){return ev.type === "dom";});
     var domEventURLs = _.unique(_.map(domEvents, function(ev){return EventM.getDOMURL(ev);}));
+
+    // ok, now first let's mark all the loads that are top-level and used, so we need them for introducing page variables
     _.each(trace, function(ev){if (ev.type === "completed" && ev.data.type === "main_frame" && domEventURLs.indexOf(EventM.getLoadURL(ev)) > -1){ EventM.setVisible(ev, true);}});
+    
+    // all right.  now we want to figure out (based on how the new page was reached, based on whether we saw a manualload event)
+    // which completed events are manual and shouldn't be made invisible/associated with prior dom event later
+
+    // ok, manual load events are weird, because they sometimes actually happen after the completed events, 
+    // and what we really want is to just go back and make sure we run completed events like normal
+    // but mark them visible if they include the url we want for the manual load
+    // so we'll find the nearest completed event with the correct url and we'll mark that one
+    var urlsToCompletedEvents = {};
+    for (var i = 0; i < trace.length; i++){
+      var ev = trace[i];
+      if (ev.type === "completed" && ev.data.type === "main_frame"){
+        var url = canonicalizeUrl(EventM.getLoadURL(ev));
+        if (url in urlsToCompletedEvents){
+          urlsToCompletedEvents[url].push([i,ev]);
+        }
+        else{
+          urlsToCompletedEvents[url] = [[i,ev]];
+        }
+      }
+    }
+    for (var i = 0; i < trace.length; i++){
+      var ev = trace[i];
+      if (ev.type === "manualload"){
+        // ok, we found that this was actually a manual load one, so we better mark an event as visible
+        var url = canonicalizeUrl(ev.data.url);
+        var completedEvs = urlsToCompletedEvents[url];
+        if (completedEvs.length < 1){
+          console.log("bad bad bad, we couldn't find a completed event for a manual load:", ev);
+          continue;
+        }
+        var minDistance = Number.MAX_SAFE_INTEGER;
+        var preferredCe = null
+        for (var j = 0; j < completedEvs.length; j++){
+          var ceIndex = completedEvs[j][0];
+          var ce = completedEvs[j][1];
+          var diff = Math.abs(ceIndex - i);
+          if (diff < minDistance){
+            minDistance = diff;
+            preferredCe = ce;
+          }
+        }
+        EventM.setVisible(preferredCe, true); // go ahead and mark the closest completed event as the one that's visible/must be replayed
+        EventM.setManual(preferredCe, true); // go ahead and mark the closest completed event as the one that's visible/must be replayed
+      }
+    }
+
+
     return trace;
   }
 
@@ -227,7 +289,7 @@ var ReplayScript = (function _ReplayScript() {
         lastDOMEvent = ev;
         EventM.setDOMOutputLoadEvents(ev, []);
       }
-      else if (lastDOMEvent !== null && ev.type === "completed" && EventM.getVisible(ev)) {
+      else if (lastDOMEvent !== null && ev.type === "completed" && EventM.getVisible(ev) && EventM.getManual(ev) !== true) {
         EventM.setLoadCausedBy(ev, lastDOMEvent);
         EventM.addDOMOutputLoadEvent(lastDOMEvent, ev);
         // now that we have a cause for the load event, we can make it invisible
@@ -262,7 +324,7 @@ var ReplayScript = (function _ReplayScript() {
     }
     // now we know they're both visible
     // visible load events aren't allowed to share with any other visible events
-    if (e1.type === "completed" || e2.type === "completed"){
+    if (e1type === StatementTypes.LOAD || e2type === StatementTypes.LOAD){
       return false;
     }
     // now we know they're both visible and both dom events

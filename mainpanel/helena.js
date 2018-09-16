@@ -77,7 +77,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   // helper function.  returns the StatementType (see above) that we should associate with the argument event, or null if the event is invisible
   pub.statementType = function _statementType(ev){
-    if (ev.type === "completed"){
+    if (ev.type === "completed" || ev.type === "manualload"){
       if (!EventM.getVisible(ev)){
         return null; // invisible, so we don't care where this goes
       }
@@ -653,10 +653,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.args = function _args(environment){
       var args = [];
       if (this.currentUrl instanceof WebAutomationLanguage.NodeVariable){
-        args.push({type:"url", value: this.currentUrl.currentText(environment)});
+        args.push({type:"url", value: this.currentUrl.currentText(environment).trim()});
       }
       else{
-        args.push({type:"url", value: this.currentUrl}); // if it's not a var use, it's just a string
+        args.push({type:"url", value: this.currentUrl.trim()}); // if it's not a var use, it's just a string
       }
       return args;
     };
@@ -1313,10 +1313,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         pbvs.push({type:"node", value: this.node});
       }
       if (this.typedString !== this.currentTypedString){
-        pbvs.push({type:"typedString", value: this.typedString});
+        if (this.typedString.length > 0){
+          pbvs.push({type:"typedString", value: this.typedString});
+        }
       }
       return pbvs;
     };
+
+    var statement = this;
 
     this.parameterizeForString = function(relation, column, nodeRep, string){
       if (string === null || string === undefined){
@@ -1327,17 +1331,38 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var startIndex = this.typedStringLower.indexOf(textLower);
       if (startIndex > -1){
         // cool, this is the column for us then
+
+        statement.relation = relation;
+        statement.columnObj = column;
+        var name = column.name;
+
         var components = [];
         var left = string.slice(0, startIndex);
         if (left.length > 0){
-          components.push(left);
+          components.push(new WebAutomationLanguage.String(left));
         }
-        components.push(new WebAutomationLanguage.NodeVariable(column.name, nodeRep, null, null, NodeSources.RELATIONEXTRACTOR));
+
+        var nodevaruse = new pub.NodeVariableUse();
+        nodevaruse.nodeVar = getNodeVariableByName(name);
+        nodevaruse.attributeOption = AttributeOptions.TEXT;
+        components.push(nodevaruse);
+
         var right = string.slice(startIndex + this.typedString.length, string.length);
         if (right.length > 0){
-          components.push(right);
+          components.push(new WebAutomationLanguage.String(right));
         }
-        this.currentTypedString = new WebAutomationLanguage.Concatenate(components);
+
+        var finalNode = null;
+        if (components.length == 1){
+          finalNode = components[0];
+        }
+        else if (components.length == 2){
+          finalNode = new WebAutomationLanguage.Concatenate(components[0], components[1]);
+        }
+        else if (components.length === 3){
+          finalNode = new WebAutomationLanguage.Concatenate(components[0], new WebAutomationLanguage.Concatenate(components[1], components[2]));
+        }
+        this.currentTypedString = finalNode;
         this.typedStringParameterizationRelation = relation;
         return true;
       }
@@ -1778,8 +1803,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             setWAL(this, new pub.Number());
           }
 
+          var block = this;
           this.appendDummyInput()
-              .appendField(new Blockly.FieldNumber(defaultNum, null, null, null, function(newNum){getWAL(this.sourceBlock_).currentValue = newNum;}), numberFieldName);
+              .appendField(new Blockly.FieldNumber(defaultNum, null, null, null, 
+                function(newNum){getWAL(block).currentValue = newNum;}), numberFieldName);
 
           this.setOutput(true, 'number');
           this.setColour(25);
@@ -2557,6 +2584,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.traverse = function _traverse(fn, fn2){
       fn(this);
+
+      if (this.textToSay){
+        this.textToSay.traverse(fn, fn2);
+      }
+
       fn2(this);
     };
 
@@ -3692,6 +3724,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   }
 
   function usedByTextStatement(statement, parameterizeableStrings){
+    if (!parameterizeableStrings){
+      return false;
+    }
     if (!(statement instanceof WebAutomationLanguage.TypeStatement || statement instanceof WebAutomationLanguage.LoadStatement)){
       return false;
     }
@@ -4056,7 +4091,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (!((statement instanceof WebAutomationLanguage.ScrapeStatement) || (statement instanceof WebAutomationLanguage.ClickStatement) || (statement instanceof WebAutomationLanguage.TypeStatement) || (statement instanceof WebAutomationLanguage.LoadStatement) || (statement instanceof WebAutomationLanguage.PulldownInteractionStatement))){
         return false;
       }
-      if (statement.pageVar && this.pageVarName === statement.pageVar.name && this.firstRowXPaths.indexOf(statement.node) > -1){
+      if (statement.pageVar && this.pageVarName === statement.pageVar.name && this.firstRowXPaths && this.firstRowXPaths.indexOf(statement.node) > -1){
         return true;
       }
       if (usedByTextStatement(statement, this.firstRowTexts)){
@@ -4492,7 +4527,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // it will make us try to redefine the same thing over and over, and we'll get errors from that
         return false;
       }
-      var ans = nr1.xpath === nr2.xpath && nr1.textContent === nr2.textContent && nr1.baseURI === nr2.baseURI; // baseURI is the url on which the ndoe was found
+      var ans = nr1.xpath === nr2.xpath && nr1.baseURI === nr2.baseURI; // baseURI is the url on which the ndoe was found
       return ans;
     }
 
@@ -4753,12 +4788,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   };
 
-  pub.Concatenate = function _Concatenate(){
+  pub.Concatenate = function _Concatenate(left, right){
     Revival.addRevivalLabel(this);
     setBlocklyLabel(this, "concatenate");
 
-    this.left = null;
-    this.right = null;
+    this.left = left;
+    this.right = right;
 
     this.remove = function _remove(){
       this.parent.removeChild(this);
@@ -5627,7 +5662,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // first check if we're supposed to pause, stop execution if yes
       WALconsole.namedLog("rbb", "runObject.userPaused", runObject.userPaused);
       if (runObject.userPaused){
-        runObject.resumeContinuation = function(){program.runBasicBlock(runObject, loopyStatements, callback, options);};
+        var repWindowId = currentReplayWindowId;
+        currentReplayWindowId = null;
+        runObject.resumeContinuation = function(){
+          currentReplayWindowId = repWindowId;
+          program.runBasicBlock(runObject, loopyStatements, callback, options);};
         WALconsole.log("paused");
         return;
       }
@@ -5797,7 +5836,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
         if (skipMode || breakMode){
           // in this case, when we're basically 'continue'ing, we should do nothing, so just go on to the next statement without doing anything else
-          program.runBasicBlock(runObject, loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback, options);
+          program.runBasicBlock(runObject, loopyStatements.slice(1, loopyStatements.length), callback, options);
           return;
         }
 
@@ -6830,15 +6869,21 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     // this is silly, but just making a new object for each of our statements is an easy way to get access to
     // the updateBlocklyBlock function and still keep it an instance method/right next to the genBlockly function
-    for (var i = 0; i < blocklyNames.length; i++){
-      var prop = blocklyNames[i];
+    var toolBoxBlocks = ["Number", "NodeVariableUse", "String", "Concatenate", "IfStatement", "ContinueStatement", "BinOpString", "BinOpNum",
+      "BackStatement", "ClosePageStatement", "WaitStatement", "WaitUntilUserReadyStatement", "SayStatement"];
+    // let's also add in other nodes which may not have been used in programs so far, but which we want to include in the toolbox no matter what
+    var origBlocks = blocklyNames;
+    var allDesiredBlocks = origBlocks.concat(toolBoxBlocks);
+
+    for (var i = 0; i < allDesiredBlocks.length; i++){
+      var prop = allDesiredBlocks[i];
       if (typeof pub[prop] === "function"){
           try{
             var obj = new pub[prop]();
           }
           catch(err){
-            WALconsole.log("Couldn't create new object for prop:", prop, "probably by design.");
-            WALconsole.log(err);
+            console.log("Couldn't create new object for prop:", prop, "probably by design.");
+            console.log(err);
           }
           if (obj && obj.updateBlocklyBlock){
             if (program){
@@ -6851,6 +6896,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
     }
 
+    // let's just warn about what things (potentially blocks!) aren't being included
+    for (var prop in pub){
+      if (allDesiredBlocks.indexOf(prop) < 0){
+        WALconsole.log("NOT INCLUDING PROP:", prop);
+      }
+    }
     return;
   };
 
