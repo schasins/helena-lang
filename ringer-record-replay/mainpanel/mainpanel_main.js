@@ -439,7 +439,8 @@ var Replay = (function ReplayClosure() {
     replayableEvents: {
       dom: 'simulateDomEvent',
       completed: 'simulateCompletedEvent',
-      manualload: 'simulateManualLoadEvent'
+      manualload: 'simulateManualLoadEvent',
+      webnavigation: 'simulateWebNavigationEvent'
     },
     addonReset: [],
     addonTiming: [],
@@ -1172,6 +1173,10 @@ var Replay = (function ReplayClosure() {
       */
       // commented out the above because for now we just do it via forced completed events (with forceReplay); may want to change this in future
     },
+    simulateWebNavigationEvent: function _simulateWebNavigationEvent(e){
+      this.index ++; // advance to next event
+      this.setNextTimeout(0);
+    },
     currentCompletedObservationFailures: 0,
     simulateCompletedEvent: function _simulateCompletedEvent(e){
       if (e.forceReplay && (!e.reset || !(e.reset.alreadyForced))){
@@ -1757,13 +1762,15 @@ function addBackgroundEvent(e) {
 }
 
 function addWebRequestEvent(details, type) {
-  var data = {};
+  var data = details;
+  /*
   data.requestId = details.requestId;
   data.method = details.method;
   data.parentFrameId = details.parentFrameId;
   data.tabId = details.tabId;
   data.type = details.type;
   data.url = details.url;
+  */ // all copied in by default now
   data.reqTimeStamp = details.timeStamp;
   data.timeStamp = (new Date()).getTime();
 
@@ -1800,7 +1807,7 @@ chrome.webRequest.onCompleted.addListener(function(details) {
 }, filter);
 
 chrome.webNavigation.onCommitted.addListener(function(details) {
-  bgLog.log('onCreatedNavigationTarget', details);
+  bgLog.log('onCommitted', details);
   var transitionTypesThatIndicateManuallyLoadedPage = ["auto_bookmark", "reload", "typed"];
   if (transitionTypesThatIndicateManuallyLoadedPage.indexOf(details.transitionType) > -1){
     // ok, this one indicates a manual load, so add it
@@ -1809,7 +1816,29 @@ chrome.webNavigation.onCommitted.addListener(function(details) {
       console.log(details);
       addWebRequestEvent(details, 'manualload');
   }
+  if (details.transitionQualifiers.indexOf("from_address_bar") > -1){
+    // same deal.  this is a manual one
+    console.log(details);
+    addWebRequestEvent(details, 'manualload');
+  }
 }, filter);
+
+var eventList = ['onBeforeNavigate', 'onCreatedNavigationTarget',
+    'onCommitted', 'onCompleted', 'onDOMContentLoaded',
+    'onErrorOccurred', 'onReferenceFragmentUpdated', 'onTabReplaced',
+    'onHistoryStateUpdated'];
+eventList.forEach(function(e) {
+  chrome.webNavigation[e].addListener(function(data) {
+    if (typeof data){
+      data.type = e;
+      addWebRequestEvent(data, 'webnavigation');
+      console.log(e, data);
+    }
+    else{
+      console.error(chrome.i18n.getMessage('inHandlerError'), e);
+    }
+  });
+});
 
 ports.sendToAll({type: 'params', value: params});
 controller.stop();

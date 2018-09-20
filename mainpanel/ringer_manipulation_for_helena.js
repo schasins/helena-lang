@@ -39,6 +39,14 @@ var EventM = (function _EventM() {
     return strip(url, "/");
   };
 
+  pub.getTabId = function _getTabId(ev){
+    if (ev.type === "dom"){
+      WALconsole.warn("yo, this function isn't for dom events");
+    }
+    var tabId = ev.data.tabId;
+    return tabId;
+  }
+
   pub.getDOMPort = function _getDOMPort(ev){
     return ev.frame.port;
   }
@@ -192,8 +200,8 @@ var ReplayScript = (function _ReplayScript() {
     var domEvents =  _.filter(trace, function(ev){return ev.type === "dom";});
     var domEventURLs = _.unique(_.map(domEvents, function(ev){return EventM.getDOMURL(ev);}));
 
-    // ok, now first let's mark all the loads that are top-level and used, so we need them for introducing page variables
-    _.each(trace, function(ev){if (ev.type === "completed" && ev.data.type === "main_frame" && domEventURLs.indexOf(EventM.getLoadURL(ev)) > -1){ EventM.setVisible(ev, true);}});
+    // ok, now first let's mark all the loads that are top-level and used, so we need them for introducing page variables (even if they'll ultimately be invisible/not load events/not forced to replay)
+    //_.each(trace, function(ev){if (ev.type === "completed" && ev.data.type === "main_frame" && domEventURLs.indexOf(EventM.getLoadURL(ev)) > -1){ EventM.setVisible(ev, true);}});
     
     // all right.  now we want to figure out (based on how the new page was reached, based on whether we saw a manualload event)
     // which completed events are manual and shouldn't be made invisible/associated with prior dom event later
@@ -253,30 +261,59 @@ var ReplayScript = (function _ReplayScript() {
 
     var urlsToMostRecentPageVar = {};
     var portsToPageVars = {};
+    var tabToCanonicalUrl = {}; // people do redirects!  to track it, let's track the url that was actually loaded into a given tab last
+    var urlToTab = {}; // people do redirects. let's track which tab each url is in.  shame we can't just get the tab.  whatever
     for (var i = 0; i < trace.length; i++){
       var ev = trace[i];
-      if (ev.type === "completed" && EventM.getVisible(ev)){ 
+      if (ev.type === "completed" && ev.data.type === "main_frame"){ // any time we complete making a new page in the top level, we want to intro a new pagevar
         var url = EventM.getLoadURL(ev);
         var p = new WebAutomationLanguage.PageVariable("p"+idCounter, url);
         EventM.setLoadOutputPageVar(ev, p);
         urlsToMostRecentPageVar[url] = p;
         idCounter += 1;
+        var tab = EventM.getTabId(ev);
+        tabToCanonicalUrl[tab] = url; // this is the complete-time urls, so go ahead and put it in there
+        urlToTab[url] = tab;
+        // for now, anything that loads a new page var should be visible.  later we'll take away any that shouldn't be
+        // but for now it means just that it's top-level and thus needs to be taken care of
+        EventM.setVisible(ev, true);
+      }
+      else if (ev.type === "webnavigation"){
+        // fortunately webnavigation events look at redirects, so we can put in that a redirect happend in a given tab
+        // so that we can use the tab to get the canonical/complete-time url, then use that to get the relevant page var
+        var url = EventM.getLoadURL(ev);
+        if (!(url in urlToTab)){
+          urlToTab[url] = EventM.getTabId(ev);
+        }
       }
       else if (ev.type === "dom"){
         var port = EventM.getDOMPort(ev);
         var pageVar = null;
         if (port in portsToPageVars){
-          pageVar = portsToPageVars[port];
+          pageVar = portsToPageVars[port]; // great, we already know the port, and that's a great way to do the mapping
         }
         else{
           // ok, have to look it up by url
           var url = EventM.getDOMURL(ev);
-          pageVar = urlsToMostRecentPageVar[url];
+          var correctUrl = null;
+          if (url in urlsToMostRecentPageVar){
+            // great, this dom event already uses the canonical complete-time url (no redirects)
+            correctUrl = url;
+          }
+          else{
+            // there was a redirect.  but we tracked it via webnavigation events, so let's go find it
+            var tabId = urlToTab[url];
+            correctUrl = tabToCanonicalUrl[tabId];
+          }
+          pageVar = urlsToMostRecentPageVar[correctUrl];
+          if (!pageVar){
+            WALconsole.warn("Woah woah woah, real bad, why did we try to associate a dom event with a page var, but we didn't know a page var for the dom it happened on????");
+          }
           // from now on we'll associate this port with this pagevar, even if another pagevar later becomes associated with the url
           portsToPageVars[port] = pageVar;
         }
         EventM.setDOMInputPageVar(ev, pageVar); 
-        p.setRecordTimeFrameData(ev.frame);
+        pageVar.setRecordTimeFrameData(ev.frame);
       }
     }
     return trace;
@@ -289,7 +326,9 @@ var ReplayScript = (function _ReplayScript() {
         lastDOMEvent = ev;
         EventM.setDOMOutputLoadEvents(ev, []);
       }
-      else if (lastDOMEvent !== null && ev.type === "completed" && EventM.getVisible(ev) && EventM.getManual(ev) !== true) {
+      else if (lastDOMEvent !== null && ev.type === "completed" && EventM.getVisible(ev) && !EventM.getManual(ev)) {
+        // events should be invisible if they're not top-level or if they're caused by prior dom events instead of a url-bar load
+        // if they're visible right now but not manual, that means they're caused by a dom event, so let's add the causal link and remove their visibility
         EventM.setLoadCausedBy(ev, lastDOMEvent);
         EventM.addDOMOutputLoadEvent(lastDOMEvent, ev);
         // now that we have a cause for the load event, we can make it invisible
