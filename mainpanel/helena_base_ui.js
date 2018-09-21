@@ -194,13 +194,12 @@ var HelenaUIBase = (function () {
 
   pub.blocklyToHelena = function _blocklyToHelena(program){
     var roots = workspace.getTopBlocks();
-    var biggestSoFarSize = 0;
+    var statementLs = program.currentStatementLs();
     for (var i = 0; i < roots.length; i++){
       var r = roots[i];
-      var helenaStatements = WebAutomationLanguage.getHelenaFromBlocklyRoot(r);
-      var size = quickSizeEstimate(helenaStatements);
-      if (size > biggestSoFarSize){
-        biggestSoFarSize = size;
+      if (roots[i] === statementLs[0].block){
+        // found the program root
+        var helenaStatements = WebAutomationLanguage.getHelenaFromBlocklyRoot(r);
         program.loopyStatements = helenaStatements;
       }
     }

@@ -355,7 +355,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   }
 
   function attachToPrevBlock(currBlock, prevBlock){
-    if (prevBlock){
+    if (currBlock && prevBlock){
       var prevBlockConnection = prevBlock.nextConnection;
       var thisBlockConnection = currBlock.previousConnection;
       prevBlockConnection.connect(thisBlockConnection);
@@ -366,19 +366,30 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   }
 
   // for things like loops that have bodies, attach the nested blocks
-  function attachNestedBlocksToWrapper(wrapperBlock, fistNestedBlock){
+  function attachNestedBlocksToWrapper(wrapperBlock, firstNestedBlock){
+    if (!wrapperBlock || !firstNestedBlock){
+      WALconsole.warn("Woah, tried attachNestedBlocksToWrapper with", wrapperBlock, firstNestedBlock);
+      return;}
     var parentConnection = wrapperBlock.getInput('statements').connection;
-    var childConnection = fistNestedBlock.previousConnection;
+    var childConnection = firstNestedBlock.previousConnection;
     parentConnection.connect(childConnection);
   }
 
   function attachToInput(leftBlock, rightBlock, name){
+    if (!leftBlock || !rightBlock || !name){
+      WALconsole.warn("Woah, tried attachToInput with", leftBlock, rightBlock, name);
+      return;
+    }
     var parentConnection = leftBlock.getInput(name).connection;
     var childConnection = rightBlock.outputConnection;
     parentConnection.connect(childConnection);
   }
 
   function attachInputToOutput(leftBlock, rightBlock){
+    if (!leftBlock || !rightBlock){
+      WALconsole.warn("Woah, tried attachInputToOutput with", leftBlock, rightBlock);
+      return;
+    }
     var outputBlockConnection = rightBlock.outputConnection;
     var inputBlockConnection = leftBlock.inputList[0].connection;
     outputBlockConnection.connect(inputBlockConnection);
@@ -957,8 +968,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             UIObject.updateDisplayedScript(false); // update without updating how blockly appears
           }
           if (ev instanceof Blockly.Events.Ui){
-            if (ev.element === "selected" && ev.oldValue === this.id){
-              console.log("UNSELECTED");
+            if (ev.element === "selected" && ev.oldValue === this.id){ // unselected
               UIObject.updateDisplayedScript(true);
             }
           }
@@ -3652,15 +3662,34 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         getWAL(block).maxRows = this.sourceBlock_.getFieldValue(maxRowsFieldName);
       }
 
+      var handleNewRelationName = function(){
+        var block = this.sourceBlock_;
+        // getWAL(block).maxRows = this.sourceBlock_.getFieldValue(maxRowsFieldName);
+        var newName = this.sourceBlock_.getFieldValue("relationName");
+        var WALrep = getWAL(block);
+        if (WALrep){
+          setTimeout(function(){
+            var relObj = WALrep.relation;
+            relObj.name = newName;
+            //UIObject.updateDisplayedScript();
+            UIObject.updateDisplayedScript(false); // update without updating how blockly appears
+            UIObject.updateDisplayedRelations();
+          },0);
+        }
+      }
+
       // addToolboxLabel(this.blocklyLabel);
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
-      var relationsDropDown = makeRelationsDropdown(relations);
       var statement = this;
+      var startName = "relation_name";
+      if (statement && statement.relation && statement.relation.name){
+        startName = statement.relation.name;
+      }
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
           this.appendDummyInput()
               .appendField("for each row in")
-              .appendField(new Blockly.FieldDropdown(relationsDropDown), "list")        
+              .appendField(new Blockly.FieldTextInput(startName, handleNewRelationName), "relationName")      
               .appendField("in")
               .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page")  
                
@@ -3681,13 +3710,21 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           this.setColour(44);
           this.setTooltip('');
           this.setHelpUrl('');
+        },
+        onchange: function(ev) {
+          if (ev instanceof Blockly.Events.Ui){
+            if (ev.element === "selected" && ev.oldValue === this.id){ // unselected
+              // remember that if this block was selected, relation names may have changed.  so we should re-display everything
+              UIObject.updateDisplayedScript(true);
+            }
+          }
         }
       };
     };
 
     this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       this.block = workspace.newBlock(this.blocklyLabel);
-      this.block.setFieldValue(this.relation.name, "list");
+      this.block.setFieldValue(this.relation.name, "relationName");
       if (this.pageVar){
         this.block.setFieldValue(this.pageVar.toString(), "page");
       }
@@ -5037,19 +5074,57 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return scriptString;
     };
 
-    this.displayBlockly = function _displayBlockly(workspace){
+    this.currentStatementLs = function _currentStatementLs(){
       var statementLs = this.loopyStatements;
       if (this.loopyStatements.length === 0){
         statementLs = this.statements;
       }
+      return statementLs;
+    }
 
-      // clear out whatever was in there before
-      // todo: don't always want to clear out everything.  what about when we have some other roots?
-      workspace.clear();
+    this.displayBlockly = function _displayBlockly(workspace){
 
-      helenaSeqToBlocklySeq(statementLs, workspace);
+      var statementLs = this.currentStatementLs();
+
+      // let's start with the real program, go through that
+
+      var coords = null;
+      if (statementLs[0].block){
+        var coords = statementLs[0].block.getRelativeToSurfaceXY();
+        statementLs[0].block.dispose(); // get rid of old version (discarding any unsaved blockly changes!)
+      }
+      
+      // now that we removed the real program, let's take this moment to grab all the alternative roots
+      // we'll use these later
+      var rootBlocklyBlocks = workspace.getTopBlocks();
+      var rt = helenaSeqToBlocklySeq(statementLs, workspace); // add new version
+      if (coords){
+        rt.moveBy(coords.x, coords.y); // make it show up in same spot as before
+      }
+
+      // now let's go through all the other stuff the user might have lying around the workspace
+
+      this.altRootLoopyStatements = []; // clear out the current list of other roots that we associate with the program
+      for (var i = 0; i < rootBlocklyBlocks.length; i++){
+        var rootWAL = getWAL(rootBlocklyBlocks[i]);
+        if (!rootWAL){
+          continue; // huh, no helena associated with this one.  guess we'll just throw it out
+        }
+        var helenaSeq = blocklySeqToHelenaSeq(rootBlocklyBlocks[i]);
+        this.altRootLoopyStatements.push(helenaSeq);
+
+        // delete the old version from the workspace
+        var coords = rootBlocklyBlocks[i].getRelativeToSurfaceXY();
+        rootBlocklyBlocks[i].dispose();
+        // now display the new version
+        var r = helenaSeqToBlocklySeq(helenaSeq, workspace);
+        if (coords){
+          r.moveBy(coords.x, coords.y); // make it show up in same spot as before
+        }
+      }  
 
       // now go through and actually display all those nodes
+      // this will traverse all relevant nodes of this.loopyStatements and this.allRootLoopyStatements
       this.traverse(function(statement){
         if (statement.block){
           statement.block.initSvg();
@@ -5109,8 +5184,20 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (this.loopyStatements.length < 1){
         WALconsole.warn("Calling traverse on a program even though loopyStatements is empty.");
       }
+
+      // go through our actual programs
       for (var i = 0; i < this.loopyStatements.length; i++){
         this.loopyStatements[i].traverse(fn, fn2);
+      }
+
+      // go through the other roots that are also available to us (usually because of blockly)
+      if (this.altRootLoopyStatements){
+        for (var i = 0; i < this.altRootLoopyStatements.length; i++){
+          var statments = this.altRootLoopyStatements[i];
+          for (var j = 0; j < statements.length; j++){
+            statements[j].traverse(fn, fn2);
+          }
+        }
       }
     };
 
