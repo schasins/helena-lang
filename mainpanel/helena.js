@@ -976,6 +976,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       };
     };
 
+
     this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       if (this.relation){
         // scrapes a relation node, so don't let the user name the node here probably?
@@ -2037,9 +2038,18 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.getHelena = function _getHelena(){
       // update our list of variable nodes based on the current blockly situation
       var firstInput = this.block.getInput('NodeVariableUse');
-      if (firstInput){
-        var inputSeq = getWAL(firstInput.connection.targetBlock()).getHelenaSeq();
-        this.variableUseNodes = inputSeq;        
+      if (firstInput && firstInput.connection.targetBlock()){
+        var wal = getWAL(firstInput.connection.targetBlock());
+        if (wal.getHelena){
+          var inputSeq = wal.getHelenaSeq();
+          this.variableUseNodes = inputSeq; 
+        }
+        else{
+          // right now the only thing we allow to be chained are the node variables
+          // todo: make a proper way of making a list in a blockly block.  maybe it needs to be vertical?
+          // in the meantime, you can make an additional output row that uses exactly one cell
+          this.variableUseNodes = [firstInput];
+        }
       }
       else{
         this.variableUseNodes = [];
@@ -5159,11 +5169,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             _.filter(prog.relations, function(rel){return rel instanceof WebAutomationLanguage.Relation;}), // todo: in future, don't filter.  actually save textrelations too
             ServerTranslationUtilities.JSONifyRelation);
           var serializedProg = ServerTranslationUtilities.JSONifyProgram(prog);
-          var msg = {id: progId, serialized_program: serializedProg, relation_objects: relationObjsSerialized, name: prog.name, associated_string: prog.associatedString};
-          MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/saveprogram', msg, function(){
-            // we've finished the save thing, so tell the user
-            saveCompletedHandler();
-          });
+          // sometimes serializedProg becomes null because of errors.  in those cases, we don't want to overwrite the old, good program with the bad one
+          // so let's prevent us from saving null in place of existing thing so that user can shut it off, load the saved program, start over
+          if (serializedProg){
+            var msg = {id: progId, serialized_program: serializedProg, relation_objects: relationObjsSerialized, name: prog.name, associated_string: prog.associatedString};
+            MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/saveprogram', msg, function(){
+              // we've finished the save thing, so tell the user
+              saveCompletedHandler();
+            });
+          }
         }, 0);
 
         // ok, we've set it up to do the actual program saving, but we already have the id, so do the postIdRetrievalContinuation
