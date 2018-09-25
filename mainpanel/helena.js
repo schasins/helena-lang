@@ -765,9 +765,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               var newName = this.getFieldValue("node");
               var currentName = getWAL(this).currentNode.getName();
               if (newName !== currentName){
-                getWAL(this).currentNode.setName(newName);
+                var wal = getWAL(this);
+                wal.currentNode.setName(newName);
                 // new name so update all our program display stuff
                 UIObject.updateDisplayedScript(false); // update without updating how blockly appears
+                var colObj = wal.currentColumnObj(); // now make sure the relation column gets renamed too
+                colObj.name = newName;
+                UIObject.updateDisplayedRelations();
               }
               if (ev instanceof Blockly.Events.Ui){
                 if (ev.element === "selected" && ev.oldValue === this.id){ // unselected
@@ -947,9 +951,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           var newName = this.getFieldValue("node");
           var currentName = getWAL(this).currentNode.getName();
           if (newName !== currentName){
-            getWAL(this).currentNode.setName(newName);
+            var wal = getWAL(this);
+            wal.currentNode.setName(newName);
             // new name so update all our program display stuff
             UIObject.updateDisplayedScript(false); // update without updating how blockly appears
+            var colObj = wal.currentColumnObj(); // now make sure the relation column gets renamed too
+            colObj.name = newName;
+            UIObject.updateDisplayedRelations();
           }
           if (ev instanceof Blockly.Events.Ui){
             if (ev.element === "selected" && ev.oldValue === this.id){ // unselected
