@@ -770,8 +770,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                 // new name so update all our program display stuff
                 UIObject.updateDisplayedScript(false); // update without updating how blockly appears
                 var colObj = wal.currentColumnObj(); // now make sure the relation column gets renamed too
-                colObj.name = newName;
-                UIObject.updateDisplayedRelations();
+                if (colObj){
+                  colObj.name = newName;
+                  UIObject.updateDisplayedRelations();
+                }
               }
               if (ev instanceof Blockly.Events.Ui){
                 if (ev.element === "selected" && ev.oldValue === this.id){ // unselected
@@ -956,8 +958,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             // new name so update all our program display stuff
             UIObject.updateDisplayedScript(false); // update without updating how blockly appears
             var colObj = wal.currentColumnObj(); // now make sure the relation column gets renamed too
-            colObj.name = newName;
-            UIObject.updateDisplayedRelations();
+            if (colObj){
+              colObj.name = newName;
+              UIObject.updateDisplayedRelations();
+            }
           }
           if (ev instanceof Blockly.Events.Ui){
             if (ev.element === "selected" && ev.oldValue === this.id){ // unselected
@@ -6648,7 +6652,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return statements;
     }
 
-    this.processServerRelations = function _processServerRelations(resp, currentStartIndex, tabsToCloseAfter, tabMapping, windowId){
+    this.processServerRelations = function _processServerRelations(resp, currentStartIndex, tabsToCloseAfter, tabMapping, windowId, pageCount=0){
       if (currentStartIndex === undefined){currentStartIndex = 0;}
       if (tabsToCloseAfter === undefined){tabsToCloseAfter = [];}
       if (tabMapping === undefined){tabMapping = {};}
@@ -6661,6 +6665,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // let's find all the statements that should open new pages (where we'll need to try relations)
         for (var i = currentStartIndex; i < program.statements.length; i++){
           if (program.statements[i].outputPageVars && program.statements[i].outputPageVars.length > 0){
+            pageCount += 1;
+            if (UIObject.handleRelationFindingPageUpdate){
+              UIObject.handleRelationFindingPageUpdate(pageCount);
+            }
+
             // todo: for now this code assumes there's exactly one outputPageVar.  this may not always be true!  but dealing with it now is a bad use of time
             var targetPageVar = program.statements[i].outputPageVars[0];
             WALconsole.log("processServerrelations going for index:", i, targetPageVar);
@@ -6737,7 +6746,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                 UIObject.updateDisplayedRelations(true); // true because we're still unearthing interesting relations, so should indicate we're in progress
                 // now let's go through this process all over again for the next page, if there is one
                 WALconsole.log("going to processServerRelations with nextIndex: ", nextIndex);
-                program.processServerRelations(resp, nextIndex, tabsToCloseAfter, tabMapping, windowId);
+                program.processServerRelations(resp, nextIndex, tabsToCloseAfter, tabMapping, windowId, pageCount);
               };
 
               if (UIObject.handleFunctionForSkippingToNextPageOfRelationFinding){
