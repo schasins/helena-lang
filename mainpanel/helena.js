@@ -760,6 +760,20 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               this.setPreviousStatement(true, null);
               this.setNextStatement(true, null);
               this.setColour(280);
+            },
+            onchange: function(ev) {
+              var newName = this.getFieldValue("node");
+              var currentName = getWAL(this).currentNode.getName();
+              if (newName !== currentName){
+                getWAL(this).currentNode.setName(newName);
+                // new name so update all our program display stuff
+                UIObject.updateDisplayedScript(false); // update without updating how blockly appears
+              }
+              if (ev instanceof Blockly.Events.Ui){
+                if (ev.element === "selected" && ev.oldValue === this.id){ // unselected
+                  UIObject.updateDisplayedScript(true);
+                }
+              }
             }
           };
         })();
@@ -928,6 +942,20 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           this.setPreviousStatement(true, null);
           this.setNextStatement(true, null);
           this.setColour(280);
+        },
+        onchange: function(ev) {
+          var newName = this.getFieldValue("node");
+          var currentName = getWAL(this).currentNode.getName();
+          if (newName !== currentName){
+            getWAL(this).currentNode.setName(newName);
+            // new name so update all our program display stuff
+            UIObject.updateDisplayedScript(false); // update without updating how blockly appears
+          }
+          if (ev instanceof Blockly.Events.Ui){
+            if (ev.element === "selected" && ev.oldValue === this.id){ // unselected
+              UIObject.updateDisplayedScript(true);
+            }
+          }
         }
       };
 
@@ -979,7 +1007,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       if (this.relation){
-        // scrapes a relation node, so don't let the user name the node here probably?
+        // scrapes a relation node
         this.block = workspace.newBlock(this.blocklyLabel);
         this.block.setFieldValue(nodeRepresentation(this), "node");
       }
