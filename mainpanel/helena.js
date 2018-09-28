@@ -25,6 +25,8 @@ var currentRunObjects = [];
 var recordingWindowIds = [];
 var currentReplayWindowId = null;
 
+var demoMode = false;
+
 utilities.listenForMessage("content", "mainpanel", "currentReplayWindowId", 
   function(){utilities.sendMessage("mainpanel", "content", "currentReplayWindowId", {window: currentReplayWindowId});});
 
@@ -3737,21 +3739,21 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
-          this.appendDummyInput()
+          var soFar = this.appendDummyInput()
               .appendField("for each row in")
               .appendField(new Blockly.FieldTextInput(startName, handleNewRelationName), "relationName")      
               .appendField("in")
-              .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page")  
+              .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");  
                
-              .appendField("(")
-              .appendField(new Blockly.FieldCheckbox("TRUE", useInfiniteRows), 'infiniteRowsCheckbox')
-              .appendField("for all rows,")
-              .appendField(new Blockly.FieldCheckbox("TRUE", dontUseInfiniteRows), 'limitedRowsCheckbox')
-              .appendField("for the first")
-              .appendField(new Blockly.FieldNumber(20, 0, null, null, handleMaxRowsChange), maxRowsFieldName)      
-              .appendField("rows)")
-              
-              ;
+              if (!demoMode){
+                soFar.appendField("(")
+                .appendField(new Blockly.FieldCheckbox("TRUE", useInfiniteRows), 'infiniteRowsCheckbox')
+                .appendField("for all rows,")
+                .appendField(new Blockly.FieldCheckbox("TRUE", dontUseInfiniteRows), 'limitedRowsCheckbox')
+                .appendField("for the first")
+                .appendField(new Blockly.FieldNumber(20, 0, null, null, handleMaxRowsChange), maxRowsFieldName)      
+                .appendField("rows)");
+              }
           this.appendStatementInput("statements") // important for our processing that we always call this statements
               .setCheck(null)
               .appendField("do");
@@ -3779,13 +3781,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         this.block.setFieldValue(this.pageVar.toString(), "page");
       }
       
-      if (this.maxRows){
-        this.block.setFieldValue(this.maxRows, maxRowsFieldName);
-        this.block.setFieldValue("FALSE", "infiniteRowsCheckbox");
-      }
-      else{
-        // we're using infinite rows
-        this.block.setFieldValue("FALSE", "limitedRowsCheckbox");
+      if (!demoMode){
+        if (this.maxRows){
+          this.block.setFieldValue(this.maxRows, maxRowsFieldName);
+          this.block.setFieldValue("FALSE", "infiniteRowsCheckbox");
+        }
+        else{
+          // we're using infinite rows
+          this.block.setFieldValue("FALSE", "limitedRowsCheckbox");
+        }
       }
       
       attachToPrevBlock(this.block, prevBlock);
