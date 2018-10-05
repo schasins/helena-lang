@@ -4643,7 +4643,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.saveToServer = function _saveToServer(){
       // sample: $($.post('http://localhost:3000/saverelation', { relation: {name: "test", url: "www.test2.com/test-test2", selector: "test2", selector_version: 1, num_rows_in_demonstration: 10}, columns: [{name: "col1", xpath: "a[1]/div[1]", suffix: "div[1]"}] } ));
       var rel = ServerTranslationUtilities.JSONifyRelation(this); // note that JSONifyRelation does stable stringification
-      $.post('http://kaofang.cs.berkeley.edu:8080/saverelation', {relation: rel});
+      MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/saverelation', {relation: rel});
     }
 
     this.clearRunningState = function _clearRunningState(){
@@ -6464,7 +6464,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
       }
       var that = this;
-      $.post('http://kaofang.cs.berkeley.edu:8080/retrieverelations', { pages: reqList }, function(resp){that.processServerRelations(resp);});
+      MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/retrieverelations', { pages: reqList }, function(resp){that.processServerRelations(resp);});
     }
 
     function isScrapingSet(keyCodes){

@@ -433,17 +433,46 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
     $(selectorstring).html($(selectorstring).html().replace(new RegExp(linkScrapeStringToReplace,"g"), pub.scrapeConditionLinkString));
   }
 
-  pub.postAndRePostOnFailure = function _postAndRePostOnFailure(url, msg, successHandler){
+  pub.sendAndReSendInternals = function _sendAndReSendInternals(func, url, msg, successHandler, showThatWereWaiting=true){
+    // only ever call this from the mainpanel!  otherwise we might disturb the dom structure of content pages.
+    // alternatively, pass in false for showThatWereWaiting if you really need this from a content script
     var currentWait = 5000;
-    var sendHelper = function _sendHelper(message){
-      $.post(url, 
-        message, 
-        successHandler).fail(function(){
-          setTimeout(function(){sendHelper(message);}, currentWait); // if we failed, need to be sure to send again...
+    console.log("waiting for request", url);
+
+    var successHandlerWrapped = successHandler;
+    if (showThatWereWaiting){
+      var waitingForServerAlert = $("<div style='background-color:#E04343;padding:5px;'><img style='margin-right:7px' src='../icons/ajax-loader.gif' height='10px'><span id='extra'></span>Waiting for the server...</div>");
+      $("body").prepend(waitingForServerAlert);
+      var successHandlerWrapped = function(param){
+        waitingForServerAlert.remove();
+        successHandler(param);
+      }
+    }
+    var sendHelper = function _sendHelper(){
+      func(url, 
+        msg, 
+        successHandlerWrapped).fail(function(jqxhr, settings, ex){
+          console.log(jqxhr, settings, ex);
+          setTimeout(function(){sendHelper(msg);}, currentWait); // if we failed, need to be sure to send again...
           currentWait = currentWait * 2; // doing a little bit of backoff, but should probably do this in a cleaner way
+          if (showThatWereWaiting){
+            // this was a failure, so say we're trying again
+            waitingForServerAlert.find("#extra").html("Trying again.  Is the server down?  Is your Internet connection slow?  ");
+            var additional = $("<div>"+settings+"</div>");
+            waitingForServerAlert.append(additional);
+            setTimeout(function(){additional.remove()}, 10000);
+          }
         });
     };
     sendHelper(msg);
+  }
+
+  pub.getAndReGetOnFailure = function _getAndReGetOnFailure(url, msg, successHandler, showThatWereWaiting=true){
+    pub.sendAndReSendInternals($.get, url, msg, successHandler, showThatWereWaiting);
+  }
+
+  pub.postAndRePostOnFailure = function _postAndRePostOnFailure(url, msg, successHandler, showThatWereWaiting=true){
+    pub.sendAndReSendInternals($.post, url, msg, successHandler, showThatWereWaiting);
   };
 
   pub.makeNewRecordReplayWindow = function _makeNewRecordReplayWindow(cont){
