@@ -1553,6 +1553,39 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
   var currentRelationSeenNodes = {};
   var noMoreItemsAvailable = {};
 
+  function scrollThroughRows(crd){
+    var knowTheLastElement = false;
+    for (var i = 0; i < crd.length; i++){
+      var row = crd[i];
+      for (var j = 0; j < row.length; j++){
+        var elem = row[j];
+        var elemNodes = xPathToNodes(elem.xpath);
+        if (elemNodes.length > 0){
+          var elemNode = elemNodes[0];
+          elemNode.scrollIntoView();
+          knowTheLastElement = true;
+        }
+      }
+    }
+    return knowTheLastElement;
+  }
+
+  function scrollThroughRowsOrSpace(crd){
+    // let's try scrolling to last element if we know it
+    // sometimes it's important to scroll through the range of data, not go directly to the end, 
+    // so we'll try scrolling to each in turn
+    if (crd){
+      var knowTheLastElement = scrollThroughRows(crd);
+    }
+    // but if we don't know it, just try scrolling window to the bottom
+    // sadly, this doesn't work for everything.  (for instance, if have an overlay with a relation, the overlay may not get scrolled w window scroll)
+    if (!knowTheLastElement){
+      for (var i = 0; i < 1; i+= 0.01){
+        window.scrollTo(0, document.body.scrollHeight*i);
+      }
+    }
+  }
+
   // below the methods for actually using the next button when we need the next page of results
   // this also identifies if there are no more items to retrieve, in which case that info is stored in case someone tries to run getFreshRelationItems on us
   pub.runNextInteraction = function _runNextInteraction(msg){
@@ -1566,34 +1599,18 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     if (next_button_type === NextTypes.SCROLLFORMORE){
       WALconsole.namedLog("nextInteraction", "scrolling for more");
       var crd = currentRelationData[sid];
-      var knowTheLastElement = false;
-      // let's try scrolling to last element if we know it
-      // sometimes it's important to scroll through the range of data, not go directly to the end, 
-      // so we'll try scrolling to each in turn
-      if (crd){
-        for (var i = 0; i < crd.length; i++){
-          var row = crd[i];
-          for (var j = 0; j < row.length; j++){
-            var elem = row[j];
-            var elemNodes = xPathToNodes(elem.xpath);
-            if (elemNodes.length > 0){
-              var elemNode = elemNodes[0];
-              elemNode.scrollIntoView();
-              knowTheLastElement = true;
-            }
-          }
-        }
-      }
-      // but if we don't know it, just try scrolling window to the bottom
-      // sadly, this doesn't work for everything.  (for instance, if have an overlay with a relation, the overlay may not get scrolled w window scroll)
-      if (!knowTheLastElement){
-        for (var i = 0; i < 1; i+= 0.01){
-          window.scrollTo(0, document.body.scrollHeight*i);
-        }
-      }
+      scrollThroughRowsOrSpace(crd);
     }
     else if (next_button_type === NextTypes.MOREBUTTON || next_button_type === NextTypes.NEXTBUTTON){
       WALconsole.namedLog("nextInteraction", "msg.next_button_selector", msg.next_button_selector);
+
+      var crd = currentRelationData[sid];
+      if (next_button_type === NextTypes.MOREBUTTON){
+        // for user understanding what's happening, it's convenient if we're using the more button for us to actually scroll through the elements
+        // this isn't critical, but probably can't hurt
+        scrollThroughRowsOrSpace(crd);
+      }
+
       var button = findNextButton(msg.next_button_selector, msg.prior_next_button_text);
       if (button !== null){
         utilities.sendMessage("content", "mainpanel", "nextButtonText", {text: button.textContent});
