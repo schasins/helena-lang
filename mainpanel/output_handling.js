@@ -51,10 +51,10 @@ var OutputHandler = (function _OutputHandler() {
     };
 
   	this.requestNewProgramRunId = function _requestNewProgramRunId(){
-      MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/newprogramrun', {name: dataset.name, program_id: dataset.program_id}, function(resp){dataset.handleDatasetId(resp);});
+      MiscUtilities.postAndRePostOnFailure(helenaServerUrl+'/newprogramrun', {name: dataset.name, program_id: dataset.program_id}, function(resp){dataset.handleDatasetId(resp);});
     };
     this.requestNewProgramSubRunId = function _requestNewProgramSubRunId(){
-      MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/newprogramsubrun', {program_run_id: dataset.program_run_id}, function(resp){dataset.handleDatasetId(resp);});
+      MiscUtilities.postAndRePostOnFailure(helenaServerUrl+'/newprogramsubrun', {program_run_id: dataset.program_run_id}, function(resp){dataset.handleDatasetId(resp);});
     };
     this.handleDatasetId = function _handleDatasetId(resp){
       if (resp.run_id){
@@ -76,7 +76,7 @@ var OutputHandler = (function _OutputHandler() {
     }
 
     this.updateRunNameOnServer = function _updateRunNameOnServer(){
-      MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/updaterunname', {id: this.program_run_id, name: this.name, program_id: this.program_id});
+      MiscUtilities.postAndRePostOnFailure(helenaServerUrl+'/updaterunname', {id: this.program_run_id, name: this.name, program_id: this.program_id});
     }
 
 
@@ -149,7 +149,7 @@ var OutputHandler = (function _OutputHandler() {
       }
       var msg = this.datasetSlice();
       this.outstandingDataSaveRequests += 1;
-      MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/datasetslice', msg, realHandler, false);
+      MiscUtilities.postAndRePostOnFailure(helenaServerUrl+'/datasetslice', msg, realHandler, false);
     };
 
     this.closeDataset = function _closeDataset(){
@@ -169,7 +169,7 @@ var OutputHandler = (function _OutputHandler() {
     }
 
     this.downloadUrl = function _downloadUrl(){
-      return 'http://kaofang.cs.berkeley.edu:8080/datasets/run/'+this.program_run_id;
+      return helenaServerUrl+'/datasets/run/'+this.program_run_id;
     };
 
     this.downloadDataset = function _downloadDataset(){
@@ -177,7 +177,7 @@ var OutputHandler = (function _OutputHandler() {
     };
 
     this.downloadFullDatasetUrl = function _downloadFullDatasetUrl(){
-      return 'http://kaofang.cs.berkeley.edu:8080/datasets/'+program.id;
+      return helenaServerUrl+'/datasets/'+program.id;
     };
 
     this.downloadFullDataset = function _downloadFullDataset(){
