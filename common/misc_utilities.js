@@ -910,5 +910,5 @@ var DefaultHelenaValues = (function _DefaultHelenaValues() { var pub = {};
 
 return pub; }());
 
-
+var helenaServerUrl = "http://kaofang.cs.berkeley.edu:8080";
 

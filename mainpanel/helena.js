@@ -3480,13 +3480,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
 
       // this is where we should switch to checking if the current task has been locked/claimed if we're in parallel mode
-      var targetUrl = 'http://kaofang.cs.berkeley.edu:8080/transactionexists';
+      var targetUrl = helenaServerUrl+'/transactionexists';
       if (inParallelMode){
-        targetUrl = 'http://kaofang.cs.berkeley.edu:8080/locktransaction';
+        targetUrl = helenaServerUrl+'/locktransaction';
         if (this.descendIntoLocks){
           // this one's a weird case.  in this case, we're actually re-entering a skip block already locked by another worker
           // because it has descendant work that we can help with and because we want good load balancing
-          targetUrl = 'http://kaofang.cs.berkeley.edu:8080/takeblockduringdescent';
+          targetUrl = helenaServerUrl+'/takeblockduringdescent';
         }
       }
 
@@ -3521,7 +3521,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         var transactionMsg = this.serverTransactionRepresentationCommit(runObject, new Date().getTime());
         var datasetSliceMsg = runObject.dataset.datasetSlice();
         var fullMsg = _.extend(transactionMsg, datasetSliceMsg);
-        MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/newtransactionwithdata', fullMsg);
+        MiscUtilities.postAndRePostOnFailure(helenaServerUrl+'/newtransactionwithdata', fullMsg);
       }
       rbbcontinuation(rbboptions);
     };
@@ -4643,7 +4643,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.saveToServer = function _saveToServer(){
       // sample: $($.post('http://localhost:3000/saverelation', { relation: {name: "test", url: "www.test2.com/test-test2", selector: "test2", selector_version: 1, num_rows_in_demonstration: 10}, columns: [{name: "col1", xpath: "a[1]/div[1]", suffix: "div[1]"}] } ));
       var rel = ServerTranslationUtilities.JSONifyRelation(this); // note that JSONifyRelation does stable stringification
-      MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/saverelation', {relation: rel});
+      MiscUtilities.postAndRePostOnFailure(helenaServerUrl+'/saverelation', {relation: rel});
     }
 
     this.clearRunningState = function _clearRunningState(){
@@ -5202,7 +5202,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       WALconsole.log("about to post", (new Date().getTime()/1000));
       // this first request is just to get us the right program id to associate any later stuff with.  it won't actually save the program
       // saving the program takes a long time, so we don't want other stuff to wait on it, will do it in background
-      MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/saveprogram', msg, function(response){
+      MiscUtilities.postAndRePostOnFailure(helenaServerUrl+'/saveprogram', msg, function(response){
         WALconsole.log("server responded to program save");
         var progId = response.program.id;
         prog.id = progId;
@@ -5217,7 +5217,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // so let's prevent us from saving null in place of existing thing so that user can shut it off, load the saved program, start over
           if (serializedProg){
             var msg = {id: progId, serialized_program: serializedProg, relation_objects: relationObjsSerialized, name: prog.name, associated_string: prog.associatedString};
-            MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/saveprogram', msg, function(){
+            MiscUtilities.postAndRePostOnFailure(helenaServerUrl+'/saveprogram', msg, function(){
               // we've finished the save thing, so tell the user
               saveCompletedHandler();
             });
@@ -5486,9 +5486,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     function alignRecordTimeAndReplayTimeCompletedEvents(recordTimeTrace, replayTimeTrace){
       // we should see corresponding 'completed' events in the traces
-      var recCompleted = _.filter(recordTimeTrace, function(ev){return ev.type === "completed" && ev.data.type === "main_frame" && ev.data.url.indexOf("kaofang.cs.berkeley.edu:8080") < 0;}); // now only doing this for top-level completed events.  will see if this is sufficient
+      var recCompleted = _.filter(recordTimeTrace, function(ev){return ev.type === "completed" && ev.data.type === "main_frame" && ev.data.url.indexOf(helenaServerUrl) < 0;}); // todo: should we remove http? // now only doing this for top-level completed events.  will see if this is sufficient
       // have to check for kaofang presence, because otherwise user can screw it up by downloading data in the middle or something like that
-      var repCompleted = _.filter(replayTimeTrace, function(ev){return ev.type === "completed" && ev.data.type === "main_frame" && ev.data.url.indexOf("kaofang.cs.berkeley.edu:8080") < 0;});
+      var repCompleted = _.filter(replayTimeTrace, function(ev){return ev.type === "completed" && ev.data.type === "main_frame" && ev.data.url.indexOf(helenaServerUrl) < 0;});
       WALconsole.log(recCompleted, repCompleted);
       // should have same number of top-level load events.  if not, might be trouble
       if (recCompleted.length !== repCompleted.length){
@@ -6464,7 +6464,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
       }
       var that = this;
-      MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/retrieverelations', { pages: reqList }, function(resp){that.processServerRelations(resp);});
+      MiscUtilities.postAndRePostOnFailure(helenaServerUrl+'/retrieverelations', { pages: reqList }, function(resp){that.processServerRelations(resp);});
     }
 
     function isScrapingSet(keyCodes){

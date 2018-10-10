@@ -11,14 +11,14 @@ var HelenaServerInteractions = (function () {
     WALconsole.log("loading programs");
     var toolId = WebAutomationLanguage.getHelenaToolId();
     console.log("toolId", toolId);
-    MiscUtilities.getAndReGetOnFailure('http://kaofang.cs.berkeley.edu:8080/programs/', {tool_id: toolId}, function(response){
+    MiscUtilities.getAndReGetOnFailure(helenaServerUrl+'/programs/', {tool_id: toolId}, function(response){
       handler(response);
     });
   };
 
   pub.loadSavedDataset = function _loadSavedDataset(datasetId, handler){
     WALconsole.log("loading dataset: ", datasetId);
-    MiscUtilities.getAndReGetOnFailure('http://kaofang.cs.berkeley.edu:8080/programfordataset/'+datasetId, {}, function(response){
+    MiscUtilities.getAndReGetOnFailure(helenaServerUrl+'/programfordataset/'+datasetId, {}, function(response){
       var progId = response.program_id;
       handler(progId);
     });
@@ -26,7 +26,7 @@ var HelenaServerInteractions = (function () {
 
   pub.loadSavedProgram = function _loadSavedProgram(progId, handler){
     WALconsole.log("loading program: ", progId);
-    MiscUtilities.getAndReGetOnFailure('http://kaofang.cs.berkeley.edu:8080/programs/'+progId, {}, function(response){
+    MiscUtilities.getAndReGetOnFailure(helenaServerUrl+'/programs/'+progId, {}, function(response){
       WALconsole.log("received program: ", response);
       handler(response);
     });
