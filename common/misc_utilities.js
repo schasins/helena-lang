@@ -63,16 +63,24 @@ var utilities = (function _utilities() { var pub = {};
 
   chrome.runtime.onMessage.addListener(function _listenerRuntime(msg, sender) {
     for (var key in runtimeListeners){
-      runtimeListeners[key](msg, sender);
+      var wasRightHandler = runtimeListeners[key](msg, sender);
+      if (wasRightHandler){
+        return;
+      }
     }
+    console.log("couldn't find right handler", msg, sender);
   });
 
   chrome.extension.onMessage.addListener(function _listenerExtension(msg, sender) {
     // WALconsole.log("keys", Object.keys(extensionListeners));
     for (var key in extensionListeners){
       // WALconsole.log("key", key);
-      extensionListeners[key](msg, sender);
+      var wasRightHandler = extensionListeners[key](msg, sender);
+      if (wasRightHandler){
+        return;
+      }
     }
+    console.log("Couldn't find right handler", msg, sender);
   });
 
   pub.listenForMessage = function _listenForMessage(from, to, subject, fn, key){
@@ -121,7 +129,7 @@ var utilities = (function _utilities() { var pub = {};
       };
     }
     else{
-      WALconsole.warn("Bad to field in msg:", msg);
+      console.log("Bad to field in msg:", msg);
     }
   };
 
@@ -198,7 +206,7 @@ var utilities = (function _utilities() { var pub = {};
         });
       }
     }
-    else if (to ==="background" || to ==="mainpanel"){
+    else if (to === "background" || to === "mainpanel"){
       var msg = {from: from, subject: subject, content: content};
       msg.send_type = sendTypes.NORMAL;
       WALconsole.log("Sending message: ", msg);
@@ -441,8 +449,8 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
 
     var successHandlerWrapped = successHandler;
     if (showThatWereWaiting){
-      var waitingForServerAlert = $("<div style='background-color:#E04343;padding:5px;'><img style='margin-right:7px' src='../icons/ajax-loader.gif' height='10px'><span id='extra'></span>Waiting for the server...</div>");
-      $("body").prepend(waitingForServerAlert);
+      var waitingForServerAlert = $("<div class='waiting_for_server'><img style='margin-right:7px' src='../icons/ajax-loader.gif' height='10px'><span id='extra'></span>Waiting for the server...</div>");
+      $("body").append(waitingForServerAlert);
       var successHandlerWrapped = function(param){
         waitingForServerAlert.remove();
         successHandler(param);
@@ -475,7 +483,7 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
     pub.sendAndReSendInternals($.post, url, msg, successHandler, showThatWereWaiting);
   };
 
-  pub.makeNewRecordReplayWindow = function _makeNewRecordReplayWindow(cont){
+  pub.makeNewRecordReplayWindow = function _makeNewRecordReplayWindow(cont, specifiedUrl=undefined){
     chrome.windows.getCurrent(function (currWindowInfo){
       var right = currWindowInfo.left + currWindowInfo.width;
       chrome.system.display.getInfo(function(displayInfoLs){
@@ -494,7 +502,11 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
 	      // 1419 1185
 	     //var width = 1419;
 	     //var height = 1185;
-            chrome.windows.create({url: "pages/newRecordingWindow.html", focused: true, left: left, top: top, width: width, height: height}, function(win){
+            var url = specifiedUrl;
+            if (!url || ((typeof url) !== "string")){
+              url = "pages/newRecordingWindow.html"
+            }
+            chrome.windows.create({url: url, focused: true, left: left, top: top, width: width, height: height}, function(win){
               WALconsole.log("new record/replay window created.");
               //pub.sendCurrentRecordingWindow(); // todo: should probably still send this for some cases
               cont(win.id);

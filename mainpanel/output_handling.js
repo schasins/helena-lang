@@ -149,7 +149,7 @@ var OutputHandler = (function _OutputHandler() {
       }
       var msg = this.datasetSlice();
       this.outstandingDataSaveRequests += 1;
-      MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/datasetslice', msg, realHandler);
+      MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/datasetslice', msg, realHandler, false);
     };
 
     this.closeDataset = function _closeDataset(){
