@@ -51,10 +51,12 @@ var OutputHandler = (function _OutputHandler() {
     };
 
   	this.requestNewProgramRunId = function _requestNewProgramRunId(){
-      MiscUtilities.postAndRePostOnFailure(helenaServerUrl+'/newprogramrun', {name: dataset.name, program_id: dataset.program_id}, function(resp){dataset.handleDatasetId(resp);});
+      MiscUtilities.postAndRePostOnFailure(helenaServerUrl+'/newprogramrun', {name: dataset.name, program_id: dataset.program_id}, 
+        function(resp){dataset.handleDatasetId(resp);},true," to tell us it's ready to save scraped data");
     };
     this.requestNewProgramSubRunId = function _requestNewProgramSubRunId(){
-      MiscUtilities.postAndRePostOnFailure(helenaServerUrl+'/newprogramsubrun', {program_run_id: dataset.program_run_id}, function(resp){dataset.handleDatasetId(resp);});
+      MiscUtilities.postAndRePostOnFailure(helenaServerUrl+'/newprogramsubrun', 
+        {program_run_id: dataset.program_run_id}, function(resp){dataset.handleDatasetId(resp);},true," to tell us it's ready to save scraped data");
     };
     this.handleDatasetId = function _handleDatasetId(resp){
       if (resp.run_id){

@@ -441,7 +441,7 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
     $(selectorstring).html($(selectorstring).html().replace(new RegExp(linkScrapeStringToReplace,"g"), pub.scrapeConditionLinkString));
   }
 
-  pub.sendAndReSendInternals = function _sendAndReSendInternals(func, url, msg, successHandler, showThatWereWaiting=true){
+  pub.sendAndReSendInternals = function _sendAndReSendInternals(func, url, msg, successHandler, showThatWereWaiting=true, extraText=""){
     // only ever call this from the mainpanel!  otherwise we might disturb the dom structure of content pages.
     // alternatively, pass in false for showThatWereWaiting if you really need this from a content script
     var currentWait = 5000;
@@ -449,7 +449,7 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
 
     var successHandlerWrapped = successHandler;
     if (showThatWereWaiting){
-      var waitingForServerAlert = $("<div class='waiting_for_server'><img style='margin-right:7px' src='../icons/ajax-loader.gif' height='10px'><span id='extra'></span>Waiting for the server...</div>");
+      var waitingForServerAlert = $("<div class='waiting_for_server'><img style='margin-right:7px' src='../icons/ajax-loader.gif' height='10px'><span id='extra'></span>Waiting for the server"+extraText+"...</div>");
       $("body").append(waitingForServerAlert);
       var successHandlerWrapped = function(param){
         waitingForServerAlert.remove();
@@ -475,12 +475,12 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
     sendHelper(msg);
   }
 
-  pub.getAndReGetOnFailure = function _getAndReGetOnFailure(url, msg, successHandler, showThatWereWaiting=true){
-    pub.sendAndReSendInternals($.get, url, msg, successHandler, showThatWereWaiting);
+  pub.getAndReGetOnFailure = function _getAndReGetOnFailure(url, msg, successHandler, showThatWereWaiting=true, extraText=""){
+    pub.sendAndReSendInternals($.get, url, msg, successHandler, showThatWereWaiting, extraText);
   }
 
-  pub.postAndRePostOnFailure = function _postAndRePostOnFailure(url, msg, successHandler, showThatWereWaiting=true){
-    pub.sendAndReSendInternals($.post, url, msg, successHandler, showThatWereWaiting);
+  pub.postAndRePostOnFailure = function _postAndRePostOnFailure(url, msg, successHandler, showThatWereWaiting=true, extraText=""){
+    pub.sendAndReSendInternals($.post, url, msg, successHandler, showThatWereWaiting, extraText);
   };
 
   pub.makeNewRecordReplayWindow = function _makeNewRecordReplayWindow(cont, specifiedUrl=undefined){

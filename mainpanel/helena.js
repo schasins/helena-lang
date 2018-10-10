@@ -3513,7 +3513,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             entityScope.commit(runObject, rbbcontinuation, rbboptions);
           }, rbboptions);
         }
-      });
+      },true," to tell us if we should do this subtask");
     };
 
     this.commit = function _commit(runObject, rbbcontinuation, rbboptions){
@@ -3521,7 +3521,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         var transactionMsg = this.serverTransactionRepresentationCommit(runObject, new Date().getTime());
         var datasetSliceMsg = runObject.dataset.datasetSlice();
         var fullMsg = _.extend(transactionMsg, datasetSliceMsg);
-        MiscUtilities.postAndRePostOnFailure(helenaServerUrl+'/newtransactionwithdata', fullMsg);
+        MiscUtilities.postAndRePostOnFailure(helenaServerUrl+'/newtransactionwithdata', fullMsg, function(){}, false);
       }
       rbbcontinuation(rbboptions);
     };
@@ -4643,7 +4643,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.saveToServer = function _saveToServer(){
       // sample: $($.post('http://localhost:3000/saverelation', { relation: {name: "test", url: "www.test2.com/test-test2", selector: "test2", selector_version: 1, num_rows_in_demonstration: 10}, columns: [{name: "col1", xpath: "a[1]/div[1]", suffix: "div[1]"}] } ));
       var rel = ServerTranslationUtilities.JSONifyRelation(this); // note that JSONifyRelation does stable stringification
-      MiscUtilities.postAndRePostOnFailure(helenaServerUrl+'/saverelation', {relation: rel});
+      MiscUtilities.postAndRePostOnFailure(helenaServerUrl+'/saverelation', {relation: rel}, function(){}, false);
     }
 
     this.clearRunningState = function _clearRunningState(){
@@ -5220,7 +5220,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             MiscUtilities.postAndRePostOnFailure(helenaServerUrl+'/saveprogram', msg, function(){
               // we've finished the save thing, so tell the user
               saveCompletedHandler();
-            });
+            },true," to save the program");
           }
         }, 0);
 
@@ -6464,7 +6464,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
       }
       var that = this;
-      MiscUtilities.postAndRePostOnFailure(helenaServerUrl+'/retrieverelations', { pages: reqList }, function(resp){that.processServerRelations(resp);});
+      MiscUtilities.postAndRePostOnFailure(helenaServerUrl+'/retrieverelations', { pages: reqList }, function(resp){that.processServerRelations(resp);},true," to tell us about any relevant tables");
     }
 
     function isScrapingSet(keyCodes){
