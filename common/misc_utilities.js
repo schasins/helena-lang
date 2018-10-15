@@ -68,7 +68,7 @@ var utilities = (function _utilities() { var pub = {};
         return;
       }
     }
-    //console.log("couldn't find right handler", msg, sender);
+    WALconsole.namedLog("tooCommon", "couldn't find right handler", msg, sender);
   });
 
   chrome.extension.onMessage.addListener(function _listenerExtension(msg, sender) {
@@ -80,7 +80,7 @@ var utilities = (function _utilities() { var pub = {};
         return;
       }
     }
-    //console.log("Couldn't find right handler", msg, sender);
+    WALconsole.namedLog("tooCommon", "Couldn't find right handler", msg, sender);
   });
 
   pub.listenForMessage = function _listenForMessage(from, to, subject, fn, key){

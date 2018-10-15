@@ -113,7 +113,7 @@ var RecordingHandlers = (function _RecordingHandlers() { var pub = {};
   var addedOverlay = false;
   pub.applyReplayOverlayIfAppropriate = function _applyReplayOverlayIfAppropriate(replayWindowId){
     // only apply it if we're in the replay window, if we haven't already applied it, and if we're the top-level frame
-    console.log("applyReplayOverlayIfAppropriate", replayWindowId, windowId, addedOverlay);
+    WALconsole.namedLog("tooCommon", "applyReplayOverlayIfAppropriate", replayWindowId, windowId, addedOverlay);
     if (replayWindowId === windowId && !addedOverlay && self === top){
       // ok, we're a page in the current replay window.  put in an overlay
 

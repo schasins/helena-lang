@@ -904,7 +904,7 @@ function addListenersForRecording() {
     for (var e in listOfEvents) {
       listOfEvents[e] = true;
       document.addEventListener(e, recordEvent, true);
-      console.log("adding listener content", e);
+      WALconsole.namedLog("tooCommon", "adding listener content", e);
     }
   }
 };
