@@ -449,7 +449,7 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
 
     var successHandlerWrapped = successHandler;
     if (showThatWereWaiting){
-      var waitingForServerAlert = $("<div class='waiting_for_server'><img style='margin-right:7px' src='../icons/ajax-loader.gif' height='10px'><span id='extra'></span>Waiting for the server"+extraText+"...</div>");
+      var waitingForServerAlert = $("<div class='waiting_for_server'><img style='margin-right:7px' src='../icons/ajax-loader2.gif' height='10px'><span id='extra'></span>Waiting for the server"+extraText+"...</div>");
       $("body").append(waitingForServerAlert);
       var successHandlerWrapped = function(param){
         waitingForServerAlert.remove();
