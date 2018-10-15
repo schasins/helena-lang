@@ -508,8 +508,7 @@ var RelationPreview = (function _RelationPreview() { var pub = {};
       selectorObj = ServerTranslationUtilities.unJSONifyRelation(selectorObj);
       var relationOutput = RelationFinder.interpretRelationSelector(selectorObj);
       var nodeList = _.flatten(relationOutput);
-      var highlightNodes = RelationFinder.highlightRelation(relationOutput, false, false);
-      knownRelationsInfo.push({selectorObj: selectorObj, nodes: nodeList, highlightNodes: highlightNodes, highlighted: false});
+      knownRelationsInfo.push({selectorObj: selectorObj, nodes: nodeList, relationOutput: relationOutput, highlighted: false});
     }  
   }
 
@@ -529,8 +528,11 @@ var RelationPreview = (function _RelationPreview() { var pub = {};
     if (winningRelation !== null){
       // cool, we have a relation to highlight
       winningRelation.highlighted = true;
-      for (var i = 0; i < winningRelation.highlightNodes.length; i++){
-        var n = winningRelation.highlightNodes[i];
+      // important to make the highlight nodes now, since the nodes might be shifting around throughout interaction, especially if things still loading
+      var highlightNodes = RelationFinder.highlightRelation(winningRelation.relationOutput, false, false);
+      winningRelation.highlightNodes = highlightNodes;
+      for (var i = 0; i < highlightNodes.length; i++){
+        var n = highlightNodes[i];
         n.css("display", "block");
       }
     }
