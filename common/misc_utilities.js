@@ -706,7 +706,7 @@ var Highlight = (function _Highlight() { var pub = {};
     newDiv.css('top', offset.top);
     newDiv.css('left', offset.left);
     newDiv.css('position', 'absolute');
-    newDiv.css('z-index', 2147483648);
+    newDiv.css('z-index', 2147483640);
     newDiv.css('background-color', color);
     newDiv.css('opacity', .4);
     if (display === false){

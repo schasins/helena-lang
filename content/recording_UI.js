@@ -41,7 +41,7 @@ var RecordingHandlers = (function _RecordingHandlers() { var pub = {};
 
   pub.mouseoutHandler = function _mouseoutHandler(event){
     if (currentlyRecording()){
-      Tooltip.removeScrapingTooltip();
+      Tooltip.removeScrapingTooltip(MiscUtilities.targetFromEvent(event));
       RelationPreview.relationUnhighlight();
     }
     // just a backup in case the checks on keydown and keyup fail to run, as seems to happen sometimes with focus issues
@@ -207,10 +207,11 @@ var Tooltip = (function _Tooltip() { var pub = {};
     newDiv.css('overflow', 'hidden');
     newDiv.css('overflow-wrap', 'break-word');
     $(document.body).append(newDiv);
+    node.scrapingTooltip = newDiv;
   }
 
-  pub.removeScrapingTooltip = function _removeScrapingTooltip(){
-    $('#vpbd-hightlight').remove();
+  pub.removeScrapingTooltip = function _removeScrapingTooltip(node){
+    node.scrapingTooltip.remove();
   }
 return pub;}());
 
@@ -529,8 +530,18 @@ var RelationPreview = (function _RelationPreview() { var pub = {};
       // cool, we have a relation to highlight
       winningRelation.highlighted = true;
       // important to make the highlight nodes now, since the nodes might be shifting around throughout interaction, especially if things still loading
-      var highlightNodes = RelationFinder.highlightRelation(winningRelation.relationOutput, false, false);
+      
+      var currTime = new Date().getTime();
+      var highlightNodes = null;
+      if (winningRelation.highlightNodesTime && ((currTime - winningRelation.highlightNodesTime) < 2000)){
+        // cache the highlight nodes for up to two second, then go ahead and recompute those positions
+        highlightNodes = winningRelation.highlightNodes;
+      }
+      else{
+        highlightNodes = RelationFinder.highlightRelation(winningRelation.relationOutput, false, false);
+      }
       winningRelation.highlightNodes = highlightNodes;
+      winningRelation.highlightNodesTime = new Date().getTime();
       for (var i = 0; i < highlightNodes.length; i++){
         var n = highlightNodes[i];
         n.css("display", "block");
