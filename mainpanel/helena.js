@@ -53,6 +53,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   pub.setUIObject = function _setUIObject(obj){
     if (obj){
       UIObject = obj;
+      Environment.setUIObject(obj);
     }
   };
 
@@ -232,6 +233,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // not ok to just overwrite currentNode, because there may be multiple statements using the old
           // currentNode, and becuase we're interested in keeping naming consistent, they should keep using it
           // so...just overwrite some things
+          if (!statement.currentNode){
+            // have to check if there's a current node because if we're dealing with pulldown menu there won't be
+            statement.currentNode = new WebAutomationLanguage.NodeVariable();
+          }
           statement.currentNode.setName(name);
           statement.currentNode.nodeRep = nodeRep;
           statement.currentNode.setSource(NodeSources.RELATIONEXTRACTOR);
@@ -1490,6 +1495,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.pageVar = EventM.getDOMInputPageVar(ev);
       this.node = ev.target.xpath;
       this.origNode = this.node;
+      //  we want the currentNode to be a nodeVariable so we have a name for the scraped node
+      this.currentNode = makeNodeVariableForTrace(trace);
     }
 
     this.remove = function _remove(){
@@ -4279,7 +4286,19 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.messageRelationRepresentation = function _messageRelationRepresentation(){
-      return {id: this.id, name: this.name, selector: this.selector, selector_version: this.selectorVersion, exclude_first: this.excludeFirst, columns: this.columns, next_type: this.nextType, next_button_selector: this.nextButtonSelector, url: this.url, num_rows_in_demonstration: this.numRowsInDemo};
+      return {
+        id: this.id, 
+        name: this.name, 
+        selector: this.selector, 
+        selector_version: this.selectorVersion, 
+        exclude_first: this.excludeFirst, 
+        columns: this.columns, 
+        next_type: this.nextType, 
+        next_button_selector: this.nextButtonSelector, 
+        url: this.url, 
+        num_rows_in_demonstration: this.numRowsInDemo,
+        relation_scrape_wait: this.relationScrapeWait
+      };
     };
 
     this.noMoreRows = function _noMoreRows(runObject, pageVar, callback, prinfo, allowMoreNextInteractions){
@@ -6869,7 +6888,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           }); 
         }
         */
+        /*
         chrome.windows.remove(windowId);
+        */
         // let's also update the ui to indicate that we're no longer looking
         UIObject.updateDisplayedRelations(false);
 

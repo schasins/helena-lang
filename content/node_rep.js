@@ -105,8 +105,10 @@ NodeRep = (function _NodeRep() { var pub = {};
 
 			if (el.tagName.toLowerCase() == 'img') { 
 				text += " image(" + el.src + ")";
-			} else if (el.style && el.style.backgroundImage) {
-				text += " image" + el.style.backgroundImage; // "image url(the_url)"
+			}
+			var compStyle = window.getComputedStyle(el, null);
+			if (compStyle.backgroundImage && compStyle.backgroundImage.indexOf("url") > -1) {
+				text += " image" + compStyle.backgroundImage; // "image url(the_url)"
 			}
 
 			var title = el.getAttribute('title');

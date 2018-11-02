@@ -2,6 +2,13 @@
 
 var Environment = (function _Environment() { var pub = {};
 
+  var UIObject = null;
+  pub.setUIObject = function _setUIObject(obj){
+    if (obj){
+      UIObject = obj;
+    }
+  };
+
   pub.Frame = function _Frame(parent){
     this.parent = parent;
     this.map = {};
@@ -30,7 +37,7 @@ var Environment = (function _Environment() { var pub = {};
         if (this.parent) {
           return this.parent.envLookup(name);
         } else {
-          alert("Tried to use something called " + name + ", but we don't know anything about it.")
+          UIObject.addDialog("Couldn't find item", "Tried to use something called " + name + ", but we don't know anything about it.")
           throw new ExecError(name + ' is not declared');
         }
       }
