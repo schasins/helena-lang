@@ -1,8 +1,8 @@
 
 var WALconsole = (function _WALconsole() { var pub = {};
 
-  pub.debugging = true;
-  pub.showWarnings = true;
+  pub.debugging = false;
+  pub.showWarnings = false;
   pub.namedDebugging = []; //["duplicates"]; //["rbb"];//["getRelationItems", "nextInteraction"];
   pub.styleMinimal = true;
 

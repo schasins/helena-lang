@@ -5136,7 +5136,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.setId = function _setId(id){
       this.id = id;
       if (UIObject.programIdUpdated){
-        UIObject.programIdUpdated();
+        UIObject.programIdUpdated(this);
       }
     }
 
