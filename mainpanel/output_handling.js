@@ -179,7 +179,7 @@ var OutputHandler = (function _OutputHandler() {
     };
 
     this.downloadFullDatasetUrl = function _downloadFullDatasetUrl(){
-      return helenaServerUrl+'/datasets/'+program.id;
+      return pub.downloadFullDatasetUrl(program);
     };
 
     this.downloadFullDataset = function _downloadFullDataset(){
@@ -191,6 +191,10 @@ var OutputHandler = (function _OutputHandler() {
     };
 
     this.setup();
+  };
+
+  pub.downloadFullDatasetUrl = function _downloadFullDatasetUrl(program){
+    return helenaServerUrl+'/datasets/'+program.id; 
   };
 
 

@@ -5133,6 +5133,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return this.associatedString;
     }
 
+    this.setId = function _setId(id){
+      this.id = id;
+      if (UIObject.programIdUpdated){
+        UIObject.programIdUpdated();
+      }
+    }
+
     this.toString = function _toString(){
       var statementLs = this.loopyStatements;
       if (this.loopyStatements.length === 0){
@@ -5224,7 +5231,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       MiscUtilities.postAndRePostOnFailure(helenaServerUrl+'/saveprogram', msg, function(response){
         WALconsole.log("server responded to program save");
         var progId = response.program.id;
-        prog.id = progId;
+        prog.setId(progId);
         // ok, now that we know the right program id (in cases where there wasn't one to begin with) we can save the actual program
         // but it can take a long time for programs to arrive at server, so don't make other stuff wait on it.  just send it in the background
         setTimeout(function(){
