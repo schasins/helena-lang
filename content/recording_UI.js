@@ -193,7 +193,7 @@ var Tooltip = (function _Tooltip() { var pub = {};
     var threshold = 150;
     if (width < threshold){width = threshold;}
 
-    newDiv.attr('id', 'vpbd-hightlight');
+    newDiv.attr('id', 'vpbd-highlight');
     // newDiv.css('min-width', width);
     // newDiv.css('width', 'auto');
     newDiv.css('width', width);

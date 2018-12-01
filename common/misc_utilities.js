@@ -699,7 +699,7 @@ var Highlight = (function _Highlight() { var pub = {};
     }
     var boundingBox = target.getBoundingClientRect();
     var newDiv = $('<div/>');
-    var idName = 'vpbd-hightlight-' + highlightCount;
+    var idName = 'vpbd-highlight-' + highlightCount;
     newDiv.attr('id', idName);
     newDiv.css('width', boundingBox.width);
     newDiv.css('height', boundingBox.height);
@@ -723,7 +723,7 @@ var Highlight = (function _Highlight() { var pub = {};
 
   pub.isHighlight = function _isHighlight(node){
     var id = $(node).attr("id");
-    return (id !== null && id !== undefined && id.indexOf("vpbd-hightlight") > -1);
+    return (id !== null && id !== undefined && id.indexOf("vpbd-highlight") > -1);
   };
 
   pub.getHighligthedNodeFromHighlightNode = function _getHighligthedNodeFromHighlightNode(highlightNode){

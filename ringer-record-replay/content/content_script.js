@@ -797,7 +797,7 @@ function highlightNode(target, time) {
   var offset = $(target).offset();
   var boundingBox = target.getBoundingClientRect();
   var newDiv = $('<div/>');
-  var idName = 'sbarman-hightlight-' + highlightCount;
+  var idName = 'sbarman-highlight-' + highlightCount;
   newDiv.attr('id', idName);
   newDiv.css('width', boundingBox.width);
   newDiv.css('height', boundingBox.height);
