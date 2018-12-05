@@ -51,9 +51,10 @@ utilities.listenForFrameSpecificMessage("mainpanel", "content", "getFreshRelatio
 	function(msg, sendResponse){
 		MiscUtilities.registerCurrentResponseRequested(msg, 
 			function(m){
-				var freshRelationItems = RelationFinder.getFreshRelationItemsHelper(m);
-				console.log('freshRelationItems', freshRelationItems);
-				sendResponse(freshRelationItems);
+				RelationFinder.getFreshRelationItemsHelper(m, function(freshRelationItems){
+					console.log('freshRelationItems, about to send', freshRelationItems);
+					sendResponse(freshRelationItems);
+				});
 			});
 	}
 );

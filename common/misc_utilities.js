@@ -2,7 +2,7 @@
 var WALconsole = (function _WALconsole() { var pub = {};
 
   pub.debugging = false;
-  pub.showWarnings = true;
+  pub.showWarnings = false;
   pub.namedDebugging = []; //["duplicates"]; //["rbb"];//["getRelationItems", "nextInteraction"];
   pub.styleMinimal = true;
 
@@ -636,6 +636,10 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
       currentResponseRequested[key] = false;
       // now call the actual function
       currentResponseHandler[key](message);
+      console.warn("we successfully did handleRegisterCurrentResponseRequested for key", key);
+    }
+    else{
+      console.warn("we tried to do handleRegisterCurrentResponseRequested for key", key, "but there was nothing registered.");
     }
     // else nothing to do.  yay!
   };
@@ -905,8 +909,9 @@ return pub; }());
 
 var DefaultHelenaValues = (function _DefaultHelenaValues() { var pub = {};
 
-  pub.nextButtonAttemptsThreshold = 3;
+  pub.nextButtonAttemptsThreshold = 4;
   pub.relationFindingTimeoutThreshold = 15000;
+  pub.relationScrapeWait = 1000;
 
 return pub; }());
 
