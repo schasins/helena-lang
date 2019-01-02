@@ -272,7 +272,7 @@ var ReplayScript = (function _ReplayScript() {
           // ok, sometimes the same URL appears to load twice in a single logical load.  if we see the same url twice in a row, just ignore the second
           continue;
         }
-        var p = new WebAutomationLanguage.PageVariable("p"+idCounter, url);
+        var p = new WebAutomationLanguage.PageVariable("page"+idCounter, url);
         EventM.setLoadOutputPageVar(ev, p);
         urlsToMostRecentPageVar[url] = p;
         idCounter += 1;

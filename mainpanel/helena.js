@@ -872,6 +872,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
   };
 
+  function firstScrapedContentEventInTrace(ourStatementTraceSegment){
+    for (var i = 0; i < ourStatementTraceSegment.length; i++){
+      if (ourStatementTraceSegment[i].additional && ourStatementTraceSegment[i].additional.scrape && ourStatementTraceSegment[i].additional.scrape.text){
+        return ourStatementTraceSegment[i];
+      }
+    }
+    return null;
+  }
+
   pub.ScrapeStatement = function _ScrapeStatement(trace){
     Revival.addRevivalLabel(this);
     setBlocklyLabel(this, "scrape");
@@ -1125,16 +1134,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // it's not just a relation item, so relation extraction hasn't extracted it, so we have to actually look at the trace
         // find the scrape that corresponds to this scrape statement based on temporarystatementidentifier
         var ourStatementTraceSegment = _.filter(trace, function(ev){return EventM.getTemporaryStatementIdentifier(ev) === temporaryStatementIdentifier;});
-        var matchI = null;
-        for (var i = 0; i < ourStatementTraceSegment.length; i++){
-          if (ourStatementTraceSegment[i].additional && ourStatementTraceSegment[i].additional.scrape && ourStatementTraceSegment[i].additional.scrape.text){
-            // for now, all scrape statements have a NodeVariable as currentNode, so can call setCurrentNodeRep to bind name in current environment
-            this.currentNode.setCurrentNodeRep(runObject.environment, ourStatementTraceSegment[i].additional.scrape);
-            matchI = i;
-            break;
-          }
+        var scrapedContentEvent = firstScrapedContentEventInTrace(ourStatementTraceSegment);
+        if (scrapedContentEvent){
+          // for now, all scrape statements have a NodeVariable as currentNode, so can call setCurrentNodeRep to bind name in current environment
+          this.currentNode.setCurrentNodeRep(runObject.environment, scrapedContentEvent.additional.scrape);  
         }
-        if (matchI === null){
+        else {
           this.currentNode.setCurrentNodeRep(runObject.environment, null);
         }
 
@@ -1142,8 +1147,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // note, we could factor this out and let this apply to other statement types --- clicks, typing
         // but empirically, have mostly had this issue slowing down scraping, not clicks and the like, since there are usually few of those
         if (!this.preferredXpath){ // if we haven't yet picked a preferredXpath...
-          if (matchI){
-            var firstNodeUse = ourStatementTraceSegment[matchI];
+          if (scrapedContentEvent){
+            var firstNodeUse = scrapedContentEvent;
             var xpath = firstNodeUse.target.xpath;
             this.xpaths.push(xpath);
             if (this.xpaths.length === 5){
@@ -1160,8 +1165,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // we've already decided we have a preferred xpath.  we should check and make sure we're still using it.  if we had to revert to using similarity
           // we should stop trying to use the current preferred xpath, start tracking again.  maybe the page has been redesigned and we can discover a new preferred xpath
           // so we'll enter that phase again
-          if (matchI){ // only make this call if we actually have an event that aligns...
-            var firstNodeUse = ourStatementTraceSegment[matchI]; 
+          if (scrapedContentEvent){ // only make this call if we actually have an event that aligns...
+            var firstNodeUse = scrapedContentEvent; 
             var xpath = firstNodeUse.target.xpath;
             if (xpath !== this.preferredXpath){
               this.preferredXpath = null;
@@ -2062,7 +2067,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
           this.appendValueInput('NodeVariableUse')
-              .appendField("output");
+              .appendField("add dataset row that includes:");
           this.setColour(25);
           this.setPreviousStatement(true, null);
           this.setNextStatement(true, null);
@@ -2819,6 +2824,157 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return;
     };
   };
+
+/*
+  pub.WhileStatement = function _WhileStatement(bodyStatements){
+    Revival.addRevivalLabel(this);
+    setBlocklyLabel(this, "while");
+    this.condition = null;
+
+    if (bodyStatements){ // we will sometimes initialize with undefined, as when reviving a saved program
+      this.updateChildStatements(bodyStatements);
+    }
+
+    this.remove = function _remove(){
+      this.parent.removeChild(this);
+    }
+
+    this.removeChild = function _removeChild(childStatement){
+      this.bodyStatements = _.without(this.bodyStatements, childStatement);
+    };
+    this.removeChildren = function _removeChild(childStatements){
+      this.bodyStatements = _.difference(this.bodyStatements, childStatements);
+    };
+    this.appendChild = function _appendChild(childStatement){
+      var newChildStatements = this.bodyStatements;
+      newChildStatements.push(childStatement);
+      this.updateChildStatements(newChildStatements);
+    };
+    this.insertChild = function _appendChild(childStatement, index){
+      var newChildStatements = this.bodyStatements;
+      newChildStatements.splice(index, 0, childStatement);
+      this.updateChildStatements(newChildStatements);
+    };
+
+    this.prepareToRun = function _prepareToRun(){
+      return;
+    };
+    this.clearRunningState = function _clearRunningState(){
+      return;
+    }
+
+    this.toStringLines = function _toStringLines(){
+      return ["while"];
+    };
+
+    this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
+      addToolboxLabel(this.blocklyLabel);
+      Blockly.Blocks[this.blocklyLabel] = {
+        init: function() {
+          this.appendValueInput('NodeVariableUse')
+              .appendField("repeat while");
+          this.setPreviousStatement(true, null);
+          this.setNextStatement(true, null);
+          this.appendStatementInput("statements") // important for our processing that we always call this statements
+              .setCheck(null)
+              .appendField("do");
+          this.setColour(44);
+
+          var wal = getWAL(this);
+          if (!wal){
+            setWAL(this, new pub.WhileStatement());
+          }
+        }
+      };
+    };
+
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
+      this.block = workspace.newBlock(this.blocklyLabel);
+      attachToPrevBlock(this.block, prevBlock);
+
+      // handle the condition
+      if (this.condition){
+        var cond = this.condition.genBlocklyNode(this.block, workspace);
+        attachToInput(this.block, cond, "NodeVariableUse");
+      }
+      
+      // handle the body statements
+      var firstNestedBlock = helenaSeqToBlocklySeq(this.bodyStatements, workspace);
+      attachNestedBlocksToWrapper(this.block, firstNestedBlock);
+
+      setWAL(this.block, this);
+      return this.block;
+    };
+
+    this.getHelena = function _getHelena(){
+      // all well and good to have the things attached after this block, but also need the bodyStatements updated
+      var firstNestedBlock = this.block.getInput('statements').connection.targetBlock();
+      var helenaSequence = blocklySeqToHelenaSeq(firstNestedBlock);
+      this.bodyStatements = helenaSequence;
+
+      // ok, but we also want to update our own condition object
+      var conditionBlocklyBlock = this.block.getInput('NodeVariableUse').connection.targetBlock();
+      if (conditionBlocklyBlock){
+        var conditionHelena = getWAL(conditionBlocklyBlock).getHelena();
+        this.condition = conditionHelena;        
+      }
+      else{
+        this.condition = null;
+      }
+      return this;
+    };
+
+    this.traverse = function _traverse(fn, fn2){
+      fn(this);
+      if (this.condition){
+        this.condition.traverse(fn, fn2);
+      }
+      for (var i = 0; i < this.bodyStatements.length; i++){
+        this.bodyStatements[i].traverse(fn, fn2);
+      }
+      fn2(this);
+    };
+
+    this.updateChildStatements = function _updateChildStatements(newChildStatements){
+      this.bodyStatements = newChildStatements;
+      for (var i = 0; i < this.bodyStatements.length; i++){
+        this.bodyStatements[i].parent = this;
+      }
+    };
+
+    var statement = this;
+    this.run = function _run(runObject, rbbcontinuation, rbboptions){
+      // first thing first, run everything on which you depend
+      this.condition.run(runObject, rbbcontinuation, rbboptions);
+      if (this.condition.getCurrentVal()){
+        // so basically all that's going to happen here is we'll go ahead and decide to run the bodyStatements of the while
+        // statement before we go back to running what comes after the while
+        // so....
+        // runObject.program.runBasicBlock(runObject, entityScope.bodyStatements, rbbcontinuation, rbboptions);
+
+        // ok, what's the new continuation that will then repeat this while statement run function?
+        // (remember, we've got to loop!)
+        var newCont = function(){
+          statement.run(runObject, rbbcontinuation, rbboptions);
+        }
+
+        runObject.program.runBasicBlock(runObject, this.bodyStatements, newCont, rbboptions);        
+      }
+      else{
+        // for now we don't have else body statements for our ifs, so we should just carry on with execution
+        rbbcontinuation(rbboptions);
+      }
+
+    }
+    this.parameterizeForRelation = function _parameterizeForRelation(relation){
+      // todo: once we have real conditions may need to do something here
+      return [];
+    };
+    this.unParameterizeForRelation = function _unParameterizeForRelation(relation){
+      return;
+    };
+  };
+  */
 
   pub.BinOpNum = function _BinOpNum(){
     Revival.addRevivalLabel(this);
@@ -4081,7 +4237,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.frame = frame; // note that right now this frame comes from our relation-finding stage.  might want it to come from record
       if (name === undefined || name === null){
         relationCounter += 1;
-        this.name = "relation_"+relationCounter;
+        this.name = "list_"+relationCounter;
       }
       else{
         this.name = name;
@@ -5594,8 +5750,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                 || statement instanceof WebAutomationLanguage.PulldownInteractionStatement
                 );
     }
-    function ringerBasedButNotScraping(statement){
-      return (ringerBased(statement) && !(statement instanceof WebAutomationLanguage.ScrapeStatement));
+    function ringerBasedAndNotIgnorable(statement){
+      return (
+        // ringer based and not a scrape statement, so we have to replay for sure
+        (ringerBased(statement) && !(statement instanceof WebAutomationLanguage.ScrapeStatement))
+         ||
+         // a scrape statement and it's not scraping a relation, so we have to run it to find the node
+        (statement instanceof WebAutomationLanguage.ScrapeStatement && !statement.scrapingRelationItem()));
     }
 
     function determineNextBlockStartIndex(loopyStatements){
@@ -5639,6 +5800,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // let's just change the cleanTrace so that it only grabs the focus events
           console.log("Warning: we're including a focus event, which might cause problems.  If you see weird behavior, check this first.");
           cleanTrace = _.filter(cleanTrace, function(ev){return ev.data.type === "focus";});
+        }
+        else if (basicBlockStatements[i] instanceof pub.ScrapeStatement){
+          // remember, scrape statements shouldn't change stuff!  so it should be safe to throw away events
+          // we just need to be sure to have one event that actually finds the node and grabs its contets
+          var nodeUsingEvent = firstScrapedContentEventInTrace(cleanTrace);
+          cleanTrace = [nodeUsingEvent];
         }
 
         _.each(cleanTrace, function(ev){EventM.setTemporaryStatementIdentifier(ev, i);});
@@ -6572,7 +6739,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var allNonRinger = true;
       for (var i = 0; i < statements.length; i++){
         //console.log("ringerBasedButNotScraping", ringerBasedButNotScraping(statements[i]), statements[i]);
-        if (ringerBasedButNotScraping(statements[i]) && !statements[i].nullBlockly){
+        if (ringerBasedAndNotIgnorable(statements[i]) && !statements[i].nullBlockly){
           allNonRinger = false;
           break;
         }
@@ -7129,7 +7296,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     // this is silly, but just making a new object for each of our statements is an easy way to get access to
     // the updateBlocklyBlock function and still keep it an instance method/right next to the genBlockly function
-    var toolBoxBlocks = ["Number", "NodeVariableUse", "String", "Concatenate", "IfStatement", "ContinueStatement", "BinOpString", "BinOpNum", "LengthString",
+    var toolBoxBlocks = ["Number", "NodeVariableUse", "String", "Concatenate", "IfStatement", 
+    //"WhileStatement", 
+    "ContinueStatement", "BinOpString", "BinOpNum", "LengthString",
       "BackStatement", "ClosePageStatement", "WaitStatement", "WaitUntilUserReadyStatement", "SayStatement"];
     // let's also add in other nodes which may not have been used in programs so far, but which we want to include in the toolbox no matter what
     var origBlocks = blocklyNames;
