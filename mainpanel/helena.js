@@ -344,7 +344,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   var blocklyNames = [];
   function setBlocklyLabel(obj, label){
-    console.log("setBlocklyLabel", obj, label, obj.___revivalLabel___);
+    //console.log("setBlocklyLabel", obj, label, obj.___revivalLabel___);
     obj.blocklyLabel = label;
 
     // it's important that we keep track of what things within the WebAutomationLanguage object are blocks and which aren't
@@ -527,6 +527,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   pub.getWALRep = function _getWALRep(blocklyBlock){
     return getWAL(blocklyBlock);
+  }
+
+  pub.hasWAL = function _hasWAL(blocklyBlock){
+    return blocklyBlock.WAL !== undefined;
   }
 
   // the actual statements
@@ -1796,7 +1800,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (!this.currentVal){
         return "";
       }
-      if (this.attributeOption === AttributeOptions.TEXT){
+      if (this.nodeVar.nodeSource === NodeSources.PARAMETER){
+        // special case.  just return the val
+        return this.currentVal;
+      }
+      else if (this.attributeOption === AttributeOptions.TEXT){
+        // ok, it's a normal nodevar, an actual dom node representation
         return this.currentVal.text;
       }
       else if (this.attributeOption === AttributeOptions.LINK){
@@ -4672,7 +4681,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   var NodeSources = {
     RELATIONEXTRACTOR: 1,
-    RINGER: 2
+    RINGER: 2,
+    PARAMETER: 3
   };
 
   var nodeVariablesCounter = 0;
@@ -4687,10 +4697,44 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         return allNodeVariablesSeenSoFar[i];
       }
     }
+    WALconsole.warn("Woah, you tried to get a node variable by name and there wasn't one with that name");
   }
 
   pub.NodeVariable = function _NodeVariable(name, mainpanelRep, recordedNodeSnapshot, imgData, source){
     Revival.addRevivalLabel(this);
+
+    // we need these defined right here because we're about to use them in initialization
+    this.getName = function _getName(){
+      if (this.___privateName___){
+        return this.___privateName___;
+      }
+      if (this.name){
+        return this.name; // this is here for backwards compatibility.
+      }
+      return this.___privateName___;
+    };
+    this.setName = function _setName(name){
+      // don't set it to the original name unless nothing else has that name yet
+      var otherNodeVariableWithThisName = getNodeVariableByName(name);
+      if (!otherNodeVariableWithThisName){
+        this.___privateName___ = name;
+      }
+      else{
+        if (otherNodeVariableWithThisName === this){
+          // we're renaming it to the same thing.  no need to do anything
+          return;
+        }
+        this.setName("alt_" + name);
+      }
+    };
+
+    if (source === NodeSources.PARAMETER){
+      // special case, just give it a name and call it good, because this will be provided by the user (externally)
+      this.setName(name);
+      this.nodeSource = source;
+      // and let's put this in our allNodeVariablesSeenSoFar record of all our nvs
+      allNodeVariablesSeenSoFar.push(this);
+    }
 
     // ok, node variables are a little weird, because we have a special interest in making sure that
     // every place where the same node is used in the script is also represented by the same object
@@ -4722,30 +4766,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var ans = nr1.xpath === nr2.xpath && nr1.source_url === nr2.source_url; // baseURI is the url on which the ndoe was found
       return ans;
     }
-
-    this.getName = function _getName(){
-      if (this.___privateName___){
-        return this.___privateName___;
-      }
-      if (this.name){
-        return this.name; // this is here for backwards compatibility.
-      }
-      return this.___privateName___;
-    }
-    this.setName = function _setName(name){
-      // don't set it to the original name unless nothing else has that name yet
-      var otherNodeVariableWithThisName = getNodeVariableByName(name);
-      if (!otherNodeVariableWithThisName){
-        this.___privateName___ = name;
-      }
-      else{
-        if (otherNodeVariableWithThisName === this){
-          // we're renaming it to the same thing.  no need to do anything
-          return;
-        }
-        this.setName("alt_" + name);
-      }
-    };
 
     /*-------------------
     Initializaiton stuff
@@ -5306,6 +5326,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.containsStatement = function(statement){
       return firstTrueStatementTraverse(this.loopyStatements, function(s){return s === statement;});
+    }
+
+    this.loadsUrl = function(statement){
+      return firstTrueStatementTraverse(this.loopyStatements, function(s){return s instanceof WebAutomationLanguage.LoadStatement;});
     }
 
     function insertAfterHelper(listOfStatements, statementToInsert, statementAfterWhichToInsert){
@@ -6122,12 +6146,17 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
       runObject.program.clearRunningState();
       runObject.program.prepareToRun();
-      // ok let's do this in a fresh window
-      MiscUtilities.makeNewRecordReplayWindow(function(windowId){
+
+      var usesTheWeb = runObject.program.loadsUrl();
+      WALconsole.log("usesTheWeb", usesTheWeb);
+
+      var runProgFunc = function(windowId){
         // now let's actually run
-        recordingWindowIds.push(windowId);
-        runObject.window = windowId;
-        currentReplayWindowId = windowId;
+        if (usesTheWeb){
+          recordingWindowIds.push(windowId);
+          runObject.window = windowId;
+          currentReplayWindowId = windowId;
+        }
         datasetsScraped.push(runObject.dataset.id);
         runObject.program.runBasicBlock(runObject, runObject.program.loopyStatements, function(){
 
@@ -6173,7 +6202,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             WALconsole.log("Done with script execution.");
             var timeScraped = (new Date()).getTime() - parseInt(dataset.pass_start_time);
             console.log(runObject.dataset.id, timeScraped);
-            recordingWindowIds = _.without(recordingWindowIds, windowId); // take that window back out of the allowable recording set
+
+            if (usesTheWeb){ recordingWindowIds = _.without(recordingWindowIds, windowId); } // take that window back out of the allowable recording set
             // go ahead and actually close the window so we don't have chrome memory leaking all over the place.
             // todo: put this back in!
             //chrome.windows.remove(windowId);
@@ -6188,7 +6218,17 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           runObject.dataset.closeDatasetWithCont(whatToDoWhenWereDone);
 
         }, options);
-      });
+      };
+
+      // now actually call the function for running the program
+      // ok let's do this in a fresh window
+      if (usesTheWeb){
+        MiscUtilities.makeNewRecordReplayWindow(runProgFunc);
+      }
+      else{
+        // no need to make a new window (there are no load statements in the program), so don't
+        runProgFunc(null);
+      }
     }
 
     function adjustDatasetNameForOptions(dataset, options){
@@ -6293,6 +6333,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.setParameterNames = function _setParameterNames(paramNamesLs){
       console.log("setParameterNames", paramNamesLs);
       this.parameterNames = paramNamesLs;
+      // when you make parameters, they might be referred to by NodeVariableUse expressions
+      // so you need to make node variables for them (even though of course they aren't nodes)
+      // todo: do we want to restructure this in some way?
+      for (var i = 0; i < paramNamesLs.length; i++){
+        var nodeVar = getNodeVariableByName(paramNamesLs[i]);
+        if (!nodeVar){
+          new pub.NodeVariable(paramNamesLs[i], {}, {}, null, NodeSources.PARAMETER);
+        }
+      }
     }
     this.getParameterNames = function _getParameterNames(){
       return this.parameterNames;
