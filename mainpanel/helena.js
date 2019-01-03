@@ -1743,7 +1743,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                   ;
               
               this.setOutput(true, 'NodeVariableUse');
-              this.setColour(25);
+              //this.setColour(25);
+              this.setColour(298);
               // the following is an important pattern
               // this might be a new block, in which case searching for existing wal statement for the block with this block's id
               // will be pointless; but if init is being called because a block is being restored from the trashcan, then we have
