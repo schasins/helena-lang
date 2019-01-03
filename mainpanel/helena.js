@@ -3549,7 +3549,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       fn2(this);
     };
 
-    this.endOfLoopCleanup = function _endOfLoopCleanup(){
+    this.endOfLoopCleanup = function _endOfLoopCleanup(continuation){
       this.currentTransaction = null;
       this.duplicatesInARow = 0;
     };
@@ -4054,9 +4054,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       _.each(this.bodyStatements, function(statement){statement.unParameterizeForRelation(relation);});
     };
 
-    this.endOfLoopCleanup = function _endOfLoopCleanup(){
+    this.endOfLoopCleanup = function _endOfLoopCleanup(continuation){
       if (this.relation.endOfLoopCleanup){
-        this.relation.endOfLoopCleanup(this.pageVar);
+        this.relation.endOfLoopCleanup(this.pageVar, continuation);
       }
     }
 
@@ -4709,10 +4709,18 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     }
 
-    this.endOfLoopCleanup = function _endOfLoopCleanup(pageVar){
+    this.endOfLoopCleanup = function _endOfLoopCleanup(pageVar, continuation){
       // if we're not closing this page and we want to iterate through this relation again, it's critical
       // that we clear out all the stuff that's stored about the relation now
-      utilities.sendMessage("mainpanel", "content", "clearRelationInfo", relation.messageRelationRepresentation(), null, null, [pageVar.currentTabId()]);
+      var gotAck = false;
+      utilities.listenForMessageOnce("content", "mainpanel", "clearedRelationInfo", function _clearRelationInfoAck(data){
+        gotAck = true;
+        continuation();
+        });
+      var sendTheMsg = function(){
+        utilities.sendMessage("mainpanel", "content", "clearRelationInfo", relation.messageRelationRepresentation(), null, null, [pageVar.currentTabId()]);
+      };
+      MiscUtilities.repeatUntil(sendTheMsg, function(){return gotAck;},function(){}, 1000, false);
     }
 
 
@@ -6126,7 +6134,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         var loopStatement = loopyStatements[0];
         var relation = loopStatement.relation;
 
-        function cleanupAfterLoopEnd(){
+        function cleanupAfterLoopEnd(continuation){
           loopStatement.rowsSoFar = 0;
 
           if (loopStatement.pageVar){
@@ -6141,7 +6149,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // time to run end-of-loop-cleanup on the various bodyStatements
           loopStatement.traverse(function(statement){
             if (statement.endOfLoopCleanup){
-              statement.endOfLoopCleanup();
+              statement.endOfLoopCleanup(continuation);
             }
           }, function(){});
         }
@@ -6150,9 +6158,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         if (breakMode){
           WALconsole.warn("breaking out of the loop");
           options.breakMode = false; // if we were in break mode, we're done w loop, so turn off break mode
-          cleanupAfterLoopEnd();
-          // once we're done with the loop, have to replay the remainder of the script
-          program.runBasicBlock(runObject, loopyStatements.slice(1, loopyStatements.length), callback, options);
+          var continuation = function(){
+            // once we're done with the loop, have to replay the remainder of the script
+            program.runBasicBlock(runObject, loopyStatements.slice(1, loopyStatements.length), callback, options);   
+          }
+          cleanupAfterLoopEnd(continuation);
           return;
         }
 
@@ -6160,9 +6170,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         if (loopStatement.maxRows !== null && loopStatement.rowsSoFar >= loopStatement.maxRows){
           // hey, we're done!
           WALconsole.namedLog("rbb", "hit the row limit");
-          cleanupAfterLoopEnd();
-          // once we're done with the loop, have to replay the remainder of the script
-          program.runBasicBlock(runObject, loopyStatements.slice(1, loopyStatements.length), callback, options);
+          var continuation = function(){
+            // once we're done with the loop, have to replay the remainder of the script
+            program.runBasicBlock(runObject, loopyStatements.slice(1, loopyStatements.length), callback, options);
+          }
+          cleanupAfterLoopEnd(continuation);
           return;
         }
 
@@ -6206,9 +6218,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           if (!moreRows){
             // hey, we're done!
             WALconsole.namedLog("rbb", "no more rows");
-            cleanupAfterLoopEnd();
-            // once we're done with the loop, have to replay the remainder of the script
-            program.runBasicBlock(runObject, loopyStatements.slice(1, loopyStatements.length), callback, options);
+            var continuation = function(){
+              // once we're done with the loop, have to replay the remainder of the script
+              program.runBasicBlock(runObject, loopyStatements.slice(1, loopyStatements.length), callback, options);
+            }
+            cleanupAfterLoopEnd(continuation);
             return;
           }
           WALconsole.namedLog("rbb", "we have a row!  let's run");
