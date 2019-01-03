@@ -2826,7 +2826,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
   };
 
-/*
+
   pub.WhileStatement = function _WhileStatement(bodyStatements){
     Revival.addRevivalLabel(this);
     setBlocklyLabel(this, "while");
@@ -2975,7 +2975,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return;
     };
   };
-  */
 
   pub.BinOpNum = function _BinOpNum(){
     Revival.addRevivalLabel(this);
@@ -4055,6 +4054,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       _.each(this.bodyStatements, function(statement){statement.unParameterizeForRelation(relation);});
     };
 
+    this.endOfLoopCleanup = function _endOfLoopCleanup(){
+      if (this.relation.endOfLoopCleanup){
+        this.relation.endOfLoopCleanup(this.pageVar);
+      }
+    }
+
     if (doInitialization){
       this.initialize();
     }
@@ -4702,6 +4707,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         });
       }
 
+    }
+
+    this.endOfLoopCleanup = function _endOfLoopCleanup(pageVar){
+      // if we're not closing this page and we want to iterate through this relation again, it's critical
+      // that we clear out all the stuff that's stored about the relation now
+      utilities.sendMessage("mainpanel", "content", "clearRelationInfo", relation.messageRelationRepresentation(), null, null, [pageVar.currentTabId()]);
     }
 
 
@@ -7298,7 +7309,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     // this is silly, but just making a new object for each of our statements is an easy way to get access to
     // the updateBlocklyBlock function and still keep it an instance method/right next to the genBlockly function
     var toolBoxBlocks = ["Number", "NodeVariableUse", "String", "Concatenate", "IfStatement", 
-    //"WhileStatement", 
+    "WhileStatement", 
     "ContinueStatement", "BinOpString", "BinOpNum", "LengthString",
       "BackStatement", "ClosePageStatement", "WaitStatement", "WaitUntilUserReadyStatement", "SayStatement"];
     // let's also add in other nodes which may not have been used in programs so far, but which we want to include in the toolbox no matter what
