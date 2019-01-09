@@ -3,7 +3,7 @@ var WALconsole = (function _WALconsole() { var pub = {};
 
   pub.debugging = false;
   pub.showWarnings = false;
-  pub.namedDebugging = []; //["duplicates"]; //["rbb"];//["getRelationItems", "nextInteraction"];
+  pub.namedDebugging = []; // ["prinfo"]; //["duplicates"]; //["rbb"];//["getRelationItems", "nextInteraction"];
   pub.styleMinimal = true;
 
   function callerName(origArgs){
@@ -636,10 +636,10 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
       currentResponseRequested[key] = false;
       // now call the actual function
       currentResponseHandler[key](message);
-      console.warn("we successfully did handleRegisterCurrentResponseRequested for key", key);
+      //console.warn("we successfully did handleRegisterCurrentResponseRequested for key", key);
     }
     else{
-      console.warn("we tried to do handleRegisterCurrentResponseRequested for key", key, "but there was nothing registered.");
+      //console.warn("we tried to do handleRegisterCurrentResponseRequested for key", key, "but there was nothing registered.");
     }
     // else nothing to do.  yay!
   };
