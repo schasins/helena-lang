@@ -4476,6 +4476,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // no more rows -- let the callback know we're done
         // clear the stored relation data also
         prinfo.currentRows = null;
+        WALconsole.namedLog("prinfo", "changing prinfo.currentrows, setting to null bc no more rows");
+        WALconsole.namedLog("prinfo", JSON.stringify(prinfo));
         prinfo.currentRowsCounter = 0;
         prinfo.currentNextInteractionAttempts = 0;
         callback(false); 
@@ -4485,6 +4487,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.gotMoreRows = function _gotMoreRows(prinfo, callback, rel){
       prinfo.needNewRows = false; // so that we don't fall back into this same case even though we now have the items we want
       prinfo.currentRows = rel;
+      WALconsole.namedLog("prinfo", "changing prinfo.currentrows, setting to rel bc found more rows", rel);
+      WALconsole.namedLog("prinfo", JSON.stringify(prinfo));
       prinfo.currentRowsCounter = 0;
       prinfo.currentNextInteractionAttempts = 0;
       callback(true);
@@ -4731,8 +4735,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // ok, what's the page info on which we're manipulating this relation?
       WALconsole.log(pageVar.pageRelations);
       var prinfo = pageVar.pageRelations[this.name+"_"+this.id]; // separate relations can have same name (no rule against that) and same id (undefined if not yet saved to server), but since we assign unique names when not saved to server and unique ides when saved to server, should be rare to have same both.  todo: be more secure in future
+      WALconsole.namedLog("prinfo", ("change prinfo, finding it for getnextrow", this.name, this.id);
+      WALconsole.namedLog("prinfo", (JSON.stringify(prinfo));
       if (prinfo === undefined){ // if we haven't seen the frame currently associated with this pagevar, need to clear our state and start fresh
         prinfo = {currentRows: null, currentRowsCounter: 0, currentTabId: pageVar.currentTabId(), currentNextInteractionAttempts: 0};
+        WALconsole.namedLog("prinfo", "change prinfo, prinfo was undefined", this.name, this.id);
+        WALconsole.namedLog("prinfo", JSON.stringify(prinfo));
         pageVar.pageRelations[this.name+"_"+this.id] = prinfo;
       }
 
@@ -4829,6 +4837,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.getCurrentNodeRep = function _getCurrentNodeRep(pageVar, columnObject){
       var prinfo = pageVar.pageRelations[this.name+"_"+this.id]
+      WALconsole.namedLog("prinfo", "change prinfo, finding it for getCurrentNodeRep", this.name, this.id);
+      WALconsole.namedLog("prinfo", JSON.stringify(prinfo));
       if (prinfo === undefined){ WALconsole.log("Bad!  Shouldn't be calling getCurrentLink on a pageVar for which we haven't yet called getNextRow."); return null; }
       if (prinfo.currentRows === undefined) {WALconsole.log("Bad!  Shouldn't be calling getCurrentLink on a prinfo with no currentRows.", prinfo); return null;}
       if (prinfo.currentRows[prinfo.currentRowsCounter] === undefined) {WALconsole.log("Bad!  Shouldn't be calling getCurrentLink on a prinfo with a currentRowsCounter that doesn't correspond to a row in currentRows.", prinfo); return null;}
@@ -5540,9 +5550,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     // go through the program, look for the movedStatement and any statements/blocks that the Blockly UI would attach to it
     // then remove those from the program
     this.statementRemovedByUI = function(movedStatement, oldPriorStatement){
-      console.log("statementRemovedByUI", movedStatement, oldPriorStatement);
+      //console.log("statementRemovedByUI", movedStatement, oldPriorStatement);
       var seq = removeStatementAndFollowing(this.loopyStatements, movedStatement);
-      console.log("removed the seq:". removedSeq);
+      //console.log("removed the seq:". removedSeq);
       if (!seq){
         WALconsole.warn("Woah, tried to remove a particular WALStatement, but that statement wasn't in our prog.");
       }
@@ -6139,6 +6149,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
           if (loopStatement.pageVar){
             var prinfo = loopStatement.pageVar.pageRelations[loopStatement.relation.name+"_"+loopStatement.relation.id];
+            WALconsole.namedLog("prinfo", "change prinfo, finding it for cleanup");
+            WALconsole.namedLog("prinfo", JSON.stringify(prinfo));
             WALconsole.log("prinfo in cleanup", prinfo);
             // have to get rid of this prinfo in case (as when a pulldown menu is dynamically adjusted
             // by another, and so we want to come back and get it again later) we'll want to scrape

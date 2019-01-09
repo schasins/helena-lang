@@ -116,12 +116,13 @@ var OutputHandler = (function _OutputHandler() {
     	}
     	this.currentDatasetSliceLength += 1;
     	this.fullDatasetLength += 1;
-    	if (this.currentDatasetSliceLength % 10 === 0){
+      var numRowsToSendInOneSlice = 10;
+    	if (this.currentDatasetSliceLength % numRowsToSendInOneSlice === 0){
         // note that the inclusion of this sendDatasetSlice call means that if we have a transaction with 10 output calls, we can actually save output without
-        // committing.  this definitely undermines the current stated semantics of output in the presence of transactions/entityScope construct.
+        // committing.  this definitely undermines the current stated semantics of output in the presence of skip blocks.
         // this will never happen in our auto-generated/synthesized scripts, so it's not something that affects semantics now, but as we allow more editing, it could
         // todo: fix this
-        // however, also note that for cases where there are no entityScope constructs, this is the only time when we push the data to the server
+        // however, also note that for cases where there are no skip block constructs, this is the only time when we push the data to the server
         // also, this was introduced for a reason, to make sure we don't eat up too much memory on the client side and end up crashing the extension
     		this.sendDatasetSlice(); 
     	}
