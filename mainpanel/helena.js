@@ -4735,8 +4735,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // ok, what's the page info on which we're manipulating this relation?
       WALconsole.log(pageVar.pageRelations);
       var prinfo = pageVar.pageRelations[this.name+"_"+this.id]; // separate relations can have same name (no rule against that) and same id (undefined if not yet saved to server), but since we assign unique names when not saved to server and unique ides when saved to server, should be rare to have same both.  todo: be more secure in future
-      WALconsole.namedLog("prinfo", ("change prinfo, finding it for getnextrow", this.name, this.id);
-      WALconsole.namedLog("prinfo", (JSON.stringify(prinfo));
+      WALconsole.namedLog("prinfo", "change prinfo, finding it for getnextrow", this.name, this.id);
+      WALconsole.namedLog("prinfo", JSON.stringify(prinfo));
       if (prinfo === undefined){ // if we haven't seen the frame currently associated with this pagevar, need to clear our state and start fresh
         prinfo = {currentRows: null, currentRowsCounter: 0, currentTabId: pageVar.currentTabId(), currentNextInteractionAttempts: 0};
         WALconsole.namedLog("prinfo", "change prinfo, prinfo was undefined", this.name, this.id);
