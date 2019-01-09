@@ -159,6 +159,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
         listOfRowNodes.push(candidate);
       }
     }
+    /* mariaSlice */
     if (exclude_first > 0 && listOfRowNodes.length > exclude_first){
       return listOfRowNodes.slice(exclude_first,listOfRowNodes.length);
     }
@@ -196,7 +197,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     }
 
     var rows = table.find("tr");
-    rows = rows.slice(excludeFirst, rows.length);
+    rows = rows.slice(excludeFirst, rows.length);  // mariaSlice
     return rows;
   };
 
@@ -313,7 +314,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     else if (selector.selector_version === 2){
       var optionNodes = pub.interpretPulldownSelector(selector.selector); // todo: ugh, gross that we descend here butnot in the above
       console.log("selector.exclude_first", selector.exclude_first);
-      optionNodes = optionNodes.splice(selector.exclude_first, optionNodes.length);
+      optionNodes = optionNodes.splice(selector.exclude_first, optionNodes.length); // mariaSlice
       var cells = _.map(optionNodes, function(o){return [o];});
       // a wrapper function that goes through and tosses cells/rows that are display:none
       cells = onlyDisplayedCellsAndRows(cells);
@@ -414,6 +415,18 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
               positive_nodes: positive_nodes, 
               negative_nodes: negative_nodes,
               selector_version: 1}; // this form of Selector object should only be used for version 1 selectors, or else change this
+  }
+
+  // new function, but keep old one around just in case
+  function Selector(dict, exclude_first, exclude_last, positive_nodes, negative_nodes) {
+    return {selector: dict, 
+      exclude_first: exclude_first, 
+      exclude_last: exclude_last,
+      columns: columns, 
+      positive_nodes: positive_nodes, 
+      negative_nodes: negative_nodes,
+      selector_version: 1
+    }; // this form of Selector object should only be used for version 1 selectors, or else change this
   }
 
   function synthesizeSelector(positive_nodes, negative_nodes, columns, features){
@@ -1118,7 +1131,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       if (currentSelectorToEdit.relation.length < 1){
         // ugh, but maybe the page just hasn't really finished loading, so try again in a sec
         //setTimeout(editingSetup, 1000);
-	// but also need to send the editing colors just in case
+	      // but also need to send the editing colors just in case
 	       pub.sendSelector(currentSelectorToEdit);
          currentSelectorEmptyOnThisPage = true;
         return;
@@ -1156,6 +1169,33 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
 
   pub.setEditRelationIndex = function _setEditRelationIndex(i){
     currentSelectorToEdit.editingClickColumnIndex = i;
+  }
+
+  // maria todo: need to sanitize this, do _not_ update unless valid numRows 
+  /// todo: how to get length of relation? 
+  // just check not negative now... then take max later if there aren't enough rows... when we splice
+  pub.setExcludeFirst = function _setExcludeFirst(numRows){
+    if (numRows >= 0) {
+      currentSelectorToEdit.exclude_first = numRows;
+      // instead of doing this, send Message editRel
+      var relation = pub.interpretRelationSelector(currentSelectorToEdit);
+      currentSelectorToEdit.relation = relation;
+      pub.sendSelector(currentSelectorToEdit);
+      pub.clearCurrentSelectorHighlight();
+      pub.highlightCurrentSelector();
+    }
+  }
+
+  pub.setExcludeLast = function _setExcludeLast(numRows){
+    if (numRows >= 0) {
+      currentSelectorToEdit.exclude_last = numRows;
+      // instead of doing this, send Message editRel
+      var relation = pub.interpretRelationSelector(currentSelectorToEdit);
+      currentSelectorToEdit.relation = relation;
+      pub.sendSelector(currentSelectorToEdit);
+      pub.clearCurrentSelectorHighlight();
+      pub.highlightCurrentSelector();
+    }
   }
 
   var currentHoverHighlight = null;
