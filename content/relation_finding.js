@@ -1591,6 +1591,15 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     }
   }
 
+  pub.clearRelationInfo = function _clearRelationInfo(msg){
+    var sid = selectorId(msg);
+    delete nextInteractionSinceLastGetFreshRelationItems[sid];
+    delete currentRelationData[sid];
+    delete currentRelationSeenNodes[sid];
+    delete noMoreItemsAvailable[sid];
+    utilities.sendMessage("content", "mainpanel", "clearedRelationInfo", {});
+  }
+
   // below the methods for actually using the next button when we need the next page of results
   // this also identifies if there are no more items to retrieve, in which case that info is stored in case someone tries to run getFreshRelationItems on us
   pub.runNextInteraction = function _runNextInteraction(msg){
