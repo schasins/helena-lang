@@ -27,6 +27,15 @@ var currentReplayWindowId = null;
 
 var demoMode = false;
 
+function shortPrintString(obj){
+  if (!obj){
+    return JSON.stringify(obj);
+  }
+  else{
+    return JSON.stringify(obj).substring(0,20);
+  }
+}
+
 utilities.listenForMessage("content", "mainpanel", "currentReplayWindowId", 
   function(){utilities.sendMessage("mainpanel", "content", "currentReplayWindowId", {window: currentReplayWindowId});});
 
@@ -53,6 +62,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   pub.setUIObject = function _setUIObject(obj){
     if (obj){
       UIObject = obj;
+      Environment.setUIObject(obj);
     }
   };
 
@@ -232,6 +242,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // not ok to just overwrite currentNode, because there may be multiple statements using the old
           // currentNode, and becuase we're interested in keeping naming consistent, they should keep using it
           // so...just overwrite some things
+          if (!statement.currentNode){
+            // have to check if there's a current node because if we're dealing with pulldown menu there won't be
+            statement.currentNode = new WebAutomationLanguage.NodeVariable();
+          }
           statement.currentNode.setName(name);
           statement.currentNode.nodeRep = nodeRep;
           statement.currentNode.setSource(NodeSources.RELATIONEXTRACTOR);
@@ -339,7 +353,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   var blocklyNames = [];
   function setBlocklyLabel(obj, label){
-    console.log("setBlocklyLabel", obj, label, obj.___revivalLabel___);
+    //console.log("setBlocklyLabel", obj, label, obj.___revivalLabel___);
     obj.blocklyLabel = label;
 
     // it's important that we keep track of what things within the WebAutomationLanguage object are blocks and which aren't
@@ -522,6 +536,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   pub.getWALRep = function _getWALRep(blocklyBlock){
     return getWAL(blocklyBlock);
+  }
+
+  pub.hasWAL = function _hasWAL(blocklyBlock){
+    return blocklyBlock.WAL !== undefined;
   }
 
   // the actual statements
@@ -867,6 +885,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
   };
 
+  function firstScrapedContentEventInTrace(ourStatementTraceSegment){
+    for (var i = 0; i < ourStatementTraceSegment.length; i++){
+      if (ourStatementTraceSegment[i].additional && ourStatementTraceSegment[i].additional.scrape && ourStatementTraceSegment[i].additional.scrape.text){
+        return ourStatementTraceSegment[i];
+      }
+    }
+    return null;
+  }
+
   pub.ScrapeStatement = function _ScrapeStatement(trace){
     Revival.addRevivalLabel(this);
     setBlocklyLabel(this, "scrape");
@@ -1120,16 +1147,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // it's not just a relation item, so relation extraction hasn't extracted it, so we have to actually look at the trace
         // find the scrape that corresponds to this scrape statement based on temporarystatementidentifier
         var ourStatementTraceSegment = _.filter(trace, function(ev){return EventM.getTemporaryStatementIdentifier(ev) === temporaryStatementIdentifier;});
-        var matchI = null;
-        for (var i = 0; i < ourStatementTraceSegment.length; i++){
-          if (ourStatementTraceSegment[i].additional && ourStatementTraceSegment[i].additional.scrape && ourStatementTraceSegment[i].additional.scrape.text){
-            // for now, all scrape statements have a NodeVariable as currentNode, so can call setCurrentNodeRep to bind name in current environment
-            this.currentNode.setCurrentNodeRep(runObject.environment, ourStatementTraceSegment[i].additional.scrape);
-            matchI = i;
-            break;
-          }
+        var scrapedContentEvent = firstScrapedContentEventInTrace(ourStatementTraceSegment);
+        if (scrapedContentEvent){
+          // for now, all scrape statements have a NodeVariable as currentNode, so can call setCurrentNodeRep to bind name in current environment
+          this.currentNode.setCurrentNodeRep(runObject.environment, scrapedContentEvent.additional.scrape);  
         }
-        if (matchI === null){
+        else {
           this.currentNode.setCurrentNodeRep(runObject.environment, null);
         }
 
@@ -1137,8 +1160,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // note, we could factor this out and let this apply to other statement types --- clicks, typing
         // but empirically, have mostly had this issue slowing down scraping, not clicks and the like, since there are usually few of those
         if (!this.preferredXpath){ // if we haven't yet picked a preferredXpath...
-          if (matchI){
-            var firstNodeUse = ourStatementTraceSegment[matchI];
+          if (scrapedContentEvent){
+            var firstNodeUse = scrapedContentEvent;
             var xpath = firstNodeUse.target.xpath;
             this.xpaths.push(xpath);
             if (this.xpaths.length === 5){
@@ -1155,8 +1178,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // we've already decided we have a preferred xpath.  we should check and make sure we're still using it.  if we had to revert to using similarity
           // we should stop trying to use the current preferred xpath, start tracking again.  maybe the page has been redesigned and we can discover a new preferred xpath
           // so we'll enter that phase again
-          if (matchI){ // only make this call if we actually have an event that aligns...
-            var firstNodeUse = ourStatementTraceSegment[matchI]; 
+          if (scrapedContentEvent){ // only make this call if we actually have an event that aligns...
+            var firstNodeUse = scrapedContentEvent; 
             var xpath = firstNodeUse.target.xpath;
             if (xpath !== this.preferredXpath){
               this.preferredXpath = null;
@@ -1490,6 +1513,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.pageVar = EventM.getDOMInputPageVar(ev);
       this.node = ev.target.xpath;
       this.origNode = this.node;
+      //  we want the currentNode to be a nodeVariable so we have a name for the scraped node
+      this.currentNode = makeNodeVariableForTrace(trace);
     }
 
     this.remove = function _remove(){
@@ -1731,7 +1756,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                   ;
               
               this.setOutput(true, 'NodeVariableUse');
-              this.setColour(25);
+              //this.setColour(25);
+              this.setColour(298);
               // the following is an important pattern
               // this might be a new block, in which case searching for existing wal statement for the block with this block's id
               // will be pointless; but if init is being called because a block is being restored from the trashcan, then we have
@@ -1789,7 +1815,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (!this.currentVal){
         return "";
       }
-      if (this.attributeOption === AttributeOptions.TEXT){
+      if (this.nodeVar.nodeSource === NodeSources.PARAMETER){
+        // special case.  just return the val
+        return this.currentVal;
+      }
+      else if (this.attributeOption === AttributeOptions.TEXT){
+        // ok, it's a normal nodevar, an actual dom node representation
         return this.currentVal.text;
       }
       else if (this.attributeOption === AttributeOptions.LINK){
@@ -2055,7 +2086,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
           this.appendValueInput('NodeVariableUse')
-              .appendField("output");
+              .appendField("add dataset row that includes:");
           this.setColour(25);
           this.setPreviousStatement(true, null);
           this.setNextStatement(true, null);
@@ -2813,6 +2844,156 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
   };
 
+
+  pub.WhileStatement = function _WhileStatement(bodyStatements){
+    Revival.addRevivalLabel(this);
+    setBlocklyLabel(this, "while");
+    this.condition = null;
+
+    if (bodyStatements){ // we will sometimes initialize with undefined, as when reviving a saved program
+      this.updateChildStatements(bodyStatements);
+    }
+
+    this.remove = function _remove(){
+      this.parent.removeChild(this);
+    }
+
+    this.removeChild = function _removeChild(childStatement){
+      this.bodyStatements = _.without(this.bodyStatements, childStatement);
+    };
+    this.removeChildren = function _removeChild(childStatements){
+      this.bodyStatements = _.difference(this.bodyStatements, childStatements);
+    };
+    this.appendChild = function _appendChild(childStatement){
+      var newChildStatements = this.bodyStatements;
+      newChildStatements.push(childStatement);
+      this.updateChildStatements(newChildStatements);
+    };
+    this.insertChild = function _appendChild(childStatement, index){
+      var newChildStatements = this.bodyStatements;
+      newChildStatements.splice(index, 0, childStatement);
+      this.updateChildStatements(newChildStatements);
+    };
+
+    this.prepareToRun = function _prepareToRun(){
+      return;
+    };
+    this.clearRunningState = function _clearRunningState(){
+      return;
+    }
+
+    this.toStringLines = function _toStringLines(){
+      return ["while"];
+    };
+
+    this.updateBlocklyBlock = function _updateBlocklyBlock(program, pageVars, relations){
+      addToolboxLabel(this.blocklyLabel);
+      Blockly.Blocks[this.blocklyLabel] = {
+        init: function() {
+          this.appendValueInput('NodeVariableUse')
+              .appendField("repeat while");
+          this.setPreviousStatement(true, null);
+          this.setNextStatement(true, null);
+          this.appendStatementInput("statements") // important for our processing that we always call this statements
+              .setCheck(null)
+              .appendField("do");
+          this.setColour(44);
+
+          var wal = getWAL(this);
+          if (!wal){
+            setWAL(this, new pub.WhileStatement());
+          }
+        }
+      };
+    };
+
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
+      this.block = workspace.newBlock(this.blocklyLabel);
+      attachToPrevBlock(this.block, prevBlock);
+
+      // handle the condition
+      if (this.condition){
+        var cond = this.condition.genBlocklyNode(this.block, workspace);
+        attachToInput(this.block, cond, "NodeVariableUse");
+      }
+      
+      // handle the body statements
+      var firstNestedBlock = helenaSeqToBlocklySeq(this.bodyStatements, workspace);
+      attachNestedBlocksToWrapper(this.block, firstNestedBlock);
+
+      setWAL(this.block, this);
+      return this.block;
+    };
+
+    this.getHelena = function _getHelena(){
+      // all well and good to have the things attached after this block, but also need the bodyStatements updated
+      var firstNestedBlock = this.block.getInput('statements').connection.targetBlock();
+      var helenaSequence = blocklySeqToHelenaSeq(firstNestedBlock);
+      this.bodyStatements = helenaSequence;
+
+      // ok, but we also want to update our own condition object
+      var conditionBlocklyBlock = this.block.getInput('NodeVariableUse').connection.targetBlock();
+      if (conditionBlocklyBlock){
+        var conditionHelena = getWAL(conditionBlocklyBlock).getHelena();
+        this.condition = conditionHelena;        
+      }
+      else{
+        this.condition = null;
+      }
+      return this;
+    };
+
+    this.traverse = function _traverse(fn, fn2){
+      fn(this);
+      if (this.condition){
+        this.condition.traverse(fn, fn2);
+      }
+      for (var i = 0; i < this.bodyStatements.length; i++){
+        this.bodyStatements[i].traverse(fn, fn2);
+      }
+      fn2(this);
+    };
+
+    this.updateChildStatements = function _updateChildStatements(newChildStatements){
+      this.bodyStatements = newChildStatements;
+      for (var i = 0; i < this.bodyStatements.length; i++){
+        this.bodyStatements[i].parent = this;
+      }
+    };
+
+    var statement = this;
+    this.run = function _run(runObject, rbbcontinuation, rbboptions){
+      // first thing first, run everything on which you depend
+      this.condition.run(runObject, rbbcontinuation, rbboptions);
+      if (this.condition.getCurrentVal()){
+        // so basically all that's going to happen here is we'll go ahead and decide to run the bodyStatements of the while
+        // statement before we go back to running what comes after the while
+        // so....
+        // runObject.program.runBasicBlock(runObject, entityScope.bodyStatements, rbbcontinuation, rbboptions);
+
+        // ok, what's the new continuation that will then repeat this while statement run function?
+        // (remember, we've got to loop!)
+        var newCont = function(){
+          statement.run(runObject, rbbcontinuation, rbboptions);
+        }
+
+        runObject.program.runBasicBlock(runObject, this.bodyStatements, newCont, rbboptions);        
+      }
+      else{
+        // for now we don't have else body statements for our ifs, so we should just carry on with execution
+        rbbcontinuation(rbboptions);
+      }
+
+    }
+    this.parameterizeForRelation = function _parameterizeForRelation(relation){
+      // todo: once we have real conditions may need to do something here
+      return [];
+    };
+    this.unParameterizeForRelation = function _unParameterizeForRelation(relation){
+      return;
+    };
+  };
+
   pub.BinOpNum = function _BinOpNum(){
     Revival.addRevivalLabel(this);
     setBlocklyLabel(this, "binopnum");
@@ -3386,7 +3567,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       fn2(this);
     };
 
-    this.endOfLoopCleanup = function _endOfLoopCleanup(){
+    this.endOfLoopCleanup = function _endOfLoopCleanup(continuation){
       this.currentTransaction = null;
       this.duplicatesInARow = 0;
     };
@@ -3891,6 +4072,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       _.each(this.bodyStatements, function(statement){statement.unParameterizeForRelation(relation);});
     };
 
+    this.endOfLoopCleanup = function _endOfLoopCleanup(continuation){
+      if (this.relation.endOfLoopCleanup){
+        this.relation.endOfLoopCleanup(this.pageVar, continuation);
+      }
+    }
+
     if (doInitialization){
       this.initialize();
     }
@@ -4075,7 +4262,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.frame = frame; // note that right now this frame comes from our relation-finding stage.  might want it to come from record
       if (name === undefined || name === null){
         relationCounter += 1;
-        this.name = "relation_"+relationCounter;
+        this.name = "list_"+relationCounter;
       }
       else{
         this.name = name;
@@ -4280,14 +4467,35 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return false;
     };
 
-    this.messageRelationRepresentation = function _messageRelationRepresentation(){ // maria here problem
-      return {id: this.id, name: this.name, selector: this.selector, selector_version: this.selectorVersion, exclude_first: this.excludeFirst, exclude_last: this.excludeLast, columns: this.columns, next_type: this.nextType, next_button_selector: this.nextButtonSelector, url: this.url, num_rows_in_demonstration: this.numRowsInDemo};
+    this.messageRelationRepresentation = function _messageRelationRepresentation(){
+      return {
+        id: this.id, 
+        name: this.name, 
+        selector: this.selector, 
+        selector_version: this.selectorVersion, 
+        exclude_first: this.excludeFirst,
+	exclude_last: this.excludeLast,
+        columns: this.columns, 
+        next_type: this.nextType, 
+        next_button_selector: this.nextButtonSelector, 
+        url: this.url, 
+        num_rows_in_demonstration: this.numRowsInDemo,
+        relation_scrape_wait: this.relationScrapeWait
+      };
     };
 
-    this.noMoreRows = function _noMoreRows(runObject, pageVar, callback, prinfo, allowMoreNextInteractions){
+    this.getPrinfo = function _getPrinfo(pageVar){
+      return pageVar.pageRelations[this.name+"_"+this.id];
+    }
+    this.setPrinfo = function _getPrinfo(pageVar, val){
+      pageVar.pageRelations[this.name+"_"+this.id] = val;
+    }
+
+    this.noMoreRows = function _noMoreRows(runObject, pageVar, callback, allowMoreNextInteractions){
       // first let's see if we can try running the next interaction again to get some fresh stuff.  maybe that just didn't go through?
       var nextButtonAttemptsToAllowThreshold = runObject.program.nextButtonAttemptsThreshold;
       if (!nextButtonAttemptsToAllowThreshold){ nextButtonAttemptsToAllowThreshold = DefaultHelenaValues.nextButtonAttemptsThreshold;}
+      var prinfo = this.getPrinfo(pageVar);
       if (allowMoreNextInteractions && prinfo.currentNextInteractionAttempts < nextButtonAttemptsToAllowThreshold){
         WALconsole.log("ok, we're going to try calling getNextRow again, running the next interaction again.  currentNextInteractionAttempts: "+prinfo.currentNextInteractionAttempts);
         prinfo.runNextInteraction = true; // so that we don't fall back into trying to grab rows from current page when what we really want is to run the next interaction again.
@@ -4297,15 +4505,20 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // no more rows -- let the callback know we're done
         // clear the stored relation data also
         prinfo.currentRows = null;
+        WALconsole.namedLog("prinfo", "changing prinfo.currentrows, setting to null bc no more rows");
+        WALconsole.namedLog("prinfo", shortPrintString(prinfo));
         prinfo.currentRowsCounter = 0;
         prinfo.currentNextInteractionAttempts = 0;
         callback(false); 
       }
     };
 
-    this.gotMoreRows = function _gotMoreRows(prinfo, callback, rel){
+    this.gotMoreRows = function _gotMoreRows(pageVar, callback, rel){
+      var prinfo = this.getPrinfo(pageVar);
       prinfo.needNewRows = false; // so that we don't fall back into this same case even though we now have the items we want
       prinfo.currentRows = rel;
+      WALconsole.namedLog("prinfo", "changing prinfo.currentrows, setting to rel bc found more rows", rel);
+      WALconsole.namedLog("prinfo", shortPrintString(prinfo));
       prinfo.currentRowsCounter = 0;
       prinfo.currentNextInteractionAttempts = 0;
       callback(true);
@@ -4329,8 +4542,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     var relationItemsRetrieved = {};
     var missesSoFar = {}; // may still be interesting to track misses.  may choose to send an extra next button press, something like that
     // the function that we'll call when we actually have to go back to a page for freshRelationItems
-    function getRowsFromPageVar(runObject, pageVar, callback, prinfo){
-      
+    function getRowsFromPageVar(runObject, pageVar, callback){
+
       if (!pageVar.currentTabId()){ WALconsole.warn("Hey!  How'd you end up trying to find a relation on a page for which you don't have a current tab id??  That doesn't make sense.", pageVar); }
   
       getRowsCounter += 1;
@@ -4382,6 +4595,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             return _.map(rel, function(row){ return _.map(row, function(d){return [d.text, d.link];})});
           }
 
+          var prinfo = relation.getPrinfo(pageVar);
+
           if (prinfo.currentRows && _.isEqual(extractUserVisibleAttributesFromRelation(prinfo.currentRows), 
                                               extractUserVisibleAttributesFromRelation(data.relation))){
             WALconsole.namedLog("getRelationItems", "This really shouldn't happen.  We got the same relation back from the content script that we'd already gotten.");
@@ -4405,7 +4620,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             // if this is the only frame, then it's definitely the data
             if (Object.keys(relationItemsRetrieved).length == 1 || (aRowWithAllXpaths && diffPercent < .9 )){
               doneArray[getRowsCounter] = true;
-              relation.gotMoreRows(prinfo, callback, data.relation);
+              relation.gotMoreRows(pageVar, callback, data.relation);
               return;
             }
           }
@@ -4427,12 +4642,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         if (!stillPossibleMoreItems){
           WALconsole.namedLog("getRelationItems", "all frames say we're done", getRowsCounter);
           doneArray[getRowsCounter] = true;
-          relation.noMoreRows(runObject, runObject, pageVar, callback, prinfo, false); // false because shouldn't try pressing the next button
+          relation.noMoreRows(runObject, runObject, pageVar, callback, false); // false because shouldn't try pressing the next button
         }
 
       };
 
-      function processEndOfCurrentGetRows(pageVar, callback, prinfo){
+      function processEndOfCurrentGetRows(pageVar, callback){
         WALconsole.namedLog("getRelationItems", "processEndOfCurrentGetRows", getRowsCounter);
         // ok, we have 'real' (NEWITEMS or decided we're done) data for all of them, we won't be getting anything new, better just pick the best one
         doneArray[getRowsCounter] = true;
@@ -4451,7 +4666,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           if (percentColumns > .5 && diffPercent < .3){
             WALconsole.namedLog("getRelationItems", "all defined and found new items", getRowsCounter);
             doneArray[getRowsCounter] = true;
-            relation.gotMoreRows(prinfo, callback, data.relation);
+            relation.gotMoreRows(pageVar, callback, data.relation);
             return;
           }
         }
@@ -4460,7 +4675,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
         WALconsole.namedLog("getRelationItems", "all defined and couldn't find any relation items from any frames", getRowsCounter);
         doneArray[getRowsCounter] = true;
-        relation.noMoreRows(runObject, pageVar, callback, prinfo, true); // true because should allow trying the next button
+        relation.noMoreRows(runObject, pageVar, callback, true); // true because should allow trying the next button
       }
 
       // let's go ask all the frames to give us relation items for the relation
@@ -4491,7 +4706,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                                                 tabId, frame, 
                                                 // question: is it ok to insist that every single frame returns a non-null one?  maybe have a timeout?  maybe accept once we have at least one good response from one of the frames?
                                                 function _getRelationItemsHandler(response) { 
-                                                  console.log("Receiving response: ", frame, response); 
+                                                  WALconsole.log("Receiving response: ", frame, response); 
                                                   if (response !== null && response !== undefined) {handleNewRelationItemsFromFrame(response, frame);}}); // when get response, call handleNewRelationItemsFromFrame (defined above) to pick from the frames' answers
           };
           // here's the function for sending the message until we decide we're done with the current attempt to get new rows, or until actually get the answer
@@ -4505,7 +4720,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             WALconsole.namedLog("getRelationItems", "Reached timeout, giving up on currentGetRows", currentGetRowsCounter);
             if (!doneArray[currentGetRowsCounter]){
               doneArray[currentGetRowsCounter] = false;
-              processEndOfCurrentGetRows(pageVar, callback, prinfo);
+              processEndOfCurrentGetRows(pageVar, callback);
             }
           },
           desiredTimeout
@@ -4530,6 +4745,20 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     }
 
+    this.endOfLoopCleanup = function _endOfLoopCleanup(pageVar, continuation){
+      // if we're not closing this page and we want to iterate through this relation again, it's critical
+      // that we clear out all the stuff that's stored about the relation now
+      var gotAck = false;
+      utilities.listenForMessageOnce("content", "mainpanel", "clearedRelationInfo", function _clearRelationInfoAck(data){
+        gotAck = true;
+        continuation();
+        });
+      var sendTheMsg = function(){
+        utilities.sendMessage("mainpanel", "content", "clearRelationInfo", relation.messageRelationRepresentation(), null, null, [pageVar.currentTabId()]);
+      };
+      MiscUtilities.repeatUntil(sendTheMsg, function(){return gotAck;},function(){}, 1000, false);
+    }
+
 
     var getNextRowCounter = 0;
     var currNextButtonText = null; // for next buttons that are actually counting (page 1, 2, 3...), it's useful to keep track of this
@@ -4537,10 +4766,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
       // ok, what's the page info on which we're manipulating this relation?
       WALconsole.log(pageVar.pageRelations);
-      var prinfo = pageVar.pageRelations[this.name+"_"+this.id]; // separate relations can have same name (no rule against that) and same id (undefined if not yet saved to server), but since we assign unique names when not saved to server and unique ides when saved to server, should be rare to have same both.  todo: be more secure in future
+      var prinfo = this.getPrinfo(pageVar); // separate relations can have same name (no rule against that) and same id (undefined if not yet saved to server), but since we assign unique names when not saved to server and unique ides when saved to server, should be rare to have same both.  todo: be more secure in future
+      WALconsole.namedLog("prinfo", "change prinfo, finding it for getnextrow", this.name, this.id);
+      WALconsole.namedLog("prinfo", shortPrintString(prinfo));
       if (prinfo === undefined){ // if we haven't seen the frame currently associated with this pagevar, need to clear our state and start fresh
         prinfo = {currentRows: null, currentRowsCounter: 0, currentTabId: pageVar.currentTabId(), currentNextInteractionAttempts: 0};
-        pageVar.pageRelations[this.name+"_"+this.id] = prinfo;
+        this.setPrinfo(pageVar, prinfo);
+        WALconsole.namedLog("prinfo", "change prinfo, prinfo was undefined", this.name, this.id);
+        WALconsole.namedLog("prinfo", shortPrintString(prinfo));
       }
 
       // now that we have the page info to manipulate, what do we need to do to get the next row?
@@ -4636,8 +4869,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.getCurrentNodeRep = function _getCurrentNodeRep(pageVar, columnObject){
       var prinfo = pageVar.pageRelations[this.name+"_"+this.id]
+      WALconsole.namedLog("prinfo", "change prinfo, finding it for getCurrentNodeRep", this.name, this.id);
+      WALconsole.namedLog("prinfo", shortPrintString(prinfo));
       if (prinfo === undefined){ WALconsole.log("Bad!  Shouldn't be calling getCurrentLink on a pageVar for which we haven't yet called getNextRow."); return null; }
       if (prinfo.currentRows === undefined) {WALconsole.log("Bad!  Shouldn't be calling getCurrentLink on a prinfo with no currentRows.", prinfo); return null;}
+      if (prinfo.currentRows === null){
+        WALconsole.namedLog("prinfo", "the bad state");
+      }
       if (prinfo.currentRows[prinfo.currentRowsCounter] === undefined) {WALconsole.log("Bad!  Shouldn't be calling getCurrentLink on a prinfo with a currentRowsCounter that doesn't correspond to a row in currentRows.", prinfo); return null;}
       return prinfo.currentRows[prinfo.currentRowsCounter][columnObject.index]; // in the current row, value at the index associated with nodeName
     }
@@ -4655,7 +4893,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   var NodeSources = {
     RELATIONEXTRACTOR: 1,
-    RINGER: 2
+    RINGER: 2,
+    PARAMETER: 3
   };
 
   var nodeVariablesCounter = 0;
@@ -4670,10 +4909,44 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         return allNodeVariablesSeenSoFar[i];
       }
     }
+    WALconsole.warn("Woah, you tried to get a node variable by name and there wasn't one with that name");
   }
 
   pub.NodeVariable = function _NodeVariable(name, mainpanelRep, recordedNodeSnapshot, imgData, source){
     Revival.addRevivalLabel(this);
+
+    // we need these defined right here because we're about to use them in initialization
+    this.getName = function _getName(){
+      if (this.___privateName___){
+        return this.___privateName___;
+      }
+      if (this.name){
+        return this.name; // this is here for backwards compatibility.
+      }
+      return this.___privateName___;
+    };
+    this.setName = function _setName(name){
+      // don't set it to the original name unless nothing else has that name yet
+      var otherNodeVariableWithThisName = getNodeVariableByName(name);
+      if (!otherNodeVariableWithThisName){
+        this.___privateName___ = name;
+      }
+      else{
+        if (otherNodeVariableWithThisName === this){
+          // we're renaming it to the same thing.  no need to do anything
+          return;
+        }
+        this.setName("alt_" + name);
+      }
+    };
+
+    if (source === NodeSources.PARAMETER){
+      // special case, just give it a name and call it good, because this will be provided by the user (externally)
+      this.setName(name);
+      this.nodeSource = source;
+      // and let's put this in our allNodeVariablesSeenSoFar record of all our nvs
+      allNodeVariablesSeenSoFar.push(this);
+    }
 
     // ok, node variables are a little weird, because we have a special interest in making sure that
     // every place where the same node is used in the script is also represented by the same object
@@ -4705,30 +4978,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var ans = nr1.xpath === nr2.xpath && nr1.source_url === nr2.source_url; // baseURI is the url on which the ndoe was found
       return ans;
     }
-
-    this.getName = function _getName(){
-      if (this.___privateName___){
-        return this.___privateName___;
-      }
-      if (this.name){
-        return this.name; // this is here for backwards compatibility.
-      }
-      return this.___privateName___;
-    }
-    this.setName = function _setName(name){
-      // don't set it to the original name unless nothing else has that name yet
-      var otherNodeVariableWithThisName = getNodeVariableByName(name);
-      if (!otherNodeVariableWithThisName){
-        this.___privateName___ = name;
-      }
-      else{
-        if (otherNodeVariableWithThisName === this){
-          // we're renaming it to the same thing.  no need to do anything
-          return;
-        }
-        this.setName("alt_" + name);
-      }
-    };
 
     /*-------------------
     Initializaiton stuff
@@ -4864,6 +5113,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.name = name;
       this.recordTimeUrl = recordTimeUrl;
       this.pageRelations = {};
+      WALconsole.namedLog("prinfo", "fresh empty pageRelations");
     }
 
     var that = this;
@@ -4935,6 +5185,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     
     this.clearRelationData = function _clearRelationData(){
       this.pageRelations = {};
+      WALconsole.namedLog("prinfo", "clear relation data");
     }
 
     this.originalTabId = function _originalTabId(){
@@ -5116,6 +5367,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return this.associatedString;
     }
 
+    this.setId = function _setId(id){
+      this.id = id;
+      if (UIObject.programIdUpdated){
+        UIObject.programIdUpdated(this);
+      }
+    }
+
     this.toString = function _toString(){
       var statementLs = this.loopyStatements;
       if (this.loopyStatements.length === 0){
@@ -5207,7 +5465,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       MiscUtilities.postAndRePostOnFailure(helenaServerUrl+'/saveprogram', msg, function(response){
         WALconsole.log("server responded to program save");
         var progId = response.program.id;
-        prog.id = progId;
+        prog.setId(progId);
         // ok, now that we know the right program id (in cases where there wasn't one to begin with) we can save the actual program
         // but it can take a long time for programs to arrive at server, so don't make other stuff wait on it.  just send it in the background
         setTimeout(function(){
@@ -5284,6 +5542,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return firstTrueStatementTraverse(this.loopyStatements, function(s){return s === statement;});
     }
 
+    this.loadsUrl = function(statement){
+      return firstTrueStatementTraverse(this.loopyStatements, function(s){return s instanceof WebAutomationLanguage.LoadStatement;});
+    }
+
     function insertAfterHelper(listOfStatements, statementToInsert, statementAfterWhichToInsert){
       for (var i = 0; i < listOfStatements.length; i++){
         if (listOfStatements[i] === statementAfterWhichToInsert){
@@ -5340,9 +5602,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     // go through the program, look for the movedStatement and any statements/blocks that the Blockly UI would attach to it
     // then remove those from the program
     this.statementRemovedByUI = function(movedStatement, oldPriorStatement){
-      console.log("statementRemovedByUI", movedStatement, oldPriorStatement);
+      //console.log("statementRemovedByUI", movedStatement, oldPriorStatement);
       var seq = removeStatementAndFollowing(this.loopyStatements, movedStatement);
-      console.log("removed the seq:". removedSeq);
+      //console.log("removed the seq:". removedSeq);
       if (!seq){
         WALconsole.warn("Woah, tried to remove a particular WALStatement, but that statement wasn't in our prog.");
       }
@@ -5570,8 +5832,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                 || statement instanceof WebAutomationLanguage.PulldownInteractionStatement
                 );
     }
-    function ringerBasedButNotScraping(statement){
-      return (ringerBased(statement) && !(statement instanceof WebAutomationLanguage.ScrapeStatement));
+    function ringerBasedAndNotIgnorable(statement){
+      return (
+        // ringer based and not a scrape statement, so we have to replay for sure
+        (ringerBased(statement) && !(statement instanceof WebAutomationLanguage.ScrapeStatement))
+         ||
+         // a scrape statement and it's not scraping a relation, so we have to run it to find the node
+        (statement instanceof WebAutomationLanguage.ScrapeStatement && !statement.scrapingRelationItem()));
     }
 
     function determineNextBlockStartIndex(loopyStatements){
@@ -5615,6 +5882,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // let's just change the cleanTrace so that it only grabs the focus events
           console.log("Warning: we're including a focus event, which might cause problems.  If you see weird behavior, check this first.");
           cleanTrace = _.filter(cleanTrace, function(ev){return ev.data.type === "focus";});
+        }
+        else if (basicBlockStatements[i] instanceof pub.ScrapeStatement){
+          // remember, scrape statements shouldn't change stuff!  so it should be safe to throw away events
+          // we just need to be sure to have one event that actually finds the node and grabs its contets
+          var nodeUsingEvent = firstScrapedContentEventInTrace(cleanTrace);
+          cleanTrace = [nodeUsingEvent];
         }
 
         _.each(cleanTrace, function(ev){EventM.setTemporaryStatementIdentifier(ev, i);});
@@ -5923,22 +6196,25 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         var loopStatement = loopyStatements[0];
         var relation = loopStatement.relation;
 
-        function cleanupAfterLoopEnd(){
+        function cleanupAfterLoopEnd(continuation){
           loopStatement.rowsSoFar = 0;
 
           if (loopStatement.pageVar){
-            var prinfo = loopStatement.pageVar.pageRelations[loopStatement.relation.name+"_"+loopStatement.relation.id];
+            var prinfo = relation.getPrinfo(loopStatement.pageVar);
+            WALconsole.namedLog("prinfo", "change prinfo, finding it for cleanup");
+            WALconsole.namedLog("prinfo", shortPrintString(prinfo));
             WALconsole.log("prinfo in cleanup", prinfo);
             // have to get rid of this prinfo in case (as when a pulldown menu is dynamically adjusted
             // by another, and so we want to come back and get it again later) we'll want to scrape
             // the same relation fresh from the same page later
-            loopStatement.pageVar.pageRelations[loopStatement.relation.name+"_"+loopStatement.relation.id] = undefined;  
+            loopStatement.pageVar.pageRelations[loopStatement.relation.name+"_"+loopStatement.relation.id] = undefined; 
+            WALconsole.namedLog("prinfo", "cleared a page relation entry"); 
           }
           
           // time to run end-of-loop-cleanup on the various bodyStatements
           loopStatement.traverse(function(statement){
             if (statement.endOfLoopCleanup){
-              statement.endOfLoopCleanup();
+              statement.endOfLoopCleanup(continuation);
             }
           }, function(){});
         }
@@ -5947,9 +6223,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         if (breakMode){
           WALconsole.warn("breaking out of the loop");
           options.breakMode = false; // if we were in break mode, we're done w loop, so turn off break mode
-          cleanupAfterLoopEnd();
-          // once we're done with the loop, have to replay the remainder of the script
-          program.runBasicBlock(runObject, loopyStatements.slice(1, loopyStatements.length), callback, options);
+          var continuation = function(){
+            // once we're done with the loop, have to replay the remainder of the script
+            program.runBasicBlock(runObject, loopyStatements.slice(1, loopyStatements.length), callback, options);   
+          }
+          cleanupAfterLoopEnd(continuation);
           return;
         }
 
@@ -5957,9 +6235,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         if (loopStatement.maxRows !== null && loopStatement.rowsSoFar >= loopStatement.maxRows){
           // hey, we're done!
           WALconsole.namedLog("rbb", "hit the row limit");
-          cleanupAfterLoopEnd();
-          // once we're done with the loop, have to replay the remainder of the script
-          program.runBasicBlock(runObject, loopyStatements.slice(1, loopyStatements.length), callback, options);
+          var continuation = function(){
+            // once we're done with the loop, have to replay the remainder of the script
+            program.runBasicBlock(runObject, loopyStatements.slice(1, loopyStatements.length), callback, options);
+          }
+          cleanupAfterLoopEnd(continuation);
           return;
         }
 
@@ -6003,9 +6283,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           if (!moreRows){
             // hey, we're done!
             WALconsole.namedLog("rbb", "no more rows");
-            cleanupAfterLoopEnd();
-            // once we're done with the loop, have to replay the remainder of the script
-            program.runBasicBlock(runObject, loopyStatements.slice(1, loopyStatements.length), callback, options);
+            var continuation = function(){
+              // once we're done with the loop, have to replay the remainder of the script
+              program.runBasicBlock(runObject, loopyStatements.slice(1, loopyStatements.length), callback, options);
+            }
+            cleanupAfterLoopEnd(continuation);
             return;
           }
           WALconsole.namedLog("rbb", "we have a row!  let's run");
@@ -6098,12 +6380,17 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
       runObject.program.clearRunningState();
       runObject.program.prepareToRun();
-      // ok let's do this in a fresh window
-      MiscUtilities.makeNewRecordReplayWindow(function(windowId){
+
+      var usesTheWeb = runObject.program.loadsUrl();
+      WALconsole.log("usesTheWeb", usesTheWeb);
+
+      var runProgFunc = function(windowId){
         // now let's actually run
-        recordingWindowIds.push(windowId);
-        runObject.window = windowId;
-        currentReplayWindowId = windowId;
+        if (usesTheWeb){
+          recordingWindowIds.push(windowId);
+          runObject.window = windowId;
+          currentReplayWindowId = windowId;
+        }
         datasetsScraped.push(runObject.dataset.id);
         runObject.program.runBasicBlock(runObject, runObject.program.loopyStatements, function(){
 
@@ -6149,7 +6436,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             WALconsole.log("Done with script execution.");
             var timeScraped = (new Date()).getTime() - parseInt(dataset.pass_start_time);
             console.log(runObject.dataset.id, timeScraped);
-            recordingWindowIds = _.without(recordingWindowIds, windowId); // take that window back out of the allowable recording set
+
+            if (usesTheWeb){ recordingWindowIds = _.without(recordingWindowIds, windowId); } // take that window back out of the allowable recording set
             // go ahead and actually close the window so we don't have chrome memory leaking all over the place.
             // todo: put this back in!
             //chrome.windows.remove(windowId);
@@ -6164,7 +6452,17 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           runObject.dataset.closeDatasetWithCont(whatToDoWhenWereDone);
 
         }, options);
-      });
+      };
+
+      // now actually call the function for running the program
+      // ok let's do this in a fresh window
+      if (usesTheWeb){
+        MiscUtilities.makeNewRecordReplayWindow(runProgFunc);
+      }
+      else{
+        // no need to make a new window (there are no load statements in the program), so don't
+        runProgFunc(null);
+      }
     }
 
     function adjustDatasetNameForOptions(dataset, options){
@@ -6269,6 +6567,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.setParameterNames = function _setParameterNames(paramNamesLs){
       console.log("setParameterNames", paramNamesLs);
       this.parameterNames = paramNamesLs;
+      // when you make parameters, they might be referred to by NodeVariableUse expressions
+      // so you need to make node variables for them (even though of course they aren't nodes)
+      // todo: do we want to restructure this in some way?
+      for (var i = 0; i < paramNamesLs.length; i++){
+        var nodeVar = getNodeVariableByName(paramNamesLs[i]);
+        if (!nodeVar){
+          new pub.NodeVariable(paramNamesLs[i], {}, {}, null, NodeSources.PARAMETER);
+        }
+      }
     }
     this.getParameterNames = function _getParameterNames(){
       return this.parameterNames;
@@ -6548,7 +6855,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var allNonRinger = true;
       for (var i = 0; i < statements.length; i++){
         //console.log("ringerBasedButNotScraping", ringerBasedButNotScraping(statements[i]), statements[i]);
-        if (ringerBasedButNotScraping(statements[i]) && !statements[i].nullBlockly){
+        if (ringerBasedAndNotIgnorable(statements[i]) && !statements[i].nullBlockly){
           allNonRinger = false;
           break;
         }
@@ -6871,7 +7178,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           }); 
         }
         */
+        /*
         chrome.windows.remove(windowId);
+        */
         // let's also update the ui to indicate that we're no longer looking
         UIObject.updateDisplayedRelations(false);
 
@@ -7103,7 +7412,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     // this is silly, but just making a new object for each of our statements is an easy way to get access to
     // the updateBlocklyBlock function and still keep it an instance method/right next to the genBlockly function
-    var toolBoxBlocks = ["Number", "NodeVariableUse", "String", "Concatenate", "IfStatement", "ContinueStatement", "BinOpString", "BinOpNum", "LengthString",
+    var toolBoxBlocks = ["Number", "NodeVariableUse", "String", "Concatenate", "IfStatement", 
+    "WhileStatement", 
+    "ContinueStatement", "BinOpString", "BinOpNum", "LengthString",
       "BackStatement", "ClosePageStatement", "WaitStatement", "WaitUntilUserReadyStatement", "SayStatement"];
     // let's also add in other nodes which may not have been used in programs so far, but which we want to include in the toolbox no matter what
     var origBlocks = blocklyNames;

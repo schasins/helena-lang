@@ -41,7 +41,7 @@ var RecordingHandlers = (function _RecordingHandlers() { var pub = {};
 
   pub.mouseoutHandler = function _mouseoutHandler(event){
     if (currentlyRecording()){
-      Tooltip.removeScrapingTooltip();
+      Tooltip.removeScrapingTooltip(MiscUtilities.targetFromEvent(event));
       RelationPreview.relationUnhighlight();
     }
     // just a backup in case the checks on keydown and keyup fail to run, as seems to happen sometimes with focus issues
@@ -113,7 +113,7 @@ var RecordingHandlers = (function _RecordingHandlers() { var pub = {};
   var addedOverlay = false;
   pub.applyReplayOverlayIfAppropriate = function _applyReplayOverlayIfAppropriate(replayWindowId){
     // only apply it if we're in the replay window, if we haven't already applied it, and if we're the top-level frame
-    console.log("applyReplayOverlayIfAppropriate", replayWindowId, windowId, addedOverlay);
+    WALconsole.namedLog("tooCommon", "applyReplayOverlayIfAppropriate", replayWindowId, windowId, addedOverlay);
     if (replayWindowId === windowId && !addedOverlay && self === top){
       // ok, we're a page in the current replay window.  put in an overlay
 
@@ -207,10 +207,11 @@ var Tooltip = (function _Tooltip() { var pub = {};
     newDiv.css('overflow', 'hidden');
     newDiv.css('overflow-wrap', 'break-word');
     $(document.body).append(newDiv);
+    node.scrapingTooltip = newDiv;
   }
 
-  pub.removeScrapingTooltip = function _removeScrapingTooltip(){
-    $('#vpbd-hightlight').remove();
+  pub.removeScrapingTooltip = function _removeScrapingTooltip(node){
+    node.scrapingTooltip.remove();
   }
 return pub;}());
 
@@ -508,8 +509,7 @@ var RelationPreview = (function _RelationPreview() { var pub = {};
       selectorObj = ServerTranslationUtilities.unJSONifyRelation(selectorObj);
       var relationOutput = RelationFinder.interpretRelationSelector(selectorObj);
       var nodeList = _.flatten(relationOutput);
-      var highlightNodes = RelationFinder.highlightRelation(relationOutput, false, false);
-      knownRelationsInfo.push({selectorObj: selectorObj, nodes: nodeList, highlightNodes: highlightNodes, highlighted: false});
+      knownRelationsInfo.push({selectorObj: selectorObj, nodes: nodeList, relationOutput: relationOutput, highlighted: false});
     }  
   }
 
@@ -529,8 +529,21 @@ var RelationPreview = (function _RelationPreview() { var pub = {};
     if (winningRelation !== null){
       // cool, we have a relation to highlight
       winningRelation.highlighted = true;
-      for (var i = 0; i < winningRelation.highlightNodes.length; i++){
-        var n = winningRelation.highlightNodes[i];
+      // important to make the highlight nodes now, since the nodes might be shifting around throughout interaction, especially if things still loading
+      
+      var currTime = new Date().getTime();
+      var highlightNodes = null;
+      if (winningRelation.highlightNodesTime && ((currTime - winningRelation.highlightNodesTime) < 2000)){
+        // cache the highlight nodes for up to two second, then go ahead and recompute those positions
+        highlightNodes = winningRelation.highlightNodes;
+      }
+      else{
+        highlightNodes = RelationFinder.highlightRelation(winningRelation.relationOutput, false, false);
+      }
+      winningRelation.highlightNodes = highlightNodes;
+      winningRelation.highlightNodesTime = new Date().getTime();
+      for (var i = 0; i < highlightNodes.length; i++){
+        var n = highlightNodes[i];
         n.css("display", "block");
       }
     }

@@ -35,6 +35,7 @@ utilities.listenForMessage("mainpanel", "content", "runNextInteraction", functio
 utilities.listenForMessage("mainpanel", "content", "currentColumnIndex", function(msg){RelationFinder.setEditRelationIndex(msg.index);});
 utilities.listenForMessage("mainpanel", "content", "excludeFirstRows", function(msg){RelationFinder.setExcludeFirst(msg.numRows);});
 utilities.listenForMessage("mainpanel", "content", "excludeLastRows", function(msg){RelationFinder.setExcludeLast(msg.numRows);});
+utilities.listenForMessage("mainpanel", "content", "clearRelationInfo", function(msg){RelationFinder.clearRelationInfo(msg);});
 
 utilities.listenForFrameSpecificMessage("mainpanel", "content", "likelyRelation",
 	function (msg, sendResponse){
@@ -53,9 +54,10 @@ utilities.listenForFrameSpecificMessage("mainpanel", "content", "getFreshRelatio
 	function(msg, sendResponse){
 		MiscUtilities.registerCurrentResponseRequested(msg, 
 			function(m){
-				var freshRelationItems = RelationFinder.getFreshRelationItemsHelper(m);
-				console.log('freshRelationItems', freshRelationItems);
-				sendResponse(freshRelationItems);
+				RelationFinder.getFreshRelationItemsHelper(m, function(freshRelationItems){
+					console.log('freshRelationItems, about to send', freshRelationItems);
+					sendResponse(freshRelationItems);
+				});
 			});
 	}
 );

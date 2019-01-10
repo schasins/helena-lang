@@ -1136,7 +1136,7 @@ var Replay = (function ReplayClosure() {
 
       var e = events[index];
       var type = e.type;
-      console.log("event running", e);
+      // console.log("event running", e);
 
       /* Find the replay function associated with the event type */
       var replayFunctionName = this.replayableEvents[type];
@@ -1832,7 +1832,7 @@ eventList.forEach(function(e) {
     if (typeof data){
       data.type = e;
       addWebRequestEvent(data, 'webnavigation');
-      console.log(e, data);
+      //console.log(e, data);
     }
     else{
       console.error(chrome.i18n.getMessage('inHandlerError'), e);

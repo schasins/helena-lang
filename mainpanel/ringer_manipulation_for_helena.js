@@ -263,11 +263,16 @@ var ReplayScript = (function _ReplayScript() {
     var portsToPageVars = {};
     var tabToCanonicalUrl = {}; // people do redirects!  to track it, let's track the url that was actually loaded into a given tab last
     var urlToTab = {}; // people do redirects. let's track which tab each url is in.  shame we can't just get the tab.  whatever
+    var lastURL = null;
     for (var i = 0; i < trace.length; i++){
       var ev = trace[i];
       if (ev.type === "completed" && ev.data.type === "main_frame"){ // any time we complete making a new page in the top level, we want to intro a new pagevar
         var url = EventM.getLoadURL(ev);
-        var p = new WebAutomationLanguage.PageVariable("p"+idCounter, url);
+        if (url === lastURL){
+          // ok, sometimes the same URL appears to load twice in a single logical load.  if we see the same url twice in a row, just ignore the second
+          continue;
+        }
+        var p = new WebAutomationLanguage.PageVariable("page"+idCounter, url);
         EventM.setLoadOutputPageVar(ev, p);
         urlsToMostRecentPageVar[url] = p;
         idCounter += 1;
@@ -277,6 +282,7 @@ var ReplayScript = (function _ReplayScript() {
         // for now, anything that loads a new page var should be visible.  later we'll take away any that shouldn't be
         // but for now it means just that it's top-level and thus needs to be taken care of
         EventM.setVisible(ev, true);
+        lastURL = url;
       }
       else if (ev.type === "webnavigation"){
         // fortunately webnavigation events look at redirects, so we can put in that a redirect happend in a given tab

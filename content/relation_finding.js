@@ -278,11 +278,12 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     var selectorNode = allSelectNodes[selector.index];
     console.log("selector: ", selector, selector.index, selectorNode);
     if ($(selectorNode).is(':enabled')){
-      console.log("selector not enabled");
+      console.log("selector enabled");
       var optionNodes = extractOptionNodesFromSelectorNode(selectorNode);
+      console.log("option nodes", optionNodes);
       return optionNodes;
     }
-    console.log("selector is enabled");
+    console.log("selector not enabled");
     // else, we know which pulldown we want, but it's disabled right now.  let's wait
     return [];
   }
@@ -316,7 +317,8 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       var cells = pub.interpretRelationSelectorCellNodes(selector, rowNodeLists);
       WALconsole.log("cells", cells);
       // a wrapper function that goes through and tosses cells/rows that are display:none
-      cells = onlyDisplayedCellsAndRows(cells);
+      //cells = onlyDisplayedCellsAndRows(cells);
+      WALconsole.log("returning cells 1", cells);
       return cells;      
     }
     else if (selector.selector_version === 2){
@@ -325,9 +327,11 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       optionNodes = optionNodes.splice(selector.exclude_first, optionNodes.length); // mariaSlice
       optionNodes = optionNodes.splice(0, optionNodes.length - selector.exclude_last);
       var cells = _.map(optionNodes, function(o){return [o];});
-      // a wrapper function that goes through and tosses cells/rows that are display:none
-      cells = onlyDisplayedCellsAndRows(cells);
       return cells;
+      // 
+      // a wrapper function that goes through and tosses cells/rows that are display:none
+      // cells = onlyDisplayedCellsAndRows(cells);
+      // WALconsole.log("returning cells 2", cells);
     }
     else{
       console.log(selector);
@@ -563,6 +567,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     var maxSelector = null;
     var maxComboSize = -1;
     for (var i = 0; i < combos.length; i++){
+      WALconsole.log("*********** synthesizeSelectorForSubsetThatProducesLargestRelation", i, combo, maxNumCells, maxSelector, maxComboSize);
       var combo = combos[i];
       WALconsole.log("working on a new combo", combo);
       // the if below is an inefficient way to do this!  do it better in future!  just make the smaller set of combos! todo
@@ -855,6 +860,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
   function extractOptionsRelationFromSelectorNode(node){
     var options = extractOptionNodesFromSelectorNode(node);
     var optionsRelation = _.map(options, function(o){return [NodeRep.nodeToMainpanelNodeRepresentation(o)];});
+    console.log("optionsRelation in extractOptionsRelationFromSelectorNode", optionsRelation, optionsRelation.length);
     return optionsRelation;
   }
 
@@ -869,7 +875,6 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
         continue; // right thing to do?
       }
       var index = selectNodes.index(node);
-      var options = extractOptionNodesFromSelectorNode(node);
       var optionsRelation = extractOptionsRelationFromSelectorNode(node);
       var firstRowXpath = optionsRelation[0][0].xpath;
       var excludeFirst = 0; // convenient to always use 0 so we can correctly index into the relation
@@ -882,8 +887,8 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       newMsg.next_type = NextTypes.NONE;
       newMsg.next_button_selector = null;
       newMsg.exclude_first = excludeFirst; // todo: can we do better?  extra recording info?
-      newMsg.exclude_last = excludeLast; // maria --> right now, unconditionally set to 0
-      newMsg.num_rows_in_demonstration = options.length;
+      newMsg.exclude_last = excludeLast;
+      newMsg.num_rows_in_demonstration = optionsRelation.length;
       newMsg.selector = {type: "pulldown", index: index};
       newMsg.selector_version = 2; // 2 is for pulldown selectors?
       newMsg.columns = [{
@@ -1634,6 +1639,15 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     }
   }
 
+  pub.clearRelationInfo = function _clearRelationInfo(msg){
+    var sid = selectorId(msg);
+    delete nextInteractionSinceLastGetFreshRelationItems[sid];
+    delete currentRelationData[sid];
+    delete currentRelationSeenNodes[sid];
+    delete noMoreItemsAvailable[sid];
+    utilities.sendMessage("content", "mainpanel", "clearedRelationInfo", {});
+  }
+
   // below the methods for actually using the next button when we need the next page of results
   // this also identifies if there are no more items to retrieve, in which case that info is stored in case someone tries to run getFreshRelationItems on us
   pub.runNextInteraction = function _runNextInteraction(msg){
@@ -1695,9 +1709,10 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
   }
 
   pub.getFreshRelationItems = function _getFreshRelationItems(msg){
-    var respMsg = pub.getFreshRelationItemsHelper(msg);
-    WALconsole.log('respMsg', respMsg);
-    utilities.sendMessage("content", "mainpanel", "freshRelationItems", respMsg);
+    pub.getFreshRelationItemsHelper(msg, function(respMsg){
+      WALconsole.log('respMsg', respMsg);
+      utilities.sendMessage("content", "mainpanel", "freshRelationItems", respMsg);
+    });
   }
 
   function extractFromRelationRep(rel, attributes){
@@ -1713,13 +1728,17 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
   }
 
   var relationFinderIdCounter = 0;
-  pub.getFreshRelationItemsHelper = function _getFreshRelationItemsHelper(msg){
+  var waitingOnPriorGetFreshRelationItemsHelper = false;
+  pub.getFreshRelationItemsHelper = function _getFreshRelationItemsHelper(msg, continuation, doData=false){
+    if (waitingOnPriorGetFreshRelationItemsHelper && doData === false){
+      return;
+    }
     var strMsg = selectorId(msg);
     WALconsole.log("noMoreItemsAvailable", noMoreItemsAvailable[strMsg], noMoreItemsAvailable);
     if (noMoreItemsAvailable[strMsg]){
       // that's it, we're done.  last use of the next interaction revealed there's nothing left
       WALconsole.log("no more items at all, because noMoreItemsAvailable was set.");
-      return {type: RelationItemsOutputs.NOMOREITEMS, relation: null};
+      continuation({type: RelationItemsOutputs.NOMOREITEMS, relation: null});
     }
     // below is commented out in case there are cases where after first load, it may take a while for the data to all get there (get empty list first, that kind of deal)  Does that happen or is this a wasted opportunity to cache?
     /*
@@ -1735,7 +1754,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     WALconsole.log("relationNodes", relationNodes);
 
     // ok, let's go through these nodes and give them ids if they've never been scraped for a node before
-    // then we want to figure out whether we're in a next interaction or a more interaction, so we now how to deal with info about whether we've scraped already
+    // then we want to figure out whether we're in a next interaction or a more interaction, so we know how to deal with info about whether we've scraped already
     var relationNodesIds = [];
     _.each(relationNodes, function(row){
       var rowIds = [];
@@ -1776,7 +1795,13 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
         // configuration of the observer:
         var config = { attributes: true, childList: true, characterData: true };
         // pass in the target node, as well as the observer options
-        observer.observe(cell, config);
+        try{
+          observer.observe(cell, config);
+        }
+        catch(err){
+          WALconsole.warn("woah, couldn't observe mutations.  are we getting all data?");
+        }
+        
       });
       relationNodesIds.push(rowIds);
     });
@@ -1814,7 +1839,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
           // looks like some of our rows weren't new, so next button hasn't happened yet
 
           WALconsole.log("newRows", newRows);
-          return {type: RelationItemsOutputs.NONEWITEMSYET, relation: null};
+          continuation({type: RelationItemsOutputs.NONEWITEMSYET, relation: null});
         }
         // otherwise we can just carry on, since the relationNodes has the right set
       }
@@ -1826,37 +1851,58 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       }
     }
 
-    var relationData = pub.relationNodesToMainpanelNodeRepresentation(relationNodes);
-    var crd = currentRelationData[strMsg];
-    // we can also have the problem where everything looks new, because everything technically gets updated, 
-    // even though some of it is old data, didn't need to be redrawn. so need to do a text check too
-    // so that's why we'll compare to the crd, figure out whether the head looks like it's actually old data
-    if (crd && crd.length === relationData.length && mainpanelRepresentationOfRelationsEqual(crd, relationData)){
-      // data still looks the same as it looked before.  no new items yet.
-      WALconsole.log("No new items yet because the data is actualy equal");
-      WALconsole.log(crd, relationData);
-      return {type: RelationItemsOutputs.NONEWITEMSYET, relation: null};
-    }
-    // whee, we have some new stuff.  we can update the state
-    nextInteractionSinceLastGetFreshRelationItems[strMsg] = false;
-    // we only want the fresh ones!
-    var newItems = relationData; // start by assuming that's everything
-    if (crd){
-      WALconsole.log("crd, relationData, relationData slice", crd, relationData, relationData.slice(0,crd.length), _.isEqual(crd, relationData.slice(0, crd.length)))
-    }
-    if (crd && mainpanelRepresentationOfRelationsEqual(crd, relationData.slice(0, crd.length))){
-      // cool, this is a case of loading more into the same page, so we want to just grab the end
-      newItems = relationData.slice(crd.length, relationData.length);
-    }
+    // ok, we're about to try to figure out if our new data is actual new data and consider sending it along to mainpanel
+    // we know some nodes exist, but we don't know that they've loaded/finished updating yet
+    // to be on the safe side, let's give them a sec
+    // in fact, ideally we'd like to do better, check if they've stopped updating; todo: look into this
 
-    // it's important that we don't wipe out the currentRelationdata[strMsg] unless we actually have new data
-    // if we're doing a more interaction, might have 0 rows in an intermediate state, but then still need
-    // to trim the top off the list based on having already collected the data
-    if (relationData.length > 0){
-      currentRelationData[strMsg] = relationData;
-      currentRelationSeenNodes[strMsg] = _.without(currentRelationSeenNodes[strMsg].concat(_.flatten(relationNodesIds)), null);
-      WALconsole.log("actual new items", newItems);
-      return {type: RelationItemsOutputs.NEWITEMS, relation: newItems};
+    if (!doData){
+      // call this function again in a sec, but with doData set to true
+      waitingOnPriorGetFreshRelationItemsHelper = true;
+      var wait = msg.relation_scrape_wait;
+      if (!wait){
+        wait = DefaultHelenaValues.relationScrapeWait;
+      }
+      console.log("wait time", wait);
+      setTimeout(function(){pub.getFreshRelationItemsHelper(msg, continuation, true);}, wait);
+    }
+    else{
+      // great, we've waited our time and it's time to go
+      waitingOnPriorGetFreshRelationItemsHelper = false;
+      console.log("relationNodes", relationNodes);
+      var relationData = pub.relationNodesToMainpanelNodeRepresentation(relationNodes);
+      var crd = currentRelationData[strMsg];
+      // we can also have the problem where everything looks new, because everything technically gets updated, 
+      // even though some of it is old data, didn't need to be redrawn. so need to do a text check too
+      // so that's why we'll compare to the crd, figure out whether the head looks like it's actually old data
+      if (crd && crd.length === relationData.length && mainpanelRepresentationOfRelationsEqual(crd, relationData)){
+        // data still looks the same as it looked before.  no new items yet.
+        WALconsole.log("No new items yet because the data is actualy equal");
+        WALconsole.log(crd, relationData);
+        continuation({type: RelationItemsOutputs.NONEWITEMSYET, relation: null});
+      }
+
+      // whee, we have some new stuff.  we can update the state
+      nextInteractionSinceLastGetFreshRelationItems[strMsg] = false;
+      // we only want the fresh ones!
+      var newItems = relationData; // start by assuming that's everything
+      if (crd){
+        WALconsole.log("crd, relationData, relationData slice", crd, relationData, relationData.slice(0,crd.length), _.isEqual(crd, relationData.slice(0, crd.length)))
+      }
+      if (crd && mainpanelRepresentationOfRelationsEqual(crd, relationData.slice(0, crd.length))){
+        // cool, this is a case of loading more into the same page, so we want to just grab the end
+        newItems = relationData.slice(crd.length, relationData.length);
+      }
+
+      // it's important that we don't wipe out the currentRelationdata[strMsg] unless we actually have new data
+      // if we're doing a more interaction, might have 0 rows in an intermediate state, but then still need
+      // to trim the top off the list based on having already collected the data
+      if (relationData.length > 0){
+        currentRelationData[strMsg] = relationData;
+        currentRelationSeenNodes[strMsg] = _.without(currentRelationSeenNodes[strMsg].concat(_.flatten(relationNodesIds)), null);
+        WALconsole.log("actual new items", newItems);
+        continuation({type: RelationItemsOutputs.NEWITEMS, relation: newItems});
+      }
     }
 
   };

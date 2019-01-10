@@ -2,8 +2,8 @@
 var WALconsole = (function _WALconsole() { var pub = {};
 
   pub.debugging = false;
-  pub.showWarnings = true;
-  pub.namedDebugging = []; //["duplicates"]; //["rbb"];//["getRelationItems", "nextInteraction"];
+  pub.showWarnings = false;
+  pub.namedDebugging = []; // ["prinfo"]; //["duplicates"]; //["rbb"];//["getRelationItems", "nextInteraction"];
   pub.styleMinimal = true;
 
   function callerName(origArgs){
@@ -68,7 +68,7 @@ var utilities = (function _utilities() { var pub = {};
         return;
       }
     }
-    console.log("couldn't find right handler", msg, sender);
+    WALconsole.namedLog("tooCommon", "couldn't find right handler", msg, sender);
   });
 
   chrome.extension.onMessage.addListener(function _listenerExtension(msg, sender) {
@@ -80,7 +80,7 @@ var utilities = (function _utilities() { var pub = {};
         return;
       }
     }
-    console.log("Couldn't find right handler", msg, sender);
+    WALconsole.namedLog("tooCommon", "Couldn't find right handler", msg, sender);
   });
 
   pub.listenForMessage = function _listenForMessage(from, to, subject, fn, key){
@@ -449,7 +449,7 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
 
     var successHandlerWrapped = successHandler;
     if (showThatWereWaiting){
-      var waitingForServerAlert = $("<div class='waiting_for_server'><img style='margin-right:7px' src='../icons/ajax-loader.gif' height='10px'><span id='extra'></span>Waiting for the server"+extraText+"...</div>");
+      var waitingForServerAlert = $("<div class='waiting_for_server'><img style='margin-right:7px' src='../icons/ajax-loader2.gif' height='10px'><span id='extra'></span>Waiting for the server"+extraText+"...</div>");
       $("body").append(waitingForServerAlert);
       var successHandlerWrapped = function(param){
         waitingForServerAlert.remove();
@@ -636,6 +636,10 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
       currentResponseRequested[key] = false;
       // now call the actual function
       currentResponseHandler[key](message);
+      //console.warn("we successfully did handleRegisterCurrentResponseRequested for key", key);
+    }
+    else{
+      //console.warn("we tried to do handleRegisterCurrentResponseRequested for key", key, "but there was nothing registered.");
     }
     // else nothing to do.  yay!
   };
@@ -706,7 +710,7 @@ var Highlight = (function _Highlight() { var pub = {};
     newDiv.css('top', offset.top);
     newDiv.css('left', offset.left);
     newDiv.css('position', 'absolute');
-    newDiv.css('z-index', 2147483648);
+    newDiv.css('z-index', 2147483640);
     newDiv.css('background-color', color);
     newDiv.css('opacity', .4);
     if (display === false){
@@ -905,10 +909,30 @@ return pub; }());
 
 var DefaultHelenaValues = (function _DefaultHelenaValues() { var pub = {};
 
-  pub.nextButtonAttemptsThreshold = 3;
+  pub.nextButtonAttemptsThreshold = 4;
   pub.relationFindingTimeoutThreshold = 15000;
+  pub.relationScrapeWait = 1000;
 
 return pub; }());
 
-var helenaServerUrl = "http://kaofang.cs.berkeley.edu:8080";
+// var helenaServerUrl = "http://kaofang.cs.berkeley.edu:8080";
+var helenaServerUrl = "http://helena-backend.us-west-2.elasticbeanstalk.com";
+
+var DownloadUtilities = (function _DownloadUtilities() { var pub = {};
+
+  pub.download = function _download(filename, text) {
+    var element = document.createElement('a');
+    element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
+    element.setAttribute('download', filename);
+
+    element.style.display = 'none';
+    document.body.appendChild(element);
+
+    element.click();
+
+    document.body.removeChild(element);
+  }
+
+return pub; }());
+
 
