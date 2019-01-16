@@ -1216,6 +1216,7 @@ var Replay = (function ReplayClosure() {
         // ok, so this may not be quite right, but let's go back to the most recent DOM event and make sure there's a top-level completed event somewhere near it
         var replayTimeEvents = this.record.events;
         var completedAfterLastDom = false;
+        var bestBetMatchedIndex = null;
         var domIndex = null;
         var completedWithinWindowBeforeDom = false;
         var completedBeforePriorMatchedCompletedEvent = false;
@@ -1248,8 +1249,12 @@ var Replay = (function ReplayClosure() {
           else if (domIndex === null && ev.type === "completed" && ev.data.type === "main_frame"){
             // we've found a completed top-level after the last dom event
             completedAfterLastDom = true;
-            this.matchedCompletedEvents.push(i);
-            break;
+            // don't add this index to matchedCompletedEvents yet, because we might find something
+            // even earlier
+            // (some pages do weird things where it looks like the page loads twice)
+            // but if we reach the end of the loop and this is the last one we found, then we'll use it
+            //this.matchedCompletedEvents.push(i);
+            bestBetMatchedIndex = i;
           }
           else if (domIndex !== null && ev.type === "completed" && ev.data.type === "main_frame"){
             // since we're still going, but we've found the domIndex already, this is a completed event before the last dom event
@@ -1257,6 +1262,9 @@ var Replay = (function ReplayClosure() {
             this.matchedCompletedEvents.push(i);
             break;
           }
+        }
+        if (completedAfterLastDom){
+          this.matchedCompletedEvents.push(bestBetMatchedIndex);
         }
 
         if (completedWithinWindowBeforeDom || completedAfterLastDom){

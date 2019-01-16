@@ -1567,7 +1567,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
         var elemNodes = xPathToNodes(elem.xpath);
         if (elemNodes.length > 0){
           var elemNode = elemNodes[0];
-          elemNode.scrollIntoView();
+          elemNode.scrollIntoView(true);
           knowTheLastElement = true;
         }
       }
