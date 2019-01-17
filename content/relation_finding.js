@@ -159,16 +159,9 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
         listOfRowNodes.push(candidate);
       }
     }
-    /* mariaSlice */
-    /* maria question --> do we want to just take the min of exclude_first and length? */
-    //  if we try to exclude the first 4 from size 3, should we just remove all?
-    if (exclude_first > 0 && listOfRowNodes.length > exclude_first){
-      listOfRowNodes = listOfRowNodes.slice(exclude_first,listOfRowNodes.length);
-    }
 
-    if (exclude_last > 0 && listOfRowNodes.length > exclude_last) {
-      listOfRowNodes = listOfRowNodes.slice(0, listOfRowNodes.length - exclude_last);
-    }
+    listOfRowNodes = listOfRowNodes.slice(exclude_first, listOfRowNodes.length);
+    listOfRowNodes = listOfRowNodes.slice(0, Math.max(0, listOfRowNodes.length - exclude_last));
 
     WALconsole.log("listOfRowNodes", listOfRowNodes);
     return listOfRowNodes;
@@ -204,8 +197,8 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     }
 
     var rows = table.find("tr");
-    rows = rows.slice(excludeFirst, rows.length);  // mariaSlice
-    rows = rows.slice(0, rows.length - excludeLast);
+    rows = rows.slice(excludeFirst, rows.length);
+    rows = rows.slice(0, -excludeLast);
     return rows;
   };
 
@@ -324,8 +317,8 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     else if (selector.selector_version === 2){
       var optionNodes = pub.interpretPulldownSelector(selector.selector); // todo: ugh, gross that we descend here butnot in the above
       console.log("selector.exclude_first", selector.exclude_first);
-      optionNodes = optionNodes.splice(selector.exclude_first, optionNodes.length); // mariaSlice
-      optionNodes = optionNodes.splice(0, optionNodes.length - selector.exclude_last);
+      optionNodes = optionNodes.splice(selector.exclude_first, optionNodes.length);
+      optionNodes = optionNodes.splice(0, Math.max(0, optionNodes.length - selector.exclude_last));
       var cells = _.map(optionNodes, function(o){return [o];});
       return cells;
       // 
@@ -423,11 +416,12 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
 
   // sets exclude last value to 0
   function Selector(dict, exclude_first, columns, positive_nodes, negative_nodes){
-    return NewSelector(dict, exclude_first, 0, columns, positive_nodes, negative_nodes); // this form of Selector object should only be used for version 1 selectors, or else change this
+    return SelectorAllParameters(dict, exclude_first, 0, columns, positive_nodes, negative_nodes);
+    // this form of Selector object should only be used for version 1 selectors, or else change this
   }
 
   // new function, but keep old one around just in case
-  function NewSelector(dict, exclude_first, exclude_last, columns, positive_nodes, negative_nodes) {
+  function SelectorAllParameters(dict, exclude_first, exclude_last, columns, positive_nodes, negative_nodes) {
     return {selector: dict, 
       exclude_first: exclude_first, 
       exclude_last: exclude_last,
@@ -459,7 +453,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
         var node = nodes[i];
         if (_.contains(negative_nodes, node)){
           if (j === 0){
-            exclude_first = 1; // maria question: do we ever need to worry about setting exclude_last here?
+            exclude_first = 1;
           }
           else if (features !== almost_all_features) {
             //xpaths weren't enough to exclude nodes we need to exclude
@@ -991,7 +985,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
         if (rel === null){
           continue;
         }
-        var selector_obj = NewSelector(rel.selector, rel.exclude_first, rel.exclude_last, rel.columns); // mia here problem, need to give rel.exclude_last
+        var selector_obj = SelectorAllParameters(rel.selector, rel.exclude_first, rel.exclude_last, rel.columns); // mia here problem, need to give rel.exclude_last
         selector_obj.selector_version = rel.selector_version;
         var relationNodes = pub.interpretRelationSelector(selector_obj);
         if (relationNodes.length === 0){
@@ -1184,31 +1178,21 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     currentSelectorToEdit.editingClickColumnIndex = i;
   }
 
-  // maria todo: need to sanitize this, do _not_ update unless valid numRows 
-  /// todo: how to get length of relation? 
-  // just check not negative now... then take max later if there aren't enough rows... when we splice
   pub.setExcludeFirst = function _setExcludeFirst(numRows){
-    if (numRows >= 0) {
-      currentSelectorToEdit.exclude_first = numRows;
-      // instead of doing this, send Message editRel
-      var relation = pub.interpretRelationSelector(currentSelectorToEdit);
-      currentSelectorToEdit.relation = relation;
-      pub.sendSelector(currentSelectorToEdit);
-      pub.clearCurrentSelectorHighlight();
-      pub.highlightCurrentSelector();
-    }
+    currentSelectorToEdit.exclude_first = numRows;
+    updateRelationWithSelector();
   }
 
   pub.setExcludeLast = function _setExcludeLast(numRows){
-    if (numRows >= 0) {
-      currentSelectorToEdit.exclude_last = numRows;
-      // instead of doing this, send Message editRel
-      var relation = pub.interpretRelationSelector(currentSelectorToEdit);
-      currentSelectorToEdit.relation = relation;
-      pub.sendSelector(currentSelectorToEdit);
-      pub.clearCurrentSelectorHighlight();
-      pub.highlightCurrentSelector();
-    }
+    currentSelectorToEdit.exclude_last = numRows;
+    updateRelationWithSelector();
+  }
+
+  function updateRelationWithSelector() {
+    currentSelectorToEdit.relation = pub.interpretRelationSelector(currentSelectorToEdit);;
+    pub.sendSelector(currentSelectorToEdit);
+    pub.clearCurrentSelectorHighlight();
+    pub.highlightCurrentSelector();
   }
 
   var currentHoverHighlight = null;
