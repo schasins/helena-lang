@@ -207,6 +207,19 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     return new WebAutomationLanguage.NodeVariable(null, null, recordTimeNodeSnapshot, imgData, NodeSources.RINGER); // null bc no preferred name
   }
 
+  function urlMatchSymmetryHelper(t1, t2){
+    // todo: there might be other ways that we could match the url.  don't need to match the whole thing
+    // don't need www, etc, any lingering bits on the end that get added...
+
+    if (t1.replace("http://", "https://") === t2){
+      return true;
+    }
+    return false;
+  }
+  function urlMatch(text, currentUrl){
+    return urlMatchSymmetryHelper(text, currentUrl) || urlMatchSymmetryHelper(currentUrl, text);
+  }
+
   function outputPagesRepresentation(statement){
     var prefix = "";
     if (statement.outputPageVars.length > 0){
@@ -664,7 +677,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // can't parameterize for a cell that has null text
           continue;
         }
-        if (text === this.url){
+        if (urlMatch(text, this.url)){
           // ok, we want to parameterize
           this.relation = relation;
           var name = relation.columns[i].name;
@@ -4069,7 +4082,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
 
     this.parameterizeForRelation = function _parameterizeForRelation(relation){
-      return _.flatten(_.map(this.bodyStatements, function(statement){return statement.parameterizeForRelation(relation);}));
+      return _.flatten(_.map(this.bodyStatements, function(statement){
+        return statement.parameterizeForRelation(relation);}));
     };
     this.unParameterizeForRelation = function _unParameterizeForRelation(relation){
       _.each(this.bodyStatements, function(statement){statement.unParameterizeForRelation(relation);});
@@ -4100,7 +4114,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (statement.typedStringLower && statement.typedStringLower.indexOf(lowerString) > -1){ // for typestatement
         return true;
       }
-      if (statement.url && statement.url.toLowerCase() === lowerString) { // for loadstatement
+      if (statement.url && urlMatch(statement.url.toLowerCase(), lowerString)) { // for loadstatement
         return true;
       }
     }
