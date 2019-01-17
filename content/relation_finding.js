@@ -1585,7 +1585,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     // but if we don't know it, just try scrolling window to the bottom
     // sadly, this doesn't work for everything.  (for instance, if have an overlay with a relation, the overlay may not get scrolled w window scroll)
     if (!knowTheLastElement){
-      for (var i = 0; i < 1; i+= 0.01){
+      for (var i = 0; i < 1.1; i+= 0.01){ // go past 1 because sometimes the page is still working on loading content, getting longer
         window.scrollTo(0, document.body.scrollHeight*i);
       }
     }
