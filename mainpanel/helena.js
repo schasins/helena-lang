@@ -4768,10 +4768,17 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         gotAck = true;
         continuation();
         });
+
+      var currentTabId = pageVar.currentTabId();
       var sendTheMsg = function(){
-        utilities.sendMessage("mainpanel", "content", "clearRelationInfo", relation.messageRelationRepresentation(), null, null, [pageVar.currentTabId()]);
+        utilities.sendMessage("mainpanel", "content", "clearRelationInfo", relation.messageRelationRepresentation(), null, null, [currentTabId]);
       };
-      MiscUtilities.repeatUntil(sendTheMsg, function(){return gotAck;},function(){}, 1000, false);
+      if (currentTabId){
+        MiscUtilities.repeatUntil(sendTheMsg, function(){return gotAck;},function(){}, 1000, false);
+      }
+      else{
+        continuation();
+      }
     }
 
 
