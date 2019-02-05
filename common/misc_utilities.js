@@ -2,7 +2,7 @@
 var WALconsole = (function _WALconsole() { var pub = {};
 
   pub.debugging = false;
-  pub.showWarnings = false;
+  pub.showWarnings = true;
   pub.namedDebugging = []; // ["prinfo"]; //["duplicates"]; //["rbb"];//["getRelationItems", "nextInteraction"];
   pub.styleMinimal = true;
 
@@ -184,7 +184,14 @@ var utilities = (function _utilities() { var pub = {};
       WALconsole.log(tab_ids_include, tab_ids_exclude);
       if (tab_ids_include){
         for (var i =0; i<tab_ids_include.length; i++){
-          chrome.tabs.sendMessage(tab_ids_include[i], msg); 
+          if (tab_ids_include[i]){
+            chrome.tabs.sendMessage(tab_ids_include[i], msg); 
+          }
+          else{
+            WALconsole.warn("Tried to send message to undefined tab, very bad.");
+            var err = new Error();
+            WALconsole.warn(err.stack);
+          }
         } 
         WALconsole.log("(Sent to ", tab_ids_include.length, " tabs: ", tab_ids_include, " )");
       }

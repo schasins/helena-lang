@@ -207,6 +207,19 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     return new WebAutomationLanguage.NodeVariable(null, null, recordTimeNodeSnapshot, imgData, NodeSources.RINGER); // null bc no preferred name
   }
 
+  function urlMatchSymmetryHelper(t1, t2){
+    // todo: there might be other ways that we could match the url.  don't need to match the whole thing
+    // don't need www, etc, any lingering bits on the end that get added...
+
+    if (t1.replace("http://", "https://") === t2){
+      return true;
+    }
+    return false;
+  }
+  function urlMatch(text, currentUrl){
+    return urlMatchSymmetryHelper(text, currentUrl) || urlMatchSymmetryHelper(currentUrl, text);
+  }
+
   function outputPagesRepresentation(statement){
     var prefix = "";
     if (statement.outputPageVars.length > 0){
@@ -664,11 +677,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // can't parameterize for a cell that has null text
           continue;
         }
-        if (text === this.url){
+        if (urlMatch(text, this.url)){
           // ok, we want to parameterize
           this.relation = relation;
           var name = relation.columns[i].name;
-          this.currentUrl = new WebAutomationLanguage.NodeVariable(name, firstRowNodeRepresentations[i], null, null, NodeSources.RELATIONEXTRACTOR);
+          this.currentUrl = getNodeVariableByName(name); // new WebAutomationLanguage.NodeVariable(name, firstRowNodeRepresentations[i], null, null, NodeSources.RELATIONEXTRACTOR);
           return relation.columns[i];
         }
       }
@@ -1768,7 +1781,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                 setWAL(this, new pub.NodeVariableUse());
                 var name = varNamesDropDown[0][0];
                 getWAL(this).nodeVar = getNodeVariableByName(name); // since this is what it'll show by default, better act as though that's true
-                
+                if (!getWAL(this).nodeVar){
+                  WALconsole.warn("This issue requires support.  We should never have a nodevariableuse that has no nodevar.");
+                }
+
                 getWAL(this).attributeOption = AttributeOptions.TEXT;
                 
               }
@@ -4066,7 +4082,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
 
     this.parameterizeForRelation = function _parameterizeForRelation(relation){
-      return _.flatten(_.map(this.bodyStatements, function(statement){return statement.parameterizeForRelation(relation);}));
+      return _.flatten(_.map(this.bodyStatements, function(statement){
+        return statement.parameterizeForRelation(relation);}));
     };
     this.unParameterizeForRelation = function _unParameterizeForRelation(relation){
       _.each(this.bodyStatements, function(statement){statement.unParameterizeForRelation(relation);});
@@ -4097,7 +4114,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (statement.typedStringLower && statement.typedStringLower.indexOf(lowerString) > -1){ // for typestatement
         return true;
       }
-      if (statement.url && statement.url.toLowerCase() === lowerString) { // for loadstatement
+      if (statement.url && urlMatch(statement.url.toLowerCase(), lowerString)) { // for loadstatement
         return true;
       }
     }
@@ -4146,7 +4163,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (!this.nodeVars || this.nodeVars.length < 1){
         this.nodeVars = [];
         for (var i = 0; i < this.columns.length; i++){
-          this.nodeVars.push(new WebAutomationLanguage.NodeVariable(this.columns[i].name, firstRowNodeReps[i], null, null, NodeSources.RELATIONEXTRACTOR));
+          this.nodeVars.push(new WebAutomationLanguage.NodeVariable(this.columns[i].name, firstRowNodeReps[i], null, null, NodeSources.TEXTRELATION));
         }
       }
       return this.nodeVars;
@@ -4172,6 +4189,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
     if (doInitialization){
       this.processColumns();
+      this.nodeVariables(); // call this so that we make all of the node variables we'll need
     }
 
     this.getColumnObjectFromXpath = function _getColumnObjectFromXpath(xpath){
@@ -4753,10 +4771,17 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         gotAck = true;
         continuation();
         });
+
+      var currentTabId = pageVar.currentTabId();
       var sendTheMsg = function(){
-        utilities.sendMessage("mainpanel", "content", "clearRelationInfo", relation.messageRelationRepresentation(), null, null, [pageVar.currentTabId()]);
+        utilities.sendMessage("mainpanel", "content", "clearRelationInfo", relation.messageRelationRepresentation(), null, null, [currentTabId]);
       };
-      MiscUtilities.repeatUntil(sendTheMsg, function(){return gotAck;},function(){}, 1000, false);
+      if (currentTabId){
+        MiscUtilities.repeatUntil(sendTheMsg, function(){return gotAck;},function(){}, 1000, false);
+      }
+      else{
+        continuation();
+      }
     }
 
 
@@ -4894,7 +4919,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   var NodeSources = {
     RELATIONEXTRACTOR: 1,
     RINGER: 2,
-    PARAMETER: 3
+    PARAMETER: 3,
+    TEXTRELATION: 4
   };
 
   var nodeVariablesCounter = 0;
@@ -4988,7 +5014,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     if (this.recordedNodeSnapshot){ // go through here if they provided either a snapshot or a mainpanel rep
       // actually go through and compare to all prior nodes
       for (var i = 0; i < allNodeVariablesSeenSoFar.length; i++){
-        if (this.sameNode(allNodeVariablesSeenSoFar[i])){
+        if (source !== NodeSources.TEXTRELATION && this.sameNode(allNodeVariablesSeenSoFar[i])){
           // ok, we already have a node variable for representing this.  just return that
           var theRightNode = allNodeVariablesSeenSoFar[i];
           // first update all the attributes based on how we now want to use the node
