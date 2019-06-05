@@ -253,6 +253,20 @@ var ReplayScript = (function _ReplayScript() {
     return trace;
   }
 
+  function newTopLevelUrlLoadedEvent(ev, lastURL){
+    if (ev.type === "completed" && ev.data.type === "main_frame"
+        ||
+        ev.type === "webnavigation" && ev.data.type === "onCompleted" && ev.data.parentFrameId === -1
+      ){ // any time we complete making a new page in the top level, we want to intro a new pagevar
+      var url = EventM.getLoadURL(ev);
+      if (url === lastURL){
+        // ok, sometimes the same URL appears to load twice in a single logical load.  if we see the same url twice in a row, just ignore the second
+        return false;
+      }
+      return true;
+    }
+  }
+
   function associateNecessaryLoadsWithIDsAndParameterizePages(trace){
     var idCounter = 1; // blockly says not to count from 0
 
@@ -266,7 +280,8 @@ var ReplayScript = (function _ReplayScript() {
     var lastURL = null;
     for (var i = 0; i < trace.length; i++){
       var ev = trace[i];
-      if (ev.type === "completed" && ev.data.type === "main_frame"){ // any time we complete making a new page in the top level, we want to intro a new pagevar
+      var newPageVar = newTopLevelUrlLoadedEvent(ev, lastURL);
+      if (newPageVar){ // any time we complete making a new page in the top level, we want to intro a new pagevar
         var url = EventM.getLoadURL(ev);
         if (url === lastURL){
           // ok, sometimes the same URL appears to load twice in a single logical load.  if we see the same url twice in a row, just ignore the second
