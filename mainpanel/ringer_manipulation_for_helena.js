@@ -213,7 +213,7 @@ var ReplayScript = (function _ReplayScript() {
     var urlsToCompletedEvents = {};
     for (var i = 0; i < trace.length; i++){
       var ev = trace[i];
-      if (ev.type === "completed" && ev.data.type === "main_frame"){
+      if (TraceManipulationUtilities.completedEventType(ev)){
         var url = canonicalizeUrl(EventM.getLoadURL(ev));
         if (url in urlsToCompletedEvents){
           urlsToCompletedEvents[url].push([i,ev]);
@@ -254,10 +254,7 @@ var ReplayScript = (function _ReplayScript() {
   }
 
   function newTopLevelUrlLoadedEvent(ev, lastURL){
-    if (ev.type === "completed" && ev.data.type === "main_frame"
-        ||
-        ev.type === "webnavigation" && ev.data.type === "onCompleted" && ev.data.parentFrameId === -1
-      ){ // any time we complete making a new page in the top level, we want to intro a new pagevar
+    if (TraceManipulationUtilities.completedEventType(ev)){ // any time we complete making a new page in the top level, we want to intro a new pagevar
       var url = EventM.getLoadURL(ev);
       if (url === lastURL){
         // ok, sometimes the same URL appears to load twice in a single logical load.  if we see the same url twice in a row, just ignore the second
@@ -347,7 +344,7 @@ var ReplayScript = (function _ReplayScript() {
         lastDOMEvent = ev;
         EventM.setDOMOutputLoadEvents(ev, []);
       }
-      else if (lastDOMEvent !== null && ev.type === "completed" && EventM.getVisible(ev) && !EventM.getManual(ev)) {
+      else if (lastDOMEvent !== null && TraceManipulationUtilities.completedEventType(ev) && EventM.getVisible(ev) && !EventM.getManual(ev)) {
         // events should be invisible if they're not top-level or if they're caused by prior dom events instead of a url-bar load
         // if they're visible right now but not manual, that means they're caused by a dom event, so let's add the causal link and remove their visibility
         EventM.setLoadCausedBy(ev, lastDOMEvent);

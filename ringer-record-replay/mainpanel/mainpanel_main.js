@@ -915,17 +915,12 @@ var Replay = (function ReplayClosure() {
         var currEventTabID = v.frame.tab;
         var currEventIndex = this.index;
 
-        var recordTimeCompletedEvents = _.filter(recordTimeEvents, function(ev){return ev.type === "completed";});
-        var replayTimeCompletedEvents = _.filter(replayTimeEventsSoFar, function(ev){return ev.type === "completed";});
-        //console.log("recordTimeCompletedEvents", recordTimeCompletedEvents);
-        //console.log("replayTimeCompletedEvents", replayTimeCompletedEvents);
-
         // todo: sometimes it seems like doing this loading time thing gives us the wrong answer.  when that happens, may want to revisit it after a while, clear the tabMapping mappings that were made with this, if we keep looking for a port and failing...
 
         for (var i = currEventIndex-1; i >= 0; i--){
           var e = recordTimeEvents[i];
           var completedCounter = 0;
-          if (e.type === "completed" && e.data.type === "main_frame"){
+          if (TraceManipulationUtilities.completedEventType(e)){
             completedCounter++;
             if (e.data.url === currEventURL && e.data.tabId === currEventTabID){
               /* there's a record-time load event with the same url and tab id as 
@@ -934,7 +929,7 @@ var Replay = (function ReplayClosure() {
               var completedCounterReplay = 0;
               for (var j = replayTimeEventsSoFar.length - 1; j >= 0; j--){
                 var e2 = replayTimeEventsSoFar[j];
-                if (e2.type === "completed" && e2.data.type === "main_frame"){
+                if (TraceManipulationUtilities.completedEventType(e2)){
                   completedCounterReplay++;
                   if (completedCounter === completedCounterReplay){
                     //this is the replay-time completed event that lines up with e
@@ -1151,7 +1146,7 @@ var Replay = (function ReplayClosure() {
       replayFunction.call(this, e);
     },
     openTabSequenceFromTrace: function _openTabSequenceFromTrace(trace){
-      var completed_events = _.filter(trace, function(event){return event.type === "completed" && event.data.type === "main_frame";});
+      var completed_events = _.filter(trace, function(event){return TraceManipulationUtilities.completedEventType(event);});
       //console.log(completed_events);
       var eventIds = _.map(completed_events, function(event){return event.meta.id});
       return eventIds;
@@ -1174,8 +1169,16 @@ var Replay = (function ReplayClosure() {
       // commented out the above because for now we just do it via forced completed events (with forceReplay); may want to change this in future
     },
     simulateWebNavigationEvent: function _simulateWebNavigationEvent(e){
-      this.index ++; // advance to next event
-      this.setNextTimeout(0);
+      if (TraceManipulationUtilities.completedEventType(e)){
+        // unfortunately chrome has changed so that sometimes these webnavigation oncompleted events
+        // are the only way we know a page load completion has happened
+        // (no completed event gets raised), so we need to treat this is a a completed event
+        this.simulateCompletedEvent.call(this, e);
+      }
+      else{
+        this.index ++; // advance to next event
+        this.setNextTimeout(0);
+      }
     },
     currentCompletedObservationFailures: 0,
     simulateCompletedEvent: function _simulateCompletedEvent(e){
@@ -1201,7 +1204,7 @@ var Replay = (function ReplayClosure() {
         // this.index ++;
         // this.setNextTimeout(0);
 
-        if (e.data.type !== "main_frame"){
+        if (!TraceManipulationUtilities.completedEventType(e)){
           // don't need to do anything; not a top-level load, so assume we can ignore it
           this.index ++;
           this.currentCompletedObservationFailures = 0;
@@ -1240,13 +1243,12 @@ var Replay = (function ReplayClosure() {
             break;
           }
 
-
           var ev = replayTimeEvents[i];
           if (domIndex === null && ev.type === "dom"){
             // we've found the last dom event
             domIndex = i;
           }
-          else if (domIndex === null && ev.type === "completed" && ev.data.type === "main_frame"){
+          else if (domIndex === null && TraceManipulationUtilities.completedEventType(ev)){
             // we've found a completed top-level after the last dom event
             completedAfterLastDom = true;
             // don't add this index to matchedCompletedEvents yet, because we might find something
@@ -1256,7 +1258,7 @@ var Replay = (function ReplayClosure() {
             //this.matchedCompletedEvents.push(i);
             bestBetMatchedIndex = i;
           }
-          else if (domIndex !== null && ev.type === "completed" && ev.data.type === "main_frame"){
+          else if (domIndex !== null && TraceManipulationUtilities.completedEventType(ev)){
             // since we're still going, but we've found the domIndex already, this is a completed event before the last dom event
             completedWithinWindowBeforeDom = true;
             this.matchedCompletedEvents.push(i);

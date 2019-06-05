@@ -89,7 +89,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   // helper function.  returns the StatementType (see above) that we should associate with the argument event, or null if the event is invisible
   pub.statementType = function _statementType(ev){
-    if (ev.type === "completed" || ev.type === "manualload"){
+    if (ev.type === "completed" || ev.type === "manualload" || ev.type === "webnavigation"){
       if (!EventM.getVisible(ev)){
         return null; // invisible, so we don't care where this goes
       }
@@ -5773,9 +5773,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     function alignRecordTimeAndReplayTimeCompletedEvents(recordTimeTrace, replayTimeTrace){
       // we should see corresponding 'completed' events in the traces
-      var recCompleted = _.filter(recordTimeTrace, function(ev){return ev.type === "completed" && ev.data.type === "main_frame" && ev.data.url.indexOf(helenaServerUrl) < 0;}); // todo: should we remove http? // now only doing this for top-level completed events.  will see if this is sufficient
+      var recCompleted = _.filter(recordTimeTrace, function(ev){return TraceManipulationUtilities.completedEventType(ev) && ev.data.url.indexOf(helenaServerUrl) < 0;}); // todo: should we remove http? // now only doing this for top-level completed events.  will see if this is sufficient
       // have to check for kaofang presence, because otherwise user can screw it up by downloading data in the middle or something like that
-      var repCompleted = _.filter(replayTimeTrace, function(ev){return ev.type === "completed" && ev.data.type === "main_frame" && ev.data.url.indexOf(helenaServerUrl) < 0;});
+      var repCompleted = _.filter(replayTimeTrace, function(ev){return TraceManipulationUtilities.completedEventType(ev) && ev.data.url.indexOf(helenaServerUrl) < 0;});
       WALconsole.log(recCompleted, repCompleted);
       // should have same number of top-level load events.  if not, might be trouble
       if (recCompleted.length !== repCompleted.length){

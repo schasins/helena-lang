@@ -301,7 +301,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
   }
 
   pub.interpretRelationSelector = function _interpretRelationSelector(selector){
-    if (selector.selector_version === 1 || selector.selector_version === undefined){ // should really get rid of undefined, probably...
+    if (selector.selector_version === 1 || selector.selector_version === undefined || selector.selector_version === null){ // should really get rid of undefined, probably...
       var rowNodeLists = pub.interpretRelationSelectorRowNodes(selector);
       WALconsole.log("rowNodeLists", rowNodeLists);
       // ok, now that we have some row nodes, time to extract the individual cells
@@ -324,7 +324,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       // WALconsole.log("returning cells 2", cells);
     }
     else{
-      console.log(selector);
+      console.log("about to throw new unknown selector type version error", selector);
       throw new Error("Unknown selectorTypeVersion");
     }
   };

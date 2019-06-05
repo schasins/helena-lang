@@ -771,10 +771,16 @@ var RelationItemsOutputs = {
 
 var TraceManipulationUtilities = (function _TraceManipulationUtilities() { var pub = {};
 
+  pub.completedEventType = function _completedEventType(ev){
+            return ((ev.type === "completed" && ev.data.type === "main_frame")
+              ||
+              (ev.type === "webnavigation" && ev.data.type === "onCompleted" && ev.data.parentFrameId === -1));
+          };
+
   pub.lastTopLevelCompletedEvent = function _lastTopLevelCompletedEvent(trace){
     for (var i = trace.length - 1; i >= 0; i--){
       var ev = trace[i];
-      if (ev.type === "completed" && ev.data.type === "main_frame"){
+      if (pub.completedEventType(ev)){
         return ev;
       }
     }
@@ -797,7 +803,7 @@ var TraceManipulationUtilities = (function _TraceManipulationUtilities() { var p
     var tabs = [];
     for (var i = 0; i < trace.length; i++){
       var ev = trace[i];
-      if (ev.type === "completed" && ev.data.type === "main_frame"){
+      if (pub.completedEventType(ev)){
         if (tabs.indexOf(ev.data.tabId) === -1){
           tabs.push(ev.data.tabId);
         }

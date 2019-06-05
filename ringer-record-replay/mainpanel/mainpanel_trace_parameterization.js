@@ -332,7 +332,7 @@ function ParameterizedTrace(trace){
 
 		// so that 'completed' events open correct tab
 		for (var i = 0; i< trace.length; i++){
-			if (trace[i].type !== "completed"){ continue;}
+			if (trace[i].type !== "completed" && trace[i].type !== "webnavigation"){ continue;}
 			if (trace[i].data.url.name){
 				//this one has already been converted to an object, parameterized
 				continue;
@@ -357,7 +357,7 @@ function ParameterizedTrace(trace){
 		}
 		// completed events
 		for (var i = 0; i< trace.length; i++){
-			if (trace[i].type !== "completed"){ continue;}
+			if (trace[i].type !== "completed" && trace[i].type !== "webnavigation"){ continue;}
 			var url = trace[i].data.url;
 			if (url.name === parameter_name){
 				WALconsole.log("use url", url);
@@ -386,7 +386,7 @@ function ParameterizedTrace(trace){
 		WALconsole.log("successfully cloned trace");
 		var prop_corrections = {};
 		for (var i = 0; i< cloned_trace.length; i++){
-			if (cloned_trace[i].type === "completed"){
+			if (cloned_trace[i].type === "completed" || cloned_trace[i].type === "webnavigation"){
 				// correct url if it's a parameterized url
 				var url = cloned_trace[i].data.url;
 				if (url.name){
