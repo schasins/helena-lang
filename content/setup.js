@@ -50,11 +50,15 @@ utilities.listenForFrameSpecificMessage("mainpanel", "content", "likelyRelation"
 
 utilities.listenForFrameSpecificMessage("mainpanel", "content", "getFreshRelationItems", 
 	function(msg, sendResponse){
+		var newSendResponse = function(ans){
+			WALconsole.namedLog("getRelationItems", "actually running sendResponse with arg", ans);
+			sendResponse(ans); 
+		}
 		MiscUtilities.registerCurrentResponseRequested(msg, 
 			function(m){
 				RelationFinder.getFreshRelationItemsHelper(m, function(freshRelationItems){
-					console.log('freshRelationItems, about to send', freshRelationItems);
-					sendResponse(freshRelationItems);
+					WALconsole.namedLog("getRelationItems", 'freshRelationItems, about to send', freshRelationItems.type, freshRelationItems);
+					newSendResponse(freshRelationItems);
 				});
 			});
 	}

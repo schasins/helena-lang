@@ -3,7 +3,7 @@ var WALconsole = (function _WALconsole() { var pub = {};
 
   pub.debugging = false;
   pub.showWarnings = true;
-  pub.namedDebugging = []; // ["prinfo"]; //["duplicates"]; //["rbb"];//["getRelationItems", "nextInteraction"];
+  pub.namedDebugging = ["getRelationItems"]; // ["prinfo"]; //["duplicates"]; //["rbb"];//["getRelationItems", "nextInteraction"];
   pub.styleMinimal = true;
 
   function callerName(origArgs){
@@ -22,7 +22,7 @@ var WALconsole = (function _WALconsole() { var pub = {};
       var caller = callerName(origArgs);
       prefix = ["["+caller+"]"];
     }
-    var newArgs = prefix.concat(Array.prototype.slice.call(args));
+    var newArgs = [Date.now()].concat(prefix.concat(Array.prototype.slice.call(args)));
     Function.apply.call(console.log, console, newArgs);
   };
 
@@ -136,8 +136,12 @@ var utilities = (function _utilities() { var pub = {};
   // note that this frameSpecificMessage assume we'll have a response handler, so fn should provide a return value, rather than sending its own messages
   pub.listenForFrameSpecificMessage = function _listenForFrameSpecificMessage(from, to, subject, fn){
     WALconsole.log("Listening for frame-specific messages: "+ from+" : "+to+" : "+subject);
-    chrome.runtime.onMessage.addListener(function _frameSpecificListener(msg, sender, sendResponse) {
+    chrome.runtime.onMessage.addListener(function _frameSpecificListener(msg, sender) {
       if (msg.subject === subject && msg.send_type === sendTypes.FRAMESPECIFIC){
+        var key = msg.frame_specific_subject;
+        var sendResponse = function _sendResponse(content){
+          pub.sendMessage(to, from, key, content);
+        };
         WALconsole.log("Receiving frame-specific message: ", msg);
         fn(msg.content, sendResponse);
         return true; // must return true so that the sendResponse channel remains open (indicates we'll use sendResponse asynchronously.  may not always, but have the option)
@@ -224,11 +228,23 @@ var utilities = (function _utilities() { var pub = {};
     }
   };
 
+  // this is a weird one where we make a channel based on the frame id and the subject, and anything that comes from that
+  // frame with that subject will go to that channel
   pub.sendFrameSpecificMessage = function _sendFrameSpecificMessage(from, to, subject, content, chromeTabId, chromeFrameId, responseHandler){ // note: not the same as our interna frame ids
     var msg = {from: from, subject: subject, content: content};
     msg.send_type = sendTypes.FRAMESPECIFIC;
     WALconsole.log("Sending frame-specific message: ", msg);
-    chrome.tabs.sendMessage(chromeTabId, msg, {frameId: chromeFrameId}, responseHandler);
+    var newResponseHandler = function(data){
+      console.log("in response handler", data);
+      responseHandler(data);
+    }
+    var key = subject+"_"+chromeFrameId;
+    // let's register what to do when we actually get a response
+    // and remember, multiple frames might be sending this, so we need to make sure we'll always get the right handler
+    // (a different one for each frame), so we'll use the new frame-specific key as the 'subject'
+    pub.listenForMessage(to, from, key, newResponseHandler, key); 
+    msg.frame_specific_subject = key;
+    chrome.tabs.sendMessage(chromeTabId, msg, {frameId: chromeFrameId}); // only send to the correct tab!
   }
 
 return pub; }());
@@ -634,6 +650,13 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
   // note that if we have *anything* changing about the message, this is currently a bad way to handle
   // so if we have something like a counter in the message telling how many times it's been sent, this approach won't help
 
+  function sub(a, limit){
+    if (a.length <= limit){
+      return a;
+    }
+    return a.slice(0, limit);
+  }
+
   var currentResponseRequested = {};
   var currentResponseHandler = {};
 
@@ -643,18 +666,23 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
       currentResponseRequested[key] = false;
       // now call the actual function
       currentResponseHandler[key](message);
-      //console.warn("we successfully did handleRegisterCurrentResponseRequested for key", key);
+      WALconsole.namedLog("getRelationItems","we successfully did handleRegisterCurrentResponseRequested for key", sub(key, 40));
     }
     else{
-      //console.warn("we tried to do handleRegisterCurrentResponseRequested for key", key, "but there was nothing registered.");
+      WALconsole.namedLog("getRelationItems","we tried to do handleRegisterCurrentResponseRequested for key", sub(key, 40), "but there was nothing registered.  throwing it out.");
     }
     // else nothing to do.  yay!
   };
 
   pub.registerCurrentResponseRequested = function _registerCurrentResponseRequested(message, functionToHandleMessage){
     var key = StableStringify.stringify(message);
+    WALconsole.namedLog("getRelationItems", "registering new handler for key", sub(key, 40));
+    var newFunctionToHandleMessage = function(msg){
+      WALconsole.namedLog("getRelationItems", "running the current handler for key:", sub(key, 40));
+      functionToHandleMessage(msg);
+    }
     currentResponseRequested[key] = true;
-    currentResponseHandler[key] = functionToHandleMessage;
+    currentResponseHandler[key] = newFunctionToHandleMessage;
     setTimeout(
       function(){handleRegisterCurrentResponseRequested(message);},
       0);
@@ -664,6 +692,12 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
     // want to attach the current handler, not run an old handler.  For instance, we might send the same message to 
     // request a new fresh set of relation items, but have a different mainpanel response handler, and we want to 
     // send it to the current handler, not the old one.
+
+    // basically what's happening is this function (registerCurrentResponseRequested) updates the handler
+    // but then we push any requests to actually run that handler into the queue, and then we'll only run
+    // one of those requests (a handleRegisterCurrentResponseRequested call), and we'll ignore later ones
+    // unless we get another of the same message (same input to registerCurrentResponseRquested), 
+    // which prompts us to do the process over again
   };
 
   // for now, if there's no favicon url and if the title of the page is actually just a segment of the url, go ahead and assume it didn't manage to load

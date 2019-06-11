@@ -1849,7 +1849,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       // it's important that we don't wipe out the currentRelationdata[strMsg] unless we actually have new data
       // if we're doing a more interaction, might have 0 rows in an intermediate state, but then still need
       // to trim the top off the list based on having already collected the data
-      if (relationData.length > 0){
+      if (newItems.length > 0){
         currentRelationData[strMsg] = relationData;
         currentRelationSeenNodes[strMsg] = _.without(currentRelationSeenNodes[strMsg].concat(_.flatten(relationNodesIds)), null);
         WALconsole.log("actual new items", newItems);

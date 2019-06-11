@@ -4598,6 +4598,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         else if (data.type === RelationItemsOutputs.NONEWITEMSYET || (data.type === RelationItemsOutputs.NEWITEMS && data.relation.length === 0)){
           // todo: currently if we get data but it's only 0 rows, it goes here.  is that just an unnecessary delay?  should we just believe that that's the final answer?
           missesSoFar[frameId] += 1;
+          WALconsole.namedLog("getRelationItems", "adding a miss to our count", frameId, missesSoFar[frameId]);
         }
         else if (data.type === RelationItemsOutputs.NEWITEMS){
           // yay, we have real data!
@@ -4658,6 +4659,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           WALconsole.namedLog("getRelationItems", "all frames say we're done", getRowsCounter);
           doneArray[getRowsCounter] = true;
           relation.noMoreRows(runObject, runObject, pageVar, callback, false); // false because shouldn't try pressing the next button
+        }
+        else{
+          WALconsole.namedLog("getRelationItems", "we think we might still get rows based on some frames not responding yet");
         }
 
       };
@@ -4721,7 +4725,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                                                 tabId, frame, 
                                                 // question: is it ok to insist that every single frame returns a non-null one?  maybe have a timeout?  maybe accept once we have at least one good response from one of the frames?
                                                 function _getRelationItemsHandler(response) { 
-                                                  WALconsole.log("Receiving response: ", frame, response); 
+                                                  WALconsole.namedLog("getRelationItems", "Receiving response: ", frame, response); 
+                                                  console.log("getFreshRelationItems answer", response);
                                                   if (response !== null && response !== undefined) {handleNewRelationItemsFromFrame(response, frame);}}); // when get response, call handleNewRelationItemsFromFrame (defined above) to pick from the frames' answers
           };
           // here's the function for sending the message until we decide we're done with the current attempt to get new rows, or until actually get the answer
@@ -4732,7 +4737,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         if (!desiredTimeout){ desiredTimeout = DefaultHelenaValues.relationFindingTimeoutThreshold;} // todo: this timeout should be configurable by the user, relation seconds timeout
         setTimeout(
           function _reachedTimeoutHandler(){
-            WALconsole.namedLog("getRelationItems", "Reached timeout, giving up on currentGetRows", currentGetRowsCounter);
+            WALconsole.namedLog("getRelationItems", "REACHED TIMEOUT, giving up on currentGetRows", currentGetRowsCounter);
             if (!doneArray[currentGetRowsCounter]){
               doneArray[currentGetRowsCounter] = false;
               processEndOfCurrentGetRows(pageVar, callback);
