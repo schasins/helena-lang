@@ -4726,7 +4726,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                                                 // question: is it ok to insist that every single frame returns a non-null one?  maybe have a timeout?  maybe accept once we have at least one good response from one of the frames?
                                                 function _getRelationItemsHandler(response) { 
                                                   WALconsole.namedLog("getRelationItems", "Receiving response: ", frame, response); 
-                                                  console.log("getFreshRelationItems answer", response);
+                                                  WALconsole.namedLog("getRelationItems", "getFreshRelationItems answer", response);
                                                   if (response !== null && response !== undefined) {handleNewRelationItemsFromFrame(response, frame);}}); // when get response, call handleNewRelationItemsFromFrame (defined above) to pick from the frames' answers
           };
           // here's the function for sending the message until we decide we're done with the current attempt to get new rows, or until actually get the answer

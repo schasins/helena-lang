@@ -255,11 +255,6 @@ var ReplayScript = (function _ReplayScript() {
 
   function newTopLevelUrlLoadedEvent(ev, lastURL){
     if (TraceManipulationUtilities.completedEventType(ev)){ // any time we complete making a new page in the top level, we want to intro a new pagevar
-      var url = EventM.getLoadURL(ev);
-      if (url === lastURL){
-        // ok, sometimes the same URL appears to load twice in a single logical load.  if we see the same url twice in a row, just ignore the second
-        return false;
-      }
       return true;
     }
   }
@@ -282,6 +277,7 @@ var ReplayScript = (function _ReplayScript() {
         var url = EventM.getLoadURL(ev);
         if (url === lastURL){
           // ok, sometimes the same URL appears to load twice in a single logical load.  if we see the same url twice in a row, just ignore the second
+          trace[i].mayBeSkippable = true;
           continue;
         }
         var p = new WebAutomationLanguage.PageVariable("page"+idCounter, url);

@@ -3,7 +3,7 @@ var WALconsole = (function _WALconsole() { var pub = {};
 
   pub.debugging = false;
   pub.showWarnings = true;
-  pub.namedDebugging = ["getRelationItems"]; // ["prinfo"]; //["duplicates"]; //["rbb"];//["getRelationItems", "nextInteraction"];
+  pub.namedDebugging = []; //["getRelationItems"]; // ["prinfo"]; //["duplicates"]; //["rbb"];//["getRelationItems", "nextInteraction"];
   pub.styleMinimal = true;
 
   function callerName(origArgs){
@@ -22,7 +22,7 @@ var WALconsole = (function _WALconsole() { var pub = {};
       var caller = callerName(origArgs);
       prefix = ["["+caller+"]"];
     }
-    var newArgs = [Date.now()].concat(prefix.concat(Array.prototype.slice.call(args)));
+    var newArgs = prefix.concat(Array.prototype.slice.call(args));
     Function.apply.call(console.log, console, newArgs);
   };
 
@@ -235,7 +235,7 @@ var utilities = (function _utilities() { var pub = {};
     msg.send_type = sendTypes.FRAMESPECIFIC;
     WALconsole.log("Sending frame-specific message: ", msg);
     var newResponseHandler = function(data){
-      console.log("in response handler", data);
+      //console.log("in response handler", data);
       responseHandler(data);
     }
     var key = subject+"_"+chromeFrameId;

@@ -1276,6 +1276,17 @@ var Replay = (function ReplayClosure() {
           this.setNextTimeout(0);
         }
         else{
+          // one thing that might have happened - some versions of chrome produce 'completed' events while others produce webnavigation onCompletion
+          // and some produce both.  but if we try to wait for both on a version that will only have one, we'll wait forever
+          // so here let's check if the url for the event we're waiting for is the same as the url for the last completion-related event we were waiting for
+          if (this.currentCompletedObservationFailures > 3 && e.mayBeSkippable){
+            // ok, we think maybe we don't need to see a corresponding completed event
+            // so let's not do anything
+            this.index ++;
+            this.currentCompletedObservationFailures = 0;
+            this.setNextTimeout(0);
+          }
+
           // let's give it a while longer
           // todo: as above in waitforobserved events, question of whether it's ok to keep waiting and waiting for the exact same number of top-level completed events.  should we give it 10 tries, then just continue?
           // todo: eventually we really do need to surface this to the top-level tool.  can't just keep looping here forever
