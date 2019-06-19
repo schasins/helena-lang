@@ -229,7 +229,7 @@ var ReplayScript = (function _ReplayScript() {
         // ok, we found that this was actually a manual load one, so we better mark an event as visible
         var url = canonicalizeUrl(ev.data.url);
         var completedEvs = urlsToCompletedEvents[url];
-        if (completedEvs.length < 1){
+        if (!completedEvs || completedEvs.length < 1){
           console.log("bad bad bad, we couldn't find a completed event for a manual load:", ev);
           continue;
         }

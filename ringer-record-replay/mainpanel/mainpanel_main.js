@@ -1806,7 +1806,7 @@ function addWebRequestEvent(details, type) {
   if (details.tabId > -1){
     chrome.tabs.get(details.tabId, function (tab) {
       if (!tab && type != "manualload"){
-        WALconsole.warn("No tab.windowId!  This is bad fro addWebRequestEvent.");
+        WALconsole.warn("No tab.windowId!  This is bad for addWebRequestEvent.");
         return;
       }
       v.data.windowId = tab.windowId;
