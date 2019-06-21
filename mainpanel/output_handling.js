@@ -116,7 +116,6 @@ var OutputHandler = (function _OutputHandler() {
     	}
     	this.currentDatasetSliceLength += 1;
     	this.fullDatasetLength += 1;
-      var numRowsToSendInOneSlice = 10;
     	if (this.currentDatasetSliceLength % numRowsToSendInOneSlice === 0){
         // note that the inclusion of this sendDatasetSlice call means that if we have a transaction with 10 output calls, we can actually save output without
         // committing.  this definitely undermines the current stated semantics of output in the presence of skip blocks.
