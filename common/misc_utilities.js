@@ -962,9 +962,6 @@ var DefaultHelenaValues = (function _DefaultHelenaValues() { var pub = {};
 
 return pub; }());
 
-// var helenaServerUrl = "http://kaofang.cs.berkeley.edu:8080";
-var helenaServerUrl = "http://helena-backend.us-west-2.elasticbeanstalk.com";
-
 var DownloadUtilities = (function _DownloadUtilities() { var pub = {};
 
   pub.download = function _download(filename, text) {
