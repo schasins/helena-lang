@@ -336,7 +336,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
 
   function findCommonAncestor(nodes){
     // this doesn't handle null nodes, so filter those out first
-    nodes = _.filter(nodes, function(node){return node !== null && node !== undefined;});
+    nodes = _.filter(nodes, function(node){return node !== null && node !== undefined && $(node).parents().length;});
     var xpath_lists = _.map(nodes, function(node){ return XPathList.xPathToXPathList(nodeToXPath(node)); });
     if (xpath_lists.length === 0){
       WALconsole.log("Why are you trying to get the common ancestor of 0 nodes?");
