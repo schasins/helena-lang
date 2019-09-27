@@ -138,7 +138,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
   // feature_dict is the primary part of our selector
   // exclude_first tells us whether to skip the first row, as we often do when we have headers
   // suffixes tell us how to find subcomponents of a row in the relation
-  pub.interpretRelationSelectorHelper = function _interpretRelationSelectorHelper(feature_dict, exclude_first){
+  pub.interpretRelationSelectorHelper = function _interpretRelationSelectorHelper(feature_dict, exclude_first, exclude_last){
     // WALconsole.log("interpretRelationSelectorHelper", feature_dict, exclude_first, subcomponents_function);
     var candidates = getAllCandidates();
     var listOfRowNodes = [];
@@ -159,15 +159,16 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
         listOfRowNodes.push(candidate);
       }
     }
-    if (exclude_first > 0 && listOfRowNodes.length > exclude_first){
-      return listOfRowNodes.slice(exclude_first,listOfRowNodes.length);
-    }
+
+    listOfRowNodes = listOfRowNodes.slice(exclude_first, listOfRowNodes.length);
+    listOfRowNodes = listOfRowNodes.slice(0, Math.max(0, listOfRowNodes.length - exclude_last));
+
     WALconsole.log("listOfRowNodes", listOfRowNodes);
     return listOfRowNodes;
   };
 
 
-  pub.interpretTableSelectorHelper = function _interpretTableSelectorHelper(featureDict, excludeFirst){
+  pub.interpretTableSelectorHelper = function _interpretTableSelectorHelper(featureDict, excludeFirst, excludeLast){
     // we don't use this for nested tables!  this is just for very simple tables, otherwise we'd graduate to the standard approach
     var nodes = xPathToNodes(featureDict.xpath);
     var table = null;
@@ -197,6 +198,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
 
     var rows = table.find("tr");
     rows = rows.slice(excludeFirst, rows.length);
+    rows = rows.slice(0, -excludeLast);
     return rows;
   };
 
@@ -223,10 +225,10 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
 
     if (selector.selector.table === true){
       // let's go ahead and sidetrack off to the table extraction routine
-      return [pub.interpretTableSelectorHelper(selector.selector, selector.exclude_first)];
+      return [pub.interpretTableSelectorHelper(selector.selector, selector.exclude_first, selector.exclude_last)];
     }
     // else the normal case with the normal extractor
-    return [pub.interpretRelationSelectorHelper(selector.selector, selector.exclude_first)];
+    return [pub.interpretRelationSelectorHelper(selector.selector, selector.exclude_first, selector.exclude_last)]; 
   };
 
   pub.interpretRelationSelectorCellNodes = function _interpretRelationSelectorCellNodes(selector, rowNodeLists){
@@ -316,6 +318,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       var optionNodes = pub.interpretPulldownSelector(selector.selector); // todo: ugh, gross that we descend here butnot in the above
       console.log("selector.exclude_first", selector.exclude_first);
       optionNodes = optionNodes.splice(selector.exclude_first, optionNodes.length);
+      optionNodes = optionNodes.splice(0, Math.max(0, optionNodes.length - selector.exclude_last));
       var cells = _.map(optionNodes, function(o){return [o];});
       return cells;
       // 
@@ -411,13 +414,22 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     return columns;
   }
 
+  // sets exclude last value to 0
   function Selector(dict, exclude_first, columns, positive_nodes, negative_nodes){
+    return SelectorAllParameters(dict, exclude_first, 0, columns, positive_nodes, negative_nodes);
+    // this form of Selector object should only be used for version 1 selectors, or else change this
+  }
+
+  // new function, but keep old one around just in case
+  function SelectorAllParameters(dict, exclude_first, exclude_last, columns, positive_nodes, negative_nodes) {
     return {selector: dict, 
-              exclude_first: exclude_first, 
-              columns: columns, 
-              positive_nodes: positive_nodes, 
-              negative_nodes: negative_nodes,
-              selector_version: 1}; // this form of Selector object should only be used for version 1 selectors, or else change this
+      exclude_first: exclude_first, 
+      exclude_last: exclude_last,
+      columns: columns, 
+      positive_nodes: positive_nodes, 
+      negative_nodes: negative_nodes,
+      selector_version: 1
+    }; // this form of Selector object should only be used for version 1 selectors, or else change this
   }
 
   function synthesizeSelector(positive_nodes, negative_nodes, columns, features){
@@ -431,7 +443,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     //if (feature_dict.hasOwnProperty("tag") && feature_dict["tag"].length > 1 && features !== all_features){
     //  return synthesizeSelector(all_features);
     //}
-    var rows = pub.interpretRelationSelector(Selector(feature_dict, false, columns));
+    var rows = pub.interpretRelationSelector(Selector(feature_dict, 0, columns));
     
     //now handle negative examples
     var exclude_first = 0;
@@ -653,7 +665,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       }
       var featureDict = tableFeatureDict(tableParent);
       var cellNodes = _.union($(tr).find("td, th").toArray(), rowNodes); // we'll make columns for each argument node of course, but let's also do all the td elements
-      var selector = Selector(featureDict, index, columnsFromNodeAndSubnodes(tr, cellNodes), rowNodes, []);
+      var selector = Selector(featureDict, index, columnsFromNodeAndSubnodes(tr, cellNodes), rowNodes, []); // mia here this is also fine
       var relation = pub.interpretRelationSelector(selector);
       selector.relation = relation;
       var score = relation.length * relation[0].length;
@@ -860,6 +872,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       var optionsRelation = extractOptionsRelationFromSelectorNode(node);
       var firstRowXpath = optionsRelation[0][0].xpath;
       var excludeFirst = 0; // convenient to always use 0 so we can correctly index into the relation
+      var excludeLast = 0;
       optionsRelation = optionsRelation.splice(excludeFirst, optionsRelation.length);
 
       newMsg.relation_id = null;
@@ -868,6 +881,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       newMsg.next_type = NextTypes.NONE;
       newMsg.next_button_selector = null;
       newMsg.exclude_first = excludeFirst; // todo: can we do better?  extra recording info?
+      newMsg.exclude_last = excludeLast;
       newMsg.num_rows_in_demonstration = optionsRelation.length;
       newMsg.selector = {type: "pulldown", index: index};
       newMsg.selector_version = 2; // 2 is for pulldown selectors?
@@ -971,7 +985,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
         if (rel === null){
           continue;
         }
-        var selector_obj = Selector(rel.selector, rel.exclude_first, rel.columns);
+        var selector_obj = SelectorAllParameters(rel.selector, rel.exclude_first, rel.exclude_last, rel.columns); // mia here problem, need to give rel.exclude_last
         selector_obj.selector_version = rel.selector_version;
         var relationNodes = pub.interpretRelationSelector(selector_obj);
         if (relationNodes.length === 0){
@@ -1032,6 +1046,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     }
     WALconsole.log("currBestSelector", currBestSelector);
     newMsg.exclude_first = currBestSelector.exclude_first;
+    newMsg.exclude_last = currBestSelector.exclude_last;
     newMsg.num_rows_in_demonstration = currBestSelector.relation.length;
     newMsg.selector = currBestSelector.selector;
     newMsg.selector_version = 1; // right now they're all 1.  someday may want to be able to add new versions of selectors that are processed differently
@@ -1123,7 +1138,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       if (currentSelectorToEdit.relation.length < 1){
         // ugh, but maybe the page just hasn't really finished loading, so try again in a sec
         //setTimeout(editingSetup, 1000);
-	// but also need to send the editing colors just in case
+	      // but also need to send the editing colors just in case
 	       pub.sendSelector(currentSelectorToEdit);
          currentSelectorEmptyOnThisPage = true;
         return;
@@ -1161,6 +1176,23 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
 
   pub.setEditRelationIndex = function _setEditRelationIndex(i){
     currentSelectorToEdit.editingClickColumnIndex = i;
+  }
+
+  pub.setExcludeFirst = function _setExcludeFirst(numRows){
+    currentSelectorToEdit.exclude_first = numRows;
+    updateRelationWithSelector();
+  }
+
+  pub.setExcludeLast = function _setExcludeLast(numRows){
+    currentSelectorToEdit.exclude_last = numRows;
+    updateRelationWithSelector();
+  }
+
+  function updateRelationWithSelector() {
+    currentSelectorToEdit.relation = pub.interpretRelationSelector(currentSelectorToEdit);;
+    pub.sendSelector(currentSelectorToEdit);
+    pub.clearCurrentSelectorHighlight();
+    pub.highlightCurrentSelector();
   }
 
   var currentHoverHighlight = null;
