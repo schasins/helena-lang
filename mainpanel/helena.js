@@ -4261,7 +4261,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   }
 
   var relationCounter = 0;
-  pub.Relation = function _Relation(relationId, name, selector, selectorVersion, excludeFirst, excludeLast, columns, demonstrationTimeRelation, numRowsInDemo, pageVarName, url, nextType, nextButtonSelector, frame){
+  pub.Relation = function _Relation(relationId, name, selector, selectorVersion, excludeFirst, columns, demonstrationTimeRelation, numRowsInDemo, pageVarName, url, nextType, nextButtonSelector, frame){
     Revival.addRevivalLabel(this);
     var doInitialization = selector;
     if (doInitialization){ // we will sometimes initialize with undefined, as when reviving a saved program
@@ -4269,7 +4269,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.selector = selector;
       this.selectorVersion = selectorVersion;
       this.excludeFirst = excludeFirst;
-      this.excludeLast = excludeLast;
       this.columns = columns;
       this.demonstrationTimeRelation = demonstrationTimeRelation;
       this.numRowsInDemo = numRowsInDemo;
@@ -4408,11 +4407,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       initialize();
     }
 
-    this.setNewAttributes = function _setNewAttributes(selector, selectorVersion, excludeFirst, excludeLast, columns, demonstrationTimeRelation, numRowsInDemo, nextType, nextButtonSelector){
+    this.setNewAttributes = function _setNewAttributes(selector, selectorVersion, excludeFirst, columns, demonstrationTimeRelation, numRowsInDemo, nextType, nextButtonSelector){
       this.selector = selector;
       this.selectorVersion = selectorVersion;
       this.excludeFirst = excludeFirst;
-      this.excludeLast = excludeLast;
       this.demonstrationTimeRelation = demonstrationTimeRelation;
       this.numRowsInDemo = numRowsInDemo;
       this.nextType = nextType;
@@ -4491,8 +4489,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         name: this.name, 
         selector: this.selector, 
         selector_version: this.selectorVersion, 
-        exclude_first: this.excludeFirst,
-	exclude_last: this.excludeLast,
+        exclude_first: this.excludeFirst, 
         columns: this.columns, 
         next_type: this.nextType, 
         next_button_selector: this.nextButtonSelector, 
@@ -7248,7 +7245,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       else{
         // if we have a normal selector, let's add that to our set of relations
         if (data.selector){
-          var rel = new WebAutomationLanguage.Relation(data.relation_id, data.name, data.selector, data.selector_version, data.exclude_first, data.exclude_last, data.columns, data.first_page_relation, data.num_rows_in_demonstration, data.page_var_name, data.url, data.next_type, data.next_button_selector, data.frame);
+          var rel = new WebAutomationLanguage.Relation(data.relation_id, data.name, data.selector, data.selector_version, data.exclude_first, data.columns, data.first_page_relation, data.num_rows_in_demonstration, data.page_var_name, data.url, data.next_type, data.next_button_selector, data.frame);
           this.relations.push(rel);
           this.relations = _.uniq(this.relations);
         }
@@ -7256,7 +7253,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         if (data.pulldown_relations){
           for (var i = 0; i < data.pulldown_relations.length; i++){
             var relMsg = data.pulldown_relations[i];
-            var rel = new WebAutomationLanguage.Relation(relMsg.relation_id, relMsg.name, relMsg.selector, relMsg.selector_version, relMsg.exclude_first, relMsg.exclude_last, relMsg.columns, relMsg.first_page_relation, relMsg.num_rows_in_demonstration, relMsg.page_var_name, relMsg.url, relMsg.next_type, relMsg.next_button_selector, relMsg.frame);
+            var rel = new WebAutomationLanguage.Relation(relMsg.relation_id, relMsg.name, relMsg.selector, relMsg.selector_version, relMsg.exclude_first, relMsg.columns, relMsg.first_page_relation, relMsg.num_rows_in_demonstration, relMsg.page_var_name, relMsg.url, relMsg.next_type, relMsg.next_button_selector, relMsg.frame);
             this.relations.push(rel);
             this.relations = _.uniq(this.relations);
           }
