@@ -357,7 +357,15 @@ function getFeatures(element){
     if (targetInfo.nodeName){
       tagName = targetInfo.nodeName;
     }
-    return document.getElementsByTagName(tagName);
+    //return document.getElementsByTagName(tagName);
+    var visibleItems = [];
+    $.each($(tagName), function(){ 
+        if($(this).is(":visible")) {
+            visibleItems.push(this);
+        }
+        
+    });
+    return visibleItems;
   }
 
   var getTargetForSimilarityHelper = function(targetInfo, candidates){
@@ -469,7 +477,7 @@ function getFeatures(element){
       // we've already had to find this node on this page.  go ahead and use the cached node.
       var cachedNode = identifiedNodesCache[xpath];
       // unless the page has changed and that node's not around anymore!
-      if (document.body.contains(cachedNode)){
+      if (document.body.contains(cachedNode) && $(cachedNode).is(':visible')){
         return cachedNode;
       }
     }
