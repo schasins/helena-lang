@@ -1077,7 +1077,9 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
   }
 
   function selectorId(selectorObject){
-    return StableStringify.stringify(selectorObject);
+    var keysToKeep = ["name", "selector", "columns", "selector_version", "exclude_first", "next_type", "next_button_selector", "url", "num_rows_in_demonstration"];
+    var newObj = _.map(keysToKeep, function(key){return selectorObject[key];});
+    return StableStringify.stringify(newObj);
   }
 
 /**********************************************************************
@@ -1553,12 +1555,13 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
  * Handling everything we need for actually running the next interactions during replays
  **********************************************************************/
 
-  var nextInteractionSinceLastGetFreshRelationItems = {}; // this will be adjusted when we're in the midst of running next button interactions
   var currentRelationData = {};
+  var nextInteractionSinceLastGetFreshRelationItems = {}; // this will be adjusted when we're in the midst of running next button interactions
   var currentRelationSeenNodes = {};
   var noMoreItemsAvailable = {};
 
   function scrollThroughRows(crd){
+    //console.log("scrolling through the rows based on crd", crd);
     var knowTheLastElement = false;
     for (var i = 0; i < crd.length; i++){
       var row = crd[i];
@@ -1579,6 +1582,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     // let's try scrolling to last element if we know it
     // sometimes it's important to scroll through the range of data, not go directly to the end, 
     // so we'll try scrolling to each in turn
+    //console.log("crd", crd);
     if (crd){
       var knowTheLastElement = scrollThroughRows(crd);
     }
@@ -1592,6 +1596,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
   }
 
   pub.clearRelationInfo = function _clearRelationInfo(msg){
+    WALconsole.namedLog("nextInteraction", "clearing relation info", msg);
     var sid = selectorId(msg);
     delete nextInteractionSinceLastGetFreshRelationItems[sid];
     delete currentRelationData[sid];
@@ -1603,9 +1608,24 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
   // below the methods for actually using the next button when we need the next page of results
   // this also identifies if there are no more items to retrieve, in which case that info is stored in case someone tries to run getFreshRelationItems on us
   pub.runNextInteraction = function _runNextInteraction(msg){
+    WALconsole.namedLog("nextInteraction", "running next interaction", msg);
 
     utilities.sendMessage("content", "mainpanel", "runningNextInteraction", {}); // todo: will this always reach the page?  if not, big trouble
     var sid = selectorId(msg);
+    if (sid in currentRelationData){
+      WALconsole.namedLog("nextInteraction", "sid in currentRelationData");
+    }
+    else{
+      WALconsole.namedLog("nextInteraction", "sid not in currentRelationData");
+      WALconsole.namedLog("nextInteraction", currentRelationData);
+      WALconsole.namedLog("nextInteraction", "----");
+      WALconsole.namedLog("nextInteraction", sid);
+      for (var key in currentRelationData){
+        console.log(key === sid);
+        console.log(key.slice(20));
+        console.log(sid.slice(20));
+      }
+    }
     nextInteractionSinceLastGetFreshRelationItems[sid] = true; // note that we're assuming that the next interaction for a given relation only affects that relation
 
     var next_button_type = msg.next_type;
@@ -1850,6 +1870,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       // if we're doing a more interaction, might have 0 rows in an intermediate state, but then still need
       // to trim the top off the list based on having already collected the data
       if (newItems.length > 0){
+        WALconsole.namedLog("nextInteraction", "setting relation info", msg);
         currentRelationData[strMsg] = relationData;
         currentRelationSeenNodes[strMsg] = _.without(currentRelationSeenNodes[strMsg].concat(_.flatten(relationNodesIds)), null);
         WALconsole.log("actual new items", newItems);
