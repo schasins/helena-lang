@@ -4093,6 +4093,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (this.relation.endOfLoopCleanup){
         this.relation.endOfLoopCleanup(this.pageVar, continuation);
       }
+      else{
+        continuation();
+      }
     }
 
     if (doInitialization){
