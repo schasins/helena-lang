@@ -677,7 +677,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // can't parameterize for a cell that has null text
           continue;
         }
-        if (urlMatch(text, this.url)){
+        if (urlMatch(text, this.currentUrl)){
           // ok, we want to parameterize
           this.relation = relation;
           var name = relation.columns[i].name;
@@ -4117,7 +4117,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (statement.typedStringLower && statement.typedStringLower.indexOf(lowerString) > -1){ // for typestatement
         return true;
       }
-      if (statement.url && urlMatch(statement.url.toLowerCase(), lowerString)) { // for loadstatement
+      if (statement.currentUrl && urlMatch(statement.currentUrl.toLowerCase(), lowerString)) { // for loadstatement
         return true;
       }
     }
@@ -5542,7 +5542,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // go through the other roots that are also available to us (usually because of blockly)
       if (this.altRootLoopyStatements){
         for (var i = 0; i < this.altRootLoopyStatements.length; i++){
-          var statments = this.altRootLoopyStatements[i];
+          var statements = this.altRootLoopyStatements[i];
           for (var j = 0; j < statements.length; j++){
             statements[j].traverse(fn, fn2);
           }
