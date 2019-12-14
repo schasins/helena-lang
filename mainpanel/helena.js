@@ -6404,6 +6404,16 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var tab = UIObject.newRunTab(runObject); // the mainpanel tab in which we'll preview stuff
       runObject.tab = tab;
 
+      // let's figure out params first.  parameters may be passed in (e.g., from command line or from tool running on top of Helena language)
+      // but we also have some default vals associated with the program object itself
+      // we want to start with the default vals associated with the program, but then we're willing to overwrite them with the user-supplied vals
+      // so first assign default values, then assign from passed-in parameters arg
+      for (var key in program.defaultParamVals){
+        if (!(key in parameters)){
+          runObject.environment.envBind(key, program.defaultParamVals[key]);
+        }
+      }
+
       // let's add the intput parameters to our environment.  todo: in future, should probably make sure we only use params that are associated with prog (store param names with prog...)
       for (var key in parameters){
         runObject.environment.envBind(key, parameters[key]);
@@ -6508,9 +6518,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     var internalOptions = ["skipMode", "breakMode", "skipCommitInThisIteration"]; // wonder if these shouldn't be moved to runObject instead of options.  yeah.  should do that.
     var recognizedOptions = ["dataset_id", "ignoreEntityScope", "breakAfterXDuplicatesInARow", "nameAddition", "simulateError", "parallel", "hashBasedParallel", "restartOnFinish"];
     this.run = function _run(options, continuation, parameters, requireDataset){
+      console.log("program run");
+      console.log("options", options);
+      console.log("continuation", continuation);
+      console.log("parameters", parameters);
       if (options === undefined){options = {};}
       if (parameters === undefined){parameters = {};}
       if (requireDataset === undefined){requireDataset = true;} // you should only have false requireDataset if you're positive your users shouldn't be putting in output rows...
+      WALconsole.log("parameters", parameters);
       for (var prop in options){
         if (recognizedOptions.indexOf(prop) < 0){
           // woah, bad, someone thinks they're providing an option that will affect us, but we don't know what to do with it
@@ -6611,6 +6626,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.getParameterNames = function _getParameterNames(){
       return this.parameterNames;
     }
+
+    this.defaultParamVals = {};
+    this.setParameterDefaultValue = function _setParameterDefaultValue(paramName, paramVal){
+      this.defaultParamVals[paramName] = paramVal;
+    };
+
+    this.getParameterDefaultValues = function _getParameterDefaultValues(){
+      return this.defaultParamVals;
+    };
 
     this.getAllVariableNames = function _getAllVariables(){
       var variableNames = this.getParameterNames().slice(); // start with the parameters to the program
