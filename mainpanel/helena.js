@@ -1855,6 +1855,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.getCurrentNode = function _getCurrentNode(){
+      if (this.nodeVar.nodeSource === NodeSources.PARAMETER){
+        // special case.  we need a dictionary, but we only have text because we got this as a param
+        return {text: this.currentVal};
+      }
       return this.currentVal;
     };
 
