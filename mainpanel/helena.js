@@ -569,7 +569,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.outputPageVar = EventM.getLoadOutputPageVar(ev);
       this.outputPageVars = [this.outputPageVar]; // this will make it easier to work with for other parts of the code
       // for now, assume the ones we saw at record time are the ones we'll want at replay
-      this.currentUrl = this.url;
+      this.currentUrl = new pub.String(this.url);
 
       // usually 'completed' events actually don't affect replayer -- won't load a new page in a new tab just because we have one.  want to tell replayer to actually do a load
       ev.forceReplay = true;
@@ -588,16 +588,29 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return;
     }
 
-    this.cUrl = function _cUrl(environment){
-      if (this.currentUrl instanceof WebAutomationLanguage.NodeVariable){
-        return this.currentUrl.currentText(environment);
-      }
-      else {
-        // else it's a string
-        return this.currentUrl;
+    this.run = function _run(runObject, rbbcontinuation, rbboptions){
+      if (this.currentUrl && this.currentUrl.run){
+        this.currentUrl.run(runObject, rbbcontinuation, rbboptions);
       }
     }
 
+    this.cUrl = function _cUrl(environment){
+      if (this.currentUrl instanceof WebAutomationLanguage.NodeVariable){
+        return this.currentUrl.currentText(environment); // todo: hmmmm, really should have nodevariableuse, not node variable here.  test with text relation uploads
+      }
+      else if (this.currentUrl instanceof WebAutomationLanguage.NodeVariableUse){
+        return this.currentUrl.getCurrentVal(); // todo: hmmmm, really should have nodevariableuse, not node variable here.  test with text relation uploads
+      }
+      else if (this.currentUrl instanceof pub.String || this.currentUrl instanceof pub.BinOpString){
+        this.currentUrl.run();
+        return this.currentUrl.getCurrentVal();
+      }
+      else {
+        WALconsole.warn("We should never have a load statement whose currentURL isn't a nodevar, string, or string bin op!");
+      }
+    }
+
+    // deprecated
     this.cUrlString = function _cUrlString(){
       if (this.currentUrl instanceof WebAutomationLanguage.NodeVariable){
         return this.currentUrl.toString();
@@ -606,6 +619,17 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // else it's a string
         return this.currentUrl;
       }
+    }
+
+    this.getUrlObj = function _getUrlObj(){
+      // if (this.currentUrl instanceof WebAutomationLanguage.NodeVariable || this.currentUrl instanceof pub.String || this.currentUrl instanceof pub.BinOpString){
+      if (typeof this.currentUrl === "string"){
+        // sometimes it's a string; this is left over from before, when we used to store the string internally
+        // rather than as a proper block
+        // let's go ahead and correct it now
+        this.currentUrl = new pub.String(this.currentUrl); // we'll make a little string node for it
+      }
+      return this.currentUrl;
     }
 
     this.toStringLines = function _toStringLines(){
@@ -619,17 +643,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // addToolboxLabel(this.blocklyLabel, "web");
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
 
-      var handleNewUrl = function(newStr){
-                  var wal = getWAL(this.sourceBlock_);
-                  if (wal){
-                    wal.currentUrl = newStr;
-                  }
-                };
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
           this.appendDummyInput()
               .appendField("load")
-              .appendField(new Blockly.FieldTextInput("URL", handleNewUrl), "url")
+          this.appendValueInput("url");
+          this.appendDummyInput()
+              //.appendField(new Blockly.FieldTextInput("URL", handleNewUrl), "url")
               .appendField("into")
               .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
           this.setPreviousStatement(true, null);
@@ -641,7 +661,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       this.block = workspace.newBlock(this.blocklyLabel);
-      this.block.setFieldValue(this.cUrlString(), "url");
+      if (this.currentUrl){
+        var urlWALObject = this.getUrlObj();
+        attachToInput(this.block, urlWALObject.genBlocklyNode(this.block, workspace), "url");
+      }
       this.block.setFieldValue(this.outputPageVar.toString(), "page");
       attachToPrevBlock(this.block, prevBlock);
       setWAL(this.block, this);
@@ -649,11 +672,22 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.getHelena = function _getHelena(){
+      // ok, but we also want to update our own url object
+      var url = this.block.getInput('url').connection.targetBlock();
+      if (url){
+        this.currentUrl = getWAL(url).getHelena();
+      }
+      else{
+        this.currentUrl = null;
+      }
       return this;
     };
 
     this.traverse = function _traverse(fn, fn2){
       fn(this);
+      if (this.currentUrl && this.currentUrl.traverse){
+        this.currentUrl.traverse(fn, fn2);
+      }
       fn2(this);
     };
 
@@ -696,12 +730,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.args = function _args(environment){
       var args = [];
-      if (this.currentUrl instanceof WebAutomationLanguage.NodeVariable){
-        args.push({type:"url", value: this.currentUrl.currentText(environment).trim()});
-      }
-      else{
-        args.push({type:"url", value: this.currentUrl.trim()}); // if it's not a var use, it's just a string
-      }
+      var currentUrl = this.cUrl(environment);
+      args.push({type:"url", value: currentUrl.trim()});
       return args;
     };
 
@@ -1827,7 +1857,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.getCurrentVal = function _getCurrentVal(){
       // remember!  currentval is an object with text, link, source url, xpath, that stuff
-      // so if the val is being used, we have to pull out just the text
+      // so if the val is being used, we have fto pull out just the text
       if (!this.currentVal){
         return "";
       }
@@ -2014,7 +2044,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       };
     };
 
-    this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
+    this.genBlocklyNode = function _genBlocklyNode(leftblock, workspace){
       this.block = workspace.newBlock(this.blocklyLabel);
       setWAL(this.block, this);
       if (this.currentValue){
@@ -2033,7 +2063,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.run = function _run(runObject, rbbcontinuation, rbboptions){
-      // it's just a constant.  no need to do anything
+      // constant, so no need to do anything
     };
 
     this.getCurrentVal = function _getCurrentVal(){
@@ -4121,8 +4151,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (statement.typedStringLower && statement.typedStringLower.indexOf(lowerString) > -1){ // for typestatement
         return true;
       }
-      if (statement.currentUrl && urlMatch(statement.currentUrl.toLowerCase(), lowerString)) { // for loadstatement
-        return true;
+      if (statement.cUrl){
+        var currURL = statement.cUrl();
+        if (currURL && urlMatch(currURL.toLowerCase(), lowerString)) { // for loadstatement
+          return true;
+        }
       }
     }
     return false;
@@ -6124,12 +6157,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       function continueWithScript(){
         continueWithScriptExecuted = true;
 
-        // now that we have the trace, let's figure out how to parameterize it
-        // note that this should only be run once the current___ variables in the statements have been updated!  otherwise won't know what needs to be parameterized, will assume nothing
-        // should see in future whether this is a reasonable way to do it
-        WALconsole.namedLog("rbb", "trace", trace);
-        var parameterizedTrace = pbv(trace, basicBlockStatements);
-
 
         // first call the run methods for any statements that have run methods in case it's needed for making the arguments
         // todo: note that this should actually happen interspersed with the ringer replay.  do that evenutally
@@ -6138,6 +6165,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             basicBlockStatements[i].run(runObject, function(){}, options);
           }
         }
+
+
+        // now that we have the trace, let's figure out how to parameterize it
+        // note that this should only be run once the current___ variables in the statements have been updated!  otherwise won't know what needs to be parameterized, will assume nothing
+        // should see in future whether this is a reasonable way to do it
+        WALconsole.namedLog("rbb", "trace", trace);
+        var parameterizedTrace = pbv(trace, basicBlockStatements);
         
         // now that we've run parameterization-by-value, have a function, let's put in the arguments we need for the current run
         WALconsole.namedLog("rbb", "parameterizedTrace", parameterizedTrace);
