@@ -711,11 +711,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // can't parameterize for a cell that has null text
           continue;
         }
-        if (urlMatch(text, this.currentUrl)){
+        if (urlMatch(text, this.cUrl())){
           // ok, we want to parameterize
           this.relation = relation;
           var name = relation.columns[i].name;
-          this.currentUrl = getNodeVariableByName(name); // new WebAutomationLanguage.NodeVariable(name, firstRowNodeRepresentations[i], null, null, NodeSources.RELATIONEXTRACTOR);
+
+          var nodevaruse = new pub.NodeVariableUse();
+          nodevaruse.nodeVar = getNodeVariableByName(name);
+          nodevaruse.attributeOption = AttributeOptions.TEXT;
+          this.currentUrl = nodevaruse; // new WebAutomationLanguage.NodeVariable(name, firstRowNodeRepresentations[i], null, null, NodeSources.RELATIONEXTRACTOR);
           return relation.columns[i];
         }
       }
