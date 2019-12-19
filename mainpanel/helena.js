@@ -601,7 +601,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       else if (this.currentUrl instanceof WebAutomationLanguage.NodeVariableUse){
         return this.currentUrl.getCurrentVal(); // todo: hmmmm, really should have nodevariableuse, not node variable here.  test with text relation uploads
       }
-      else if (this.currentUrl instanceof pub.String || this.currentUrl instanceof pub.BinOpString){
+      else if (this.currentUrl instanceof pub.String || this.currentUrl instanceof pub.Concatenate){
         this.currentUrl.run();
         return this.currentUrl.getCurrentVal();
       }
