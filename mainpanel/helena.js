@@ -4166,12 +4166,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   }
 
   // used for relations that only have text in cells, as when user uploads the relation
-  pub.TextRelation = function _TextRelation(csvFileContents){
+  pub.TextRelation = function _TextRelation(csvFileContents, name){
     Revival.addRevivalLabel(this);
     var doInitialization = csvFileContents;
     if (doInitialization){ // we will sometimes initialize with undefined, as when reviving a saved program
       this.relation = $.csv.toArrays(csvFileContents);
       this.firstRowTexts = this.relation[0];
+      if (name){
+        this.name = name;
+      }
     }
 
     this.scrapedColumnNames = function _scrapedColumnNames(){
