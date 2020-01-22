@@ -601,7 +601,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       else if (this.currentUrl instanceof WebAutomationLanguage.NodeVariableUse){
         return this.currentUrl.getCurrentVal(); // todo: hmmmm, really should have nodevariableuse, not node variable here.  test with text relation uploads
       }
-      else if (this.currentUrl instanceof pub.String || this.currentUrl instanceof pub.BinOpString){
+      else if (this.currentUrl instanceof pub.String || this.currentUrl instanceof pub.Concatenate){
         this.currentUrl.run();
         return this.currentUrl.getCurrentVal();
       }
@@ -711,11 +711,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // can't parameterize for a cell that has null text
           continue;
         }
-        if (urlMatch(text, this.currentUrl)){
+        if (urlMatch(text, this.cUrl())){
           // ok, we want to parameterize
           this.relation = relation;
           var name = relation.columns[i].name;
-          this.currentUrl = getNodeVariableByName(name); // new WebAutomationLanguage.NodeVariable(name, firstRowNodeRepresentations[i], null, null, NodeSources.RELATIONEXTRACTOR);
+
+          var nodevaruse = new pub.NodeVariableUse();
+          nodevaruse.nodeVar = getNodeVariableByName(name);
+          nodevaruse.attributeOption = AttributeOptions.TEXT;
+          this.currentUrl = nodevaruse; // new WebAutomationLanguage.NodeVariable(name, firstRowNodeRepresentations[i], null, null, NodeSources.RELATIONEXTRACTOR);
           return relation.columns[i];
         }
       }
@@ -4162,12 +4166,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   }
 
   // used for relations that only have text in cells, as when user uploads the relation
-  pub.TextRelation = function _TextRelation(csvFileContents){
+  pub.TextRelation = function _TextRelation(csvFileContents, name){
     Revival.addRevivalLabel(this);
     var doInitialization = csvFileContents;
     if (doInitialization){ // we will sometimes initialize with undefined, as when reviving a saved program
       this.relation = $.csv.toArrays(csvFileContents);
       this.firstRowTexts = this.relation[0];
+      if (name){
+        this.name = name;
+      }
     }
 
     this.scrapedColumnNames = function _scrapedColumnNames(){
