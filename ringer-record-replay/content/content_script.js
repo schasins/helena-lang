@@ -203,6 +203,12 @@ function recordEvent(eventData) {
   }
 
   eventMessage.frame.URL = document.URL;
+
+  eventMessage.frame.innerWidth = window.innerWidth; 
+  eventMessage.frame.innerHeight = window.innerHeight; 
+  eventMessage.frame.outerWidth = window.outerWidth;
+  eventMessage.frame.outerHeight = window.outerHeight;
+
   eventMessage.meta.dispatchType = dispatchType;
   eventMessage.meta.nodeName = nodeName;
   eventMessage.meta.pageEventId = pageEventId++;

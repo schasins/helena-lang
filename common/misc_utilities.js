@@ -506,9 +506,11 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
     pub.sendAndReSendInternals($.post, url, msg, successHandler, showThatWereWaiting, extraText);
   };
 
-  pub.makeNewRecordReplayWindow = function _makeNewRecordReplayWindow(cont, specifiedUrl=undefined){
+  pub.makeNewRecordReplayWindow = function _makeNewRecordReplayWindow(cont, specifiedUrl=false, winWidth=false, winHeight=false){
     chrome.windows.getCurrent(function (currWindowInfo){
       var right = currWindowInfo.left + currWindowInfo.width;
+      var width = null;
+      var height = null;
       chrome.system.display.getInfo(function(displayInfoLs){
         for (var i = 0; i < displayInfoLs.length; i++){
           var bounds = displayInfoLs[i].bounds;
@@ -518,13 +520,20 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
             // we've found the right display
             var top = currWindowInfo.top - 40; // - 40 because it doesn't seem to count the menu bar and I'm not looking for a more accurate solution at the moment
             var left = right; // let's have it adjacent to the control panel
-	      console.log(bounds.right - right, bounds.top + bounds.height - top);
-	      var width = bounds.right - right;
-	      var height = bounds.top + bounds.height - top;
-	      // for now let's actually make width and height fixed for stability across different ways of running (diff machines, diff panel sizes at start)
-	      // 1419 1185
-	     //var width = 1419;
-	     //var height = 1185;
+            console.log(bounds.right - right, bounds.top + bounds.height - top);
+            if (!winWidth || !winHeight){
+              width = bounds.right - right;
+              height = bounds.top + bounds.height - top;
+            }
+            else{
+              width = winWidth;
+              height = winHeight;
+            }
+
+            // for now let's actually make width and height fixed for stability across different ways of running (diff machines, diff panel sizes at start)
+            // 1419 1185
+           //var width = 1419;
+           //var height = 1185;
             var url = specifiedUrl;
             if (!url || ((typeof url) !== "string")){
               url = "pages/newRecordingWindow.html"

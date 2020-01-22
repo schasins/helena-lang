@@ -6536,7 +6536,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // now actually call the function for running the program
       // ok let's do this in a fresh window
       if (usesTheWeb){
-        MiscUtilities.makeNewRecordReplayWindow(runProgFunc);
+        if (runObject.program.windowWidth){
+          var width = runObject.program.windowWidth;
+          var height = runObject.program.windowHeight;
+          MiscUtilities.makeNewRecordReplayWindow(runProgFunc, undefined, width, height);
+        }
+        else{
+          MiscUtilities.makeNewRecordReplayWindow(runProgFunc);
+        }
       }
       else{
         // no need to make a new window (there are no load statements in the program), so don't
@@ -7283,7 +7290,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // so we don't just choose a random one
       // but if we've already started, no need, can juse use the windowId we already know
       if (!windowId){
-        MiscUtilities.makeNewRecordReplayWindow(runRelationFindingInNewWindow);
+        if (program.windowWidth){
+          var width = program.windowWidth;
+          var height = program.windowHeight;
+          MiscUtilities.makeNewRecordReplayWindow(runRelationFindingInNewWindow, undefined, width, height);
+        }
+        else{
+          MiscUtilities.makeNewRecordReplayWindow(runRelationFindingInNewWindow);
+        }
       }
       else{
         runRelationFindingInNewWindow(windowId);
