@@ -92,6 +92,9 @@ var utilities = (function _utilities() { var pub = {};
         if (msg.from && (msg.from === from) && msg.subject && (msg.subject === subject) && (msg.send_type === sendTypes.NORMAL)) {
           if (sender.tab && sender.tab.id){
             // add a tab id iff it's from content, and thus has sender.tab and sender.tab.id
+            if (!msg.content){
+              msg.content = {};
+            }
             msg.content.tab_id = sender.tab.id;
           }
           WALconsole.log("Receiving message: ", msg);
