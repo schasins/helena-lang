@@ -629,6 +629,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // let's go ahead and correct it now
         this.currentUrl = new pub.String(this.currentUrl); // we'll make a little string node for it
       }
+
+      if (this.currentUrl instanceof pub.NodeVariable){
+        // hey, we don't want NodeVariable as the item--we want a NodeVariableUse
+        var nodevaruse = new pub.NodeVariableUse();
+        nodevaruse.nodeVar = this.currentUrl;
+        nodevaruse.attributeOption = AttributeOptions.TEXT;
+        this.currentUrl = nodevaruse;
+      }
+      
       return this.currentUrl;
     }
 
