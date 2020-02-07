@@ -5099,6 +5099,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       allNodeVariablesSeenSoFar.push(this);
     }
 
+    if (allNodeVariablesSeenSoFar.indexOf(this) < 0){
+      // ok, we're reconstructing a program, so we don't yet have this node variable in our
+      // tracker of all node variables.  go ahead and add it
+      allNodeVariablesSeenSoFar.push(this);
+    }
+
 
     this.toString = function _toString(alreadyBound, pageVar){
       if (alreadyBound === undefined){ alreadyBound = true;} 
