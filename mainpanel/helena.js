@@ -2425,8 +2425,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           return acc && (pageVar.currentTabId() !== that.pageVarCurr.currentTabId() || pageVar === that.pageVarCurr);
         }, true);
         if (okToRemoveTab){
-          chrome.tabs.remove(this.pageVarCurr.currentTabId(), function(){
+          var tabId = this.pageVarCurr.currentTabId();
+          chrome.tabs.remove(tabId, function(){
             that.pageVarCurr.clearCurrentTabId();
+            var portManger = ports; // the ringer portsmanager object
+            portManger.removeTabInfo(tabId);
             rbbcontinuation(rbboptions);
           }); 
         }

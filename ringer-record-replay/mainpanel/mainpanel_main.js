@@ -50,6 +50,19 @@ var PortManager = (function PortManagerClosure() {
 
       return ret;
     },
+    removeTabInfo: function _removeTabInfo(tabId) {
+      delete this.tabIdToTabInfo[tabId];
+      delete this.tabIdToWindowId[tabId];
+      delete this.tabIdToTab[tabId];
+      var ports = this.tabIdToPortIds[tabId];
+      delete this.tabIdToPortIds[tabId];
+      for (var i = 0; i < ports.length; i++){
+        delete this.portIdToPort[ports[i]];
+        delete this.portIdToTabId[ports[i]];
+        delete this.portIdToPortInfo[ports[i]];
+        delete this.portIdToWindowId[ports[i]];
+      }
+    },
     getTabFromTabId: function _getTabFromTabId(tabId) {
       return this.tabIdToTab[tabId];
     },
