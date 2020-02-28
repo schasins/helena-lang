@@ -8,7 +8,7 @@
  * User event handlers
  **********************************************************************/
 
-export const RecordingHandlers = (function _RecordingHandlers() { var pub = {};
+const RecordingHandlers = (function _RecordingHandlers() { var pub = {};
   
   // listening for context menu events allows us to prevent the right click menu from appearing during recording
   // which is important since interactions with the context menu won't be recorded and thus Helena won't be able

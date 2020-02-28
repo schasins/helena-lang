@@ -4,7 +4,7 @@
 
  'use strict'
 
-export const RelationFinder = (function _RelationFinder() { var pub = {};
+const RelationFinder = (function _RelationFinder() { var pub = {};
 
   /**********************************************************************
    * Web-specific relation-finder code -- how to get features, how to tell when features match, how to combine features to get a more general feature, all candidates
