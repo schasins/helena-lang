@@ -4,7 +4,7 @@
 
  'use strict'
 
-const RelationFinder = (function _RelationFinder() { var pub = {};
+var RelationFinder = (function _RelationFinder() { var pub = {};
 
   /**********************************************************************
    * Web-specific relation-finder code -- how to get features, how to tell when features match, how to combine features to get a more general feature, all candidates
@@ -841,7 +841,7 @@ const RelationFinder = (function _RelationFinder() { var pub = {};
 
   function extractOptionsRelationFromSelectorNode(node){
     var options = extractOptionNodesFromSelectorNode(node);
-    var optionsRelation = _.map(options, function(o){return [NodeRep.nodeToMainpanelNodeRepresentation(o)];});
+    var optionsRelation = _.map(options, function(o){return [NodeRep.nodeToMainpanelNodeRepresentation(o, window.tabDetails.tabTopUrl)];});
     console.log("optionsRelation in extractOptionsRelationFromSelectorNode", optionsRelation, optionsRelation.length);
     return optionsRelation;
   }
@@ -951,7 +951,7 @@ const RelationFinder = (function _RelationFinder() { var pub = {};
       selectorData = {};
       selectorData.relation = [];
     }
-    var relationData = _.map(selectorData.relation, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell);});});
+    var relationData = _.map(selectorData.relation, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell, window.tabDetails.tabTopUrl);});});
     selectorData.relation = relationData;
     WALconsole.log("synthesized a selector, selectorData", selectorData);
 
@@ -978,7 +978,7 @@ const RelationFinder = (function _RelationFinder() { var pub = {};
           // no need to consider empty one
           continue;
         }
-        var relationData = _.map(relationNodes, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell);});});
+        var relationData = _.map(relationNodes, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell, window.tabDetails.tabTopUrl);});});
         rel.relation = relationData; 
         recordComparisonAttributesServerSelector(rel, xpaths);
 
@@ -1010,7 +1010,7 @@ const RelationFinder = (function _RelationFinder() { var pub = {};
         WALconsole.log("currBestSelector.selector.length", currBestSelector.selector.length);
         WALconsole.log("currBestSelector.selector.constructor === Array", currBestSelector.selector.constructor === Array);
         var rel = pub.interpretRelationSelector(currBestSelector);
-        var relationData = _.map(rel, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell);});});
+        var relationData = _.map(rel, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell, window.tabDetails.tabTopUrl);});});
         currBestSelector.relation = relationData;
         WALconsole.log("currBestSelector.relation", currBestSelector.relation);
       }
@@ -1072,7 +1072,7 @@ const RelationFinder = (function _RelationFinder() { var pub = {};
   };
 
   pub.relationNodesToMainpanelNodeRepresentation = function _relationNodesToMainpanelNodeRepresentation(relationNodes){
-    var relationData = _.map(relationNodes, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell);});});
+    var relationData = _.map(relationNodes, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell, window.tabDetails.tabTopUrl);});});
     return relationData;
   }
 
@@ -1191,7 +1191,7 @@ const RelationFinder = (function _RelationFinder() { var pub = {};
 
   pub.sendSelector = function _sendSelector(selectorObj){
     var relation = selectorObj.relation;
-    var relationData = _.map(relation, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell);});}); // mainpanel rep version
+    var relationData = _.map(relation, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell, window.tabDetails.tabTopUrl);});}); // mainpanel rep version
     selectorObj.demonstration_time_relation = relationData;
     selectorObj.relation = null; // don't send the relation
     selectorObj.colors = colors;

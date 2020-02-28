@@ -7,7 +7,7 @@ if (typeof XPathList !== 'object') {
     XPathList = {};
 }
 
-const XPathList = (function _XPathList() { var pub = {};
+var XPathList = (function _XPathList() { var pub = {};
  'use strict'
 
  pub.xPathToXPathList = function _xPathToXPathList(xpath){

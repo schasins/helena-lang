@@ -8,7 +8,7 @@
  * User event handlers
  **********************************************************************/
 
-const RecordingHandlers = (function _RecordingHandlers() { var pub = {};
+var RecordingHandlers = (function _RecordingHandlers() { var pub = {};
   
   // listening for context menu events allows us to prevent the right click menu from appearing during recording
   // which is important since interactions with the context menu won't be recorded and thus Helena won't be able
@@ -113,8 +113,8 @@ const RecordingHandlers = (function _RecordingHandlers() { var pub = {};
   var addedOverlay = false;
   pub.applyReplayOverlayIfAppropriate = function _applyReplayOverlayIfAppropriate(replayWindowId){
     // only apply it if we're in the replay window, if we haven't already applied it, and if we're the top-level frame
-    WALconsole.namedLog("tooCommon", "applyReplayOverlayIfAppropriate", replayWindowId, windowId, addedOverlay);
-    if (replayWindowId === windowId && !addedOverlay && self === top){
+    WALconsole.namedLog("tooCommon", "applyReplayOverlayIfAppropriate", replayWindowId, window.tabDetails.windowId, addedOverlay);
+    if (window.tabDetails.windowId && replayWindowId === window.tabDetails.windowId && !addedOverlay && self === top){
       // ok, we're a page in the current replay window.  put in an overlay
 
       // and remember, don't add the overlay again in future
@@ -160,7 +160,7 @@ document.addEventListener('keyup', RecordingHandlers.updateScraping, true);
  **********************************************************************/
 
 function currentlyRecording(){
-  return recording === RecordState.RECORDING && currentRecordingWindows.indexOf(windowId) > -1; // recording variable is defined in scripts/lib/record-replay/content_script.js, tells whether r+r layer currently recording
+  return recording === RecordState.RECORDING && window.tabDetails.windowId && currentRecordingWindows.indexOf(window.tabDetails.windowId) > -1; // recording variable is defined in scripts/lib/record-replay/content_script.js, tells whether r+r layer currently recording
 }
 
 function currentlyScraping(){
@@ -223,7 +223,7 @@ var Scraping = (function _Scraping() { var pub = {};
 
   // note that this line must run after the r+r content script runs (to produce the additional_recording_handlers object)
   additional_recording_handlers.scrape = function(node, eventMessage){
-    var data = NodeRep.nodeToMainpanelNodeRepresentation(node,false);
+    var data = NodeRep.nodeToMainpanelNodeRepresentation(node, window.tabDetails.tabTopUrl);
     var linkScraping = eventMessage.data.shiftKey || eventMessage.data.metaKey; // convention is SHIFT means we want to scrape the link, not the text 
     data.linkScraping = linkScraping;
     if (eventMessage.data.type === "click") {

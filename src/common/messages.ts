@@ -2,7 +2,7 @@ export interface MessageContent {
 
 }
 
-export interface TabIDMessageContent {
+export interface TabDetailsMessageContent {
     tab_id: number;
     window_id: number;
     top_frame_url: string;

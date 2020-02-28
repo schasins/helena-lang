@@ -2,10 +2,10 @@
  * The various node representations we may need
  **********************************************************************/
 
-const NodeRep = (function _NodeRep() { var pub = {};
+var NodeRep = (function _NodeRep() { var pub = {};
 	'use strict'
 
-	pub.nodeToMainpanelNodeRepresentation = function _nodeToMainpanelNodeRepresentation(node){
+	pub.nodeToMainpanelNodeRepresentation = function _nodeToMainpanelNodeRepresentation(node, tabTopUrl){
 	  if (node === null){
 	    return {
 	    	text: "", 
@@ -14,7 +14,7 @@ const NodeRep = (function _NodeRep() { var pub = {};
 	    	xpath: "", 
 	    	value: "",
 	    	frame: SimpleRecord.getFrameId(), 
-	    	source_url: window.location.href,
+			source_url: window.location.href,
 	    	top_frame_source_url: tabTopUrl,
 	    	date: (new Date()).getTime()
 	    };
@@ -28,7 +28,7 @@ const NodeRep = (function _NodeRep() { var pub = {};
 	  	frame: SimpleRecord.getFrameId(),
     	source_url: window.location.href,
     	top_frame_source_url: tabTopUrl,
-	    	date: (new Date()).getTime()
+		date: (new Date()).getTime()
 	  };
 	};
 
