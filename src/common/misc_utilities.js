@@ -1,4 +1,4 @@
-export const WALconsole = (function _WALconsole() { var pub = {};
+const WALconsole = (function _WALconsole() { var pub = {};
 
   pub.debugging = false;
   pub.showWarnings = true;
@@ -49,7 +49,7 @@ export const WALconsole = (function _WALconsole() { var pub = {};
 
 return pub; }());
 
-export const utilities = (function _utilities() { var pub = {};
+const utilities = (function _utilities() { var pub = {};
 
   var sendTypes = {
     NORMAL: 0,
@@ -448,7 +448,7 @@ var ServerTranslationUtilities = (function _ServerTranslationUtilities() { var p
 
 return pub; }());
 
-export const MiscUtilities = (function _MiscUtilities() { var pub = {};
+const MiscUtilities = (function _MiscUtilities() { var pub = {};
 
   pub.scrapeConditionString = "<kbd>ALT</kbd> + click";
   pub.scrapeConditionLinkString = "<kbd>ALT</kbd> + <kbd>SHIFT</kbd> + click";
