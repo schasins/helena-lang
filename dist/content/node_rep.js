@@ -2,7 +2,7 @@
  * The various node representations we may need
  **********************************************************************/
 
-NodeRep = (function _NodeRep() { var pub = {};
+export const NodeRep = (function _NodeRep() { var pub = {};
 	'use strict'
 
 	pub.nodeToMainpanelNodeRepresentation = function _nodeToMainpanelNodeRepresentation(node){

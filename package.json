@@ -1,0 +1,30 @@
+{
+  "name": "helena-lang",
+  "version": "0.0.1",
+  "description": "Library for Helena language",
+  "main": "",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/chrisjbaik/helena-lang.git"
+  },
+  "author": "",
+  "license": "",
+  "bugs": {
+    "url": "https://github.com/chrisjbaik/helena-lang/issues"
+  },
+  "homepage": "https://github.com/chrisjbaik/helena-lang#readme",
+  "devDependencies": {
+    "awesome-typescript-loader": "^5.2.1",
+    "copy-webpack-plugin": "^5.1.1",
+    "source-map-loader": "^0.2.4",
+    "typescript": "^3.8.2",
+    "webpack": "^4.41.6",
+    "webpack-cli": "^3.3.11"
+  }
+}
