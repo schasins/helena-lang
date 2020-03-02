@@ -3,6 +3,7 @@ import * as _ from "underscore";
 import * as html2canvas from "html2canvas";
 
 import { EventMessage } from "./event";
+import { ScrapingTooltip } from "./scraping_tooltip";
 
 declare global {
   interface Window {
@@ -29,64 +30,6 @@ declare global {
 interface VisualizedHTMLElement extends HTMLElement {
   html2canvasDataUrl: string;
   waitingForRender: boolean;
-}
-
-/**
- * Tooltip for giving user feedback about the element they're hovering over
- */
-namespace Tooltip {
-  let DEFAULT_TOOLTIP_COLOR = "rgba(255, 255, 255, 0.9)";
-
-  interface ElementWithTooltip extends Element {
-    scrapingTooltip: JQuery<HTMLElement>;
-  }
-
-  /**
-   * Create a tooltip for giving user feedback about the element.
-   * @param element element to create tooltip for
-   * @param tooltipColor color of tooltip
-   */
-  export function scrapingTooltip(element: ElementWithTooltip,
-      tooltipColor = DEFAULT_TOOLTIP_COLOR) {
-    let nodeText = NodeRep.nodeToText(element);
-    if (nodeText) {
-      nodeText = nodeText.replace(/\n/g, "<br>");
-      if (nodeText.length > 400) {
-        nodeText = nodeText.slice(0,200) + "..." +
-          nodeText.slice(nodeText.length - 200, nodeText.length);
-      }
-    }
-    let boundRect = element.getBoundingClientRect();
-    let newDiv = $('<div>'+nodeText+'<div/>');
-    let width = boundRect.width;
-    let threshold = 150;
-    if (width < threshold) { width = threshold; }
-
-    newDiv.attr('id', 'vpbd-hightlight');
-    newDiv.css('width', width);
-    newDiv.css('top', document.body.scrollTop + boundRect.top + boundRect.height);
-    newDiv.css('left', document.body.scrollLeft + boundRect.left);
-    newDiv.css('position', 'absolute');
-    newDiv.css('z-index', 2147483647);
-    newDiv.css('background-color', tooltipColor);
-    newDiv.css('box-shadow', '0px 0px 5px grey');
-    newDiv.css('padding', '3px');
-    newDiv.css('overflow', 'hidden');
-    newDiv.css('overflow-wrap', 'break-word');
-
-    $(document.body).append(newDiv);
-    element.scrapingTooltip = newDiv;
-  }
-
-  /**
-   * Remove scraping tooltip from the element.
-   * @param element element to remove scraping tooltip from
-   */
-  export function removeScrapingTooltip(element: ElementWithTooltip) {
-    if (element.scrapingTooltip) {
-      element.scrapingTooltip.remove();
-    }
-  }
 }
 
 /** 
@@ -119,7 +62,7 @@ export namespace RecordingHandlers {
    */
   export function mouseoverHandler(event: MouseEvent) {
     if (currentlyRecording()) {
-      Tooltip.scrapingTooltip(MiscUtilities.targetFromEvent(event));
+      new ScrapingTooltip(MiscUtilities.targetFromEvent(event));
       RelationPreview.relationHighlight(MiscUtilities.targetFromEvent(event));
     }
     // just a backup in case the checks on keydown and keyup fail to run, as
@@ -136,7 +79,7 @@ export namespace RecordingHandlers {
    */
   export function mouseoutHandler(event: MouseEvent) {
     if (currentlyRecording()) {
-      Tooltip.removeScrapingTooltip(MiscUtilities.targetFromEvent(event));
+      ScrapingTooltip.destroy(MiscUtilities.targetFromEvent(event));
       RelationPreview.relationUnhighlight();
     }
     // just a backup in case the checks on keydown and keyup fail to run, as
