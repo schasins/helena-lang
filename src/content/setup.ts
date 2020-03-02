@@ -1,7 +1,6 @@
 import { MessageContent, ColumnIndexMessageContent } from "../common/messages";
 import { RelationOutput } from "../common/relation";
-import { TabDetails } from "./tab_details";
-import { RingerState } from "./ringer_state";
+import { HelenaState } from "./helena_state";
 
 // TODO: modularize later
 // import { RecordingHandlers } from "./recording_UI";
@@ -15,22 +14,19 @@ import { RingerState } from "./ringer_state";
 // TODO: is there a way of avoiding using these as globals?
 declare global {
 	interface Window {
-		tabDetails: TabDetails;
-		ringerState: RingerState;
+		helenaState: HelenaState;
 
 		// TODO: cjbaik: modularize all these later, remove `window` calls
 		utilities: any; // TODO: modularize later
 		MiscUtilities: any; // TODO: modularize later
 		WALconsole: any; // TODO: modularize later
-		RecordingHandlers: any; // TODO: modularize later
 		RelationFinder: any; // TODO: modularize later
 	}
 }
 
 // TODO: un-globalize this after modularizing `content/recording_UI.js` and
 //   other associated files
-window.tabDetails = new TabDetails();
-window.ringerState = new RingerState();
+window.helenaState = new HelenaState();
 
 window.utilities.listenForMessage("mainpanel", "content", "getRelationItems", function (msg: MessageContent) {
 	window.RelationFinder.getRelationItems(msg);
