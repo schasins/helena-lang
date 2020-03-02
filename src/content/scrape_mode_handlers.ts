@@ -117,6 +117,14 @@ export namespace ScrapeModeHandlers {
   }
 
   /**
+   * Mouseout handler in scraping mode. Clears highlight if present.
+   * @param event mouseout event
+   */
+  export function mouseout(event: Event) {
+    Highlight.clearHighlight(window.helenaState.highlightedElement);
+  }
+
+  /**
    * Click handler in scraping mode. Prevents event from propagating such that
    *   links won't be followed, etc.
    * @param event click event

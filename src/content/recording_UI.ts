@@ -69,7 +69,8 @@ export namespace RecordingHandlers {
     // just a backup in case the checks on keydown and keyup fail to run, as
     //   seems to happen sometimes with focus issues
     updateScraping(event);
-    if (window.helenaState.currentlyScraping() && window.helenaState.currentlyRecording()) {
+    if (window.helenaState.currentlyScraping() &&
+        window.helenaState.currentlyRecording()) {
       ScrapeModeHandlers.mousein(event);
     }
   }
@@ -87,7 +88,7 @@ export namespace RecordingHandlers {
     //   seems to happen sometimes with focus issues
     updateScraping(event);
     if (window.helenaState.currentlyScraping() && window.helenaState.currentlyRecording()) {
-      ScrapeModeHandlers.mousein(event);
+      ScrapeModeHandlers.mouseout(event);
     }
   }
 
