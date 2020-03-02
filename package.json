@@ -20,10 +20,16 @@
   },
   "homepage": "https://github.com/chrisjbaik/helena-lang#readme",
   "devDependencies": {
+    "@types/html2canvas": "0.0.35",
+    "@types/jquery": "^3.3.33",
+    "@types/underscore": "^1.9.4",
     "awesome-typescript-loader": "^5.2.1",
     "copy-webpack-plugin": "^5.1.1",
+    "html2canvas": "^1.0.0-rc.5",
+    "jquery": "^3.4.1",
     "source-map-loader": "^0.2.4",
     "typescript": "^3.8.2",
+    "underscore": "^1.9.2",
     "webpack": "^4.41.6",
     "webpack-cli": "^3.3.11"
   }

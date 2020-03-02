@@ -751,7 +751,7 @@ var Highlight = (function _Highlight() { var pub = {};
     var offset = $target.offset();
     if (!target.getBoundingClientRect){
       // document sometimes gets hovered, and there's no getboundingclientrect for it
-      return;
+      return null;
     }
     var boundingBox = target.getBoundingClientRect();
     var newDiv = $('<div/>');

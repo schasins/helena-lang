@@ -1,5 +1,8 @@
 import { TabDetailsMessageContent } from "../common/messages";
 
+/**
+ * Stores informational details about a Tab on the content scripts.
+ */
 export class TabDetails {
     tabId?: number;
     windowId?: number;
@@ -23,7 +26,12 @@ export class TabDetails {
 
         self.listen();
 
-        // Poll background script for TabDetails information until retrieved.
+        // Poll background script for TabDetails information until retrieved
+        // [cjbaik: I presume this is because you can't directly have access
+        //    from the content script?]
+
+        // TODO: cjbaik: switch this pattern to a port connection rather than
+        //   doing this polling
         window.MiscUtilities.repeatUntil(
             function() {
                 window.utilities.sendMessage("content", "background",

@@ -37,7 +37,10 @@ function shortPrintString(obj){
 }
 
 utilities.listenForMessage("content", "mainpanel", "currentReplayWindowId", 
-  function(){utilities.sendMessage("mainpanel", "content", "currentReplayWindowId", {window: currentReplayWindowId});});
+  function(){
+    utilities.sendMessage("mainpanel", "content", "currentReplayWindowId",
+      {window: currentReplayWindowId} );
+  });
 
 var WebAutomationLanguage = (function _WebAutomationLanguage() {
   var pub = {};

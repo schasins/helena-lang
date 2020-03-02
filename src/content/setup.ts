@@ -1,6 +1,7 @@
-import { WindowsMessageContent, MessageContent, WindowIdMessageContent, ColumnIndexMessageContent } from "../common/messages";
+import { MessageContent, ColumnIndexMessageContent } from "../common/messages";
 import { RelationOutput } from "../common/relation";
 import { TabDetails } from "./tab_details";
+import { RingerState } from "./ringer_state";
 
 // TODO: modularize later
 // import { RecordingHandlers } from "./recording_UI";
@@ -11,15 +12,11 @@ import { TabDetails } from "./tab_details";
  * Listeners and general set up
  **********************************************************************/
 
-// TODO: is there a way of avoiding using these as globals? Where are they even used?
+// TODO: is there a way of avoiding using these as globals?
 declare global {
 	interface Window {
 		tabDetails: TabDetails;
-		// tabId: number | string | null;
-		// windowId: number | string | null;
-		// tabTopUrl: number | string | null;
-		currentReplayWindowId: number | null;
-		currentRecordingWindows: number[] | null;
+		ringerState: RingerState;
 
 		// TODO: cjbaik: modularize all these later, remove `window` calls
 		utilities: any; // TODO: modularize later
@@ -30,11 +27,10 @@ declare global {
 	}
 }
 
-// TODO: un-globalize this after modularizing `content/recording_UI.js`?
+// TODO: un-globalize this after modularizing `content/recording_UI.js` and
+//   other associated files
 window.tabDetails = new TabDetails();
-
-window.currentReplayWindowId = null;
-window.currentRecordingWindows = null;
+window.ringerState = new RingerState();
 
 window.utilities.listenForMessage("mainpanel", "content", "getRelationItems", function (msg: MessageContent) {
 	window.RelationFinder.getRelationItems(msg);
@@ -50,13 +46,6 @@ window.utilities.listenForMessage("mainpanel", "content", "nextButtonSelector", 
 });
 window.utilities.listenForMessage("mainpanel", "content", "clearNextButtonSelector", function (msg: MessageContent) {
 	window.RelationFinder.clearNextButtonSelector();
-});
-window.utilities.listenForMessage("mainpanel", "content", "currentRecordingWindows", function (msg: WindowsMessageContent) {
-	window.currentRecordingWindows = msg.window_ids;
-});
-window.utilities.listenForMessage("mainpanel", "content", "currentReplayWindowId", function (msg: WindowIdMessageContent) {
-	window.currentReplayWindowId = msg; 
-	window.RecordingHandlers.applyReplayOverlayIfAppropriate(msg.window);
 });
 window.utilities.listenForMessage("mainpanel", "content", "backButton", function() {
 	history.back();
@@ -104,24 +93,3 @@ window.utilities.listenForFrameSpecificMessage("mainpanel", "content", "getFresh
 			});
 	}
 );
-
-// keep trying to figure out which window is currently being recorded until we find out
-window.MiscUtilities.repeatUntil(
-		function() {
-			window.utilities.sendMessage("content", "mainpanel", "requestCurrentRecordingWindows", {});
-		},
-		function() {
-			return (window.currentRecordingWindows !== null);
-		},
-		function() {},
-		1000, true);
-// keep trying to figure out which window is currently being recorded until we find out
-window.MiscUtilities.repeatUntil(
-		function() {
-			window.utilities.sendMessage("content", "mainpanel", "currentReplayWindowId", {});
-		},
-		function() {
-			return (window.currentReplayWindowId !== null);
-		},
-		function() {},
-		1000, true);
