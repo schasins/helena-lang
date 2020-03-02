@@ -18,6 +18,9 @@ interface MainpanelNodeRep {
   linkScraping?: boolean;
 }
 
+/**
+ * TODO: switch this to a class!
+ */
 export namespace ScrapeModeHandlers {
   /**
    * Send scraped data to the mainpanel for visualization.
@@ -137,6 +140,6 @@ export namespace ScrapeModeHandlers {
   }
 }
 
-// TODO: cjbaik: move these to a file with all document listeners?
+// TODO: cjbaik: move these to a constructor for some class?
 document.addEventListener('mousemove', ScrapeModeHandlers.mousemove, true);
 document.addEventListener('click', ScrapeModeHandlers.click, true);

@@ -841,7 +841,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
 
   function extractOptionsRelationFromSelectorNode(node){
     var options = extractOptionNodesFromSelectorNode(node);
-    var optionsRelation = _.map(options, function(o){return [NodeRep.nodeToMainpanelNodeRepresentation(o, window.tabDetails.tabTopUrl)];});
+    var optionsRelation = _.map(options, function(o){return [NodeRep.nodeToMainpanelNodeRepresentation(o, window.helenaState.tabTopUrl)];});
     console.log("optionsRelation in extractOptionsRelationFromSelectorNode", optionsRelation, optionsRelation.length);
     return optionsRelation;
   }
@@ -951,7 +951,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       selectorData = {};
       selectorData.relation = [];
     }
-    var relationData = _.map(selectorData.relation, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell, window.tabDetails.tabTopUrl);});});
+    var relationData = _.map(selectorData.relation, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell, window.helenaState.tabTopUrl);});});
     selectorData.relation = relationData;
     WALconsole.log("synthesized a selector, selectorData", selectorData);
 
@@ -978,7 +978,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
           // no need to consider empty one
           continue;
         }
-        var relationData = _.map(relationNodes, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell, window.tabDetails.tabTopUrl);});});
+        var relationData = _.map(relationNodes, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell, window.helenaState.tabTopUrl);});});
         rel.relation = relationData; 
         recordComparisonAttributesServerSelector(rel, xpaths);
 
@@ -1010,7 +1010,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
         WALconsole.log("currBestSelector.selector.length", currBestSelector.selector.length);
         WALconsole.log("currBestSelector.selector.constructor === Array", currBestSelector.selector.constructor === Array);
         var rel = pub.interpretRelationSelector(currBestSelector);
-        var relationData = _.map(rel, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell, window.tabDetails.tabTopUrl);});});
+        var relationData = _.map(rel, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell, window.helenaState.tabTopUrl);});});
         currBestSelector.relation = relationData;
         WALconsole.log("currBestSelector.relation", currBestSelector.relation);
       }
@@ -1072,7 +1072,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
   };
 
   pub.relationNodesToMainpanelNodeRepresentation = function _relationNodesToMainpanelNodeRepresentation(relationNodes){
-    var relationData = _.map(relationNodes, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell, window.tabDetails.tabTopUrl);});});
+    var relationData = _.map(relationNodes, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell, window.helenaState.tabTopUrl);});});
     return relationData;
   }
 
@@ -1191,7 +1191,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
 
   pub.sendSelector = function _sendSelector(selectorObj){
     var relation = selectorObj.relation;
-    var relationData = _.map(relation, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell, window.tabDetails.tabTopUrl);});}); // mainpanel rep version
+    var relationData = _.map(relation, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell, window.helenaState.tabTopUrl);});}); // mainpanel rep version
     selectorObj.demonstration_time_relation = relationData;
     selectorObj.relation = null; // don't send the relation
     selectorObj.colors = colors;

@@ -1,6 +1,7 @@
 import { MessageContent, ColumnIndexMessageContent } from "../common/messages";
 import { RelationOutput } from "../common/relation";
 import { HelenaState } from "./helena_state";
+import { Screenshot } from "./screenshot";
 
 // TODO: modularize later
 // import { RecordingHandlers } from "./recording_UI";
@@ -24,9 +25,8 @@ declare global {
 	}
 }
 
-// TODO: un-globalize this after modularizing `content/recording_UI.js` and
-//   other associated files
 window.helenaState = new HelenaState();
+new Screenshot();
 
 window.utilities.listenForMessage("mainpanel", "content", "getRelationItems", function (msg: MessageContent) {
 	window.RelationFinder.getRelationItems(msg);
