@@ -1,10 +1,8 @@
 import { MessageContent, ColumnIndexMessageContent } from "../common/messages";
 import { RelationOutput } from "../common/relation";
-import { HelenaState } from "./helena_state";
-import { Screenshot } from "./screenshot";
+import { HelenaContent } from "./helena_content";
 
 // TODO: modularize later
-// import { RecordingHandlers } from "./recording_UI";
 // import { RelationFinder } from "./relation_finding";
 // import { MiscUtilities, utilities, window.WALconsole } from "../common/misc_utilities";
 
@@ -12,10 +10,27 @@ import { Screenshot } from "./screenshot";
  * Listeners and general set up
  **********************************************************************/
 
-// TODO: is there a way of avoiding using these as globals?
+// TODO: cjbaik: is there a way of avoiding using these as globals?
 declare global {
 	interface Window {
-		helenaState: HelenaState;
+		helenaContent: HelenaContent;
+
+		additional_recording_handlers: {
+			scrape: Function;
+			visualization: Function;
+		},
+		additional_recording_filters: {
+			ignoreExtraCtrlAlt: Function;
+			ignoreExtraKeydowns: Function;
+		},
+		additional_recording_handlers_on: {
+			scrape: boolean;
+			visualization: boolean;
+		},
+		additional_recording_filters_on: {
+			ignoreExtraCtrlAlt: boolean;
+			ignoreExtraKeydowns: boolean;
+		}
 
 		// TODO: cjbaik: modularize all these later, remove `window` calls
 		utilities: any; // TODO: modularize later
@@ -25,9 +40,9 @@ declare global {
 	}
 }
 
-window.helenaState = new HelenaState();
-new Screenshot();
+window.helenaContent = new HelenaContent();
 
+// TODO: cjbaik: move all this stuff after we update `relation_finding.js`
 window.utilities.listenForMessage("mainpanel", "content", "getRelationItems", function (msg: MessageContent) {
 	window.RelationFinder.getRelationItems(msg);
 });
