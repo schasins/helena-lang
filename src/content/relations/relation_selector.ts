@@ -598,4 +598,65 @@ export class ComparisonSelector extends RelationSelector {
   numRows: number;
   numRowsInDemo: number;
   numColumns: number;
+
+  /**
+   * Selects the preferred selector among the two in order of:
+   *   1. largest number of target xpaths in the first row,
+   *   2. largest number of rows retrieved from the page,
+   *   3. largest num of rows in original demonstration,
+   *   4. largest number of columns associated with relation
+   *   5. other miscellaneous criteria
+   * @param first first selector
+   * @param second second selector
+   */
+  public static bestOf(first: ComparisonSelector, second: ComparisonSelector) {
+    // first things first, before we get into anything else, we always want a
+    //   relation with more than one row or else we don't really care about it.
+    //   so default or no, we're going to eliminate it if it only has one
+    if (first.numRowsInDemo > 1 && second.numRowsInDemo <= 1) {
+      return first;
+    }
+    else if (second.numRowsInDemo > 1 && first.numRowsInDemo <= 1) {
+      return second;
+    }
+
+    // normal processesing - just go through the features we care about, and
+    //   pick default if it wins on any of our ordered list of features, else
+    //   the alternative. we only really get into crazy tie breakers if we're
+    //   tied on num of matched xpaths, because whichever wins there can
+    //   automatically win the whole thing but if they're tied, we go into the
+    //   extra feature deciders
+    if (first.numMatchedXpaths > second.numMatchedXpaths){
+      return first;
+    }
+    else if (first.numMatchedXpaths === second.numMatchedXpaths){
+      if (first.numRows > second.numRows){
+        return first;
+      }
+      else if (first.numRows === second.numRows){
+        if (first.numRowsInDemo > second.numRowsInDemo){
+          return first;
+        }
+        else if (first.numRowsInDemo === second.numRowsInDemo){
+          if (first.numColumns > second.numColumns){
+            return first;
+          }
+          else if (first.numColumns === second.numColumns){
+            if (first.next_type !== null && second.next_type === null){
+              // first has a next button method, but second
+              //   doesn't, so first better
+              return first;
+            }
+            else if (!(second.next_type !== null && first.next_type === null)) {
+              // it's not the case that second has next method and first
+              //   doesn't, so either both have it or neither has it, so
+              //   they're the same, so just return the default one
+              return first;
+            }
+          }
+        }
+      }
+    }
+    return second;
+  }
 }
