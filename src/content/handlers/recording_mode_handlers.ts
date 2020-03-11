@@ -33,9 +33,9 @@ export namespace RecordingModeHandlers {
      */
     export function mouseoverHandler(event: MouseEvent) {
       if (window.helenaContent.currentlyRecording()) {
-        new ScrapingTooltip(MiscUtilities.targetFromEvent(event));
-        window.helenaContent.highlightRelation(
-            MiscUtilities.targetFromEvent(event));
+        new ScrapingTooltip(window.MiscUtilities.targetFromEvent(event));
+        window.helenaContent.highlightRelevantRelation(
+            window.MiscUtilities.targetFromEvent(event));
       }
       // just a backup in case the checks on keydown and keyup fail to run, as
       //   seems to happen sometimes with focus issues
@@ -52,7 +52,7 @@ export namespace RecordingModeHandlers {
      */
     export function mouseoutHandler(event: MouseEvent) {
       if (window.helenaContent.currentlyRecording()) {
-        ScrapingTooltip.destroy(MiscUtilities.targetFromEvent(event));
+        ScrapingTooltip.destroy(window.MiscUtilities.targetFromEvent(event));
         window.helenaContent.unhighlightRelation();
       }
       // just a backup in case the checks on keydown and keyup fail to run, as
@@ -91,7 +91,7 @@ export namespace RecordingModeHandlers {
           return;
         }
         // want highlight shown now, want clicks to fall through
-        window.helenaContent.highlightedElement = Highlight.highlightNode(
+        window.helenaContent.highlightedElement = window.Highlight.highlightNode(
           window.helenaContent.mostRecentMousemoveTarget, "#E04343", true,
           false);
       }
@@ -101,7 +101,7 @@ export namespace RecordingModeHandlers {
       if (window.helenaContent.currentlyScraping() &&
           window.helenaContent.currentlyRecording() && !(altDown)) {
         window.helenaContent.disableScrapeMode();  
-        Highlight.clearHighlight(window.helenaContent.highlightedElement);
+        window.Highlight.clearHighlight(window.helenaContent.highlightedElement);
       }
     };
   
@@ -130,7 +130,7 @@ export namespace RecordingModeHandlers {
   
     let addedOverlay = false;
     export function applyReplayOverlayIfAppropriate(replayWindowId: number) {
-      WALconsole.namedLog("tooCommon", "applyReplayOverlayIfAppropriate",
+      window.WALconsole.namedLog("tooCommon", "applyReplayOverlayIfAppropriate",
         replayWindowId, window.helenaContent.windowId, addedOverlay);
       
       // only apply it if we're in the replay window, if we haven't already

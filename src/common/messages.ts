@@ -1,3 +1,6 @@
+import { GenericSelector } from "../content/relation_finding";
+import { MainpanelNodeRep } from "../content/handlers/scrape_mode_handlers";
+
 export interface MessageContent {
 
 }
@@ -18,4 +21,15 @@ export interface WindowsMessageContent {
 
 export interface ColumnIndexMessageContent {
     index: number;
+}
+
+export interface LikelyRelationMessageContent {
+    xpaths: string[];
+    pageVarName: string;
+    serverSuggestedRelations: (GenericSelector | null)[];
+}
+
+export interface FreshRelationItemsMessage {
+    type: number;
+    relation: MainpanelNodeRep[][];
 }

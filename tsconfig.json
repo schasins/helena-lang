@@ -3,6 +3,7 @@
         "outDir": "./dist/",
         "allowJs": true,
         "sourceMap": true,
+        "lib": ["dom", "es2017"],
         "target": "es6",
         "strictNullChecks": true,
         "noImplicitAny": true,

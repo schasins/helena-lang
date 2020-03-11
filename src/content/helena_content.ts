@@ -92,8 +92,8 @@ export class HelenaContent {
    * Highlights relevant relation to element.
    * @param element element
    */
-  public highlightRelation(element: Element) {
-    this.relationHighlighter.highlight(element);
+  public highlightRelevantRelation(element: Element) {
+    this.relationHighlighter.highlightRelevantRelation(element);
   }
 
   /**
@@ -127,8 +127,18 @@ export class HelenaContent {
     let self = this;
 
     /*
-     * 1. Set up listeners
+     * 1. Set up listeners.
      */
+
+    window.utilities.listenForMessage("background", "content", "tabID",
+    function (msg: TabDetailsMessageContent) {
+        self.tabId = msg.tab_id;
+        self.windowId = msg.window_id;
+        self.tabTopUrl = msg.top_frame_url;
+        console.log("tabId info", self.tabId, self.windowId,
+            self.tabTopUrl);
+      }
+    );
     window.utilities.listenForMessage("mainpanel", "content",
       "currentRecordingWindows", function (msg: WindowsMessageContent) {
         self.currentRecordingWindows = msg.window_ids;
@@ -140,21 +150,24 @@ export class HelenaContent {
         RecordingModeHandlers.applyReplayOverlayIfAppropriate(msg.window);
     });
 
-    window.utilities.listenForMessage("background", "content", "tabID",
-      function (msg: TabDetailsMessageContent) {
-        self.tabId = msg.tab_id;
-        self.windowId = msg.window_id;
-        self.tabTopUrl = msg.top_frame_url;
-        console.log("tabId info", self.tabId, self.windowId,
-            self.tabTopUrl);
-      }
-    );
-
     /*
      * 2. Poll mainpanel and background.
      * TODO: cjbaik: switch this pattern to a port connection rather than
      *   doing this polling
+     * TODO: cjbaik: also, the ordering of these matters; requestTabID has to
+     *   happen first...
      */
+    window.MiscUtilities.repeatUntil(
+      function() {
+          window.utilities.sendMessage("content", "background",
+              "requestTabID", {});
+      },
+      function() {
+          return (self.tabId && self.windowId);
+      },
+      function() {},
+      1000, true);
+
     window.MiscUtilities.repeatUntil(
       function () {
           window.utilities.sendMessage("content", "mainpanel",
@@ -177,17 +190,6 @@ export class HelenaContent {
       function () {},
       1000, true);
     
-
-    window.MiscUtilities.repeatUntil(
-      function() {
-          window.utilities.sendMessage("content", "background",
-              "requestTabID", {});
-      },
-      function() {
-          return (self.tabId && self.windowId);
-      },
-      function() {},
-      1000, true);
   }
   
   /**

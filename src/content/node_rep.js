@@ -5,7 +5,7 @@
 var NodeRep = (function _NodeRep() { var pub = {};
 	'use strict'
 
-	pub.nodeToMainpanelNodeRepresentation = function _nodeToMainpanelNodeRepresentation(node, tabTopUrl){
+	pub.nodeToMainpanelNodeRepresentation = function _nodeToMainpanelNodeRepresentation(node){
 	  if (node === null){
 	    return {
 	    	text: "", 
@@ -15,7 +15,7 @@ var NodeRep = (function _NodeRep() { var pub = {};
 	    	value: "",
 	    	frame: SimpleRecord.getFrameId(), 
 			source_url: window.location.href,
-	    	top_frame_source_url: tabTopUrl,
+	    	top_frame_source_url: window.helenaContent.tabTopUrl,
 	    	date: (new Date()).getTime()
 	    };
 	  }
@@ -27,7 +27,7 @@ var NodeRep = (function _NodeRep() { var pub = {};
 	  	value: NodeRep.nodeToValue(node),
 	  	frame: SimpleRecord.getFrameId(),
     	source_url: window.location.href,
-    	top_frame_source_url: tabTopUrl,
+    	top_frame_source_url: window.helenaContent.tabTopUrl,
 		date: (new Date()).getTime()
 	  };
 	};

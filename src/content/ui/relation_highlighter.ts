@@ -1,4 +1,4 @@
-import * as _ from "underscore";
+import { GenericSelector, RelationFinder } from "../relation_finding";
 
 /**
  * TODO: cjbaik: returned from Helena back-end server.
@@ -25,47 +25,10 @@ interface KnownRelationResponse {
  * TODO: cjbaik: returned from Helena back-end server.
  *   Not sure what all parameters mean yet.
  */
-interface KnownRelation {
-  selectorObj: {
-    selector_version: number;
-    selector: {
-      tag: {
-        pos: boolean;
-        values: string[];
-      };
-      xpath: {
-        pos: boolean;
-        values: {
-          index: string;
-          iterable: boolean;
-          nodeName: string;
-        };
-      }
-    };
-    name: string;
-    exclude_first: number;
-    id: number;
-    columns: {
-      xpath: string;
-      suffix: {
-        index: string;
-        iterable: boolean;
-        nodeName: string;
-      }[];
-      name: string;
-      id: number;
-    }[];
-    num_rows_in_demonstration: number;
-    next_type: number;
-    next_button_selector: {
-      frame_id: string;
-      tag: string;
-      text: string;
-      xpath: string;
-    } | null;
-  },
-  nodes: Element[];
-  relationOutput: (Node | null)[][];
+interface SelectorMessage {
+  selectorObj: GenericSelector;
+  nodes: (Element | null)[];
+  relationOutput: (Element | null)[][];
   highlighted: boolean;
   highlightNodesTime?: number;
   highlightNodes?: JQuery<HTMLElement>[];
@@ -77,14 +40,17 @@ interface KnownRelation {
  *   we start recording. Investigate and fix?
  */
 export class RelationHighlighter {
-    knownRelations: KnownRelation[];
+    highlightColors: string[];
+    knownRelations: SelectorMessage[];
 
     constructor () {
       this.knownRelations = [];
+      this.highlightColors = ["#9EE4FF","#9EB3FF", "#BA9EFF", "#9EFFEA",
+        "#E4FF9E", "#FFBA9E", "#FF8E61"];
     }
 
     /**
-     * Retreive known relations from the server.
+     * Retrieve known relations from the server.
      */
     public getKnownRelations() {
       let self = this;
@@ -93,13 +59,13 @@ export class RelationHighlighter {
       // have to use postForMe right now to make the extension make a POST
       // request because modern Chrome won't let us request http content from
       // https pages and we don't currently have ssl certificate for kaofang
-      utilities.sendMessage("content", "background", "postForMe", {
+      window.utilities.sendMessage("content", "background", "postForMe", {
         url: helenaServerUrl + '/allpagerelations',
         params: {url: window.location.href }
       });
-      utilities.listenForMessageOnce("background", "content", "postForMe",
+      window.utilities.listenForMessageOnce("background", "content", "postForMe",
         function (resp: { relations: KnownRelationResponse[] }) {
-          WALconsole.log(resp);
+          window.WALconsole.log(resp);
           self.preprocessKnownRelations(resp.relations);
         }
       );
@@ -111,23 +77,30 @@ export class RelationHighlighter {
      */
     private preprocessKnownRelations(resp: KnownRelationResponse[]) {
       for (let i = 0; i < resp.length; i++) {
-        let selectorObj = ServerTranslationUtilities.unJSONifyRelation(resp[i]);
+        let selector = window.ServerTranslationUtilities.unJSONifyRelation(resp[i]);
         // first let's apply each of our possible relations to see which nodes
         //   appear in them
-        let relationOutput = RelationFinder.interpretRelationSelector(selectorObj);
-        let nodeList = _.flatten(relationOutput);
-  
-        // then let's make a set of highlight nodes for each relation, so we can
-        //   toggle them between hidden and displayed based on user's hover
-        //   behavior
-        this.knownRelations.push(
-          {
-            selectorObj: selectorObj,
-            nodes: nodeList,
-            relationOutput: relationOutput,
-            highlighted: false
-          }
-        );
+        try {
+          let relationOutput = RelationFinder.getRelationMatchingSelector(
+            selector);
+          let nodes = relationOutput.reduce((memo, row) => memo.concat(row),
+            []);
+
+          // then let's make a set of highlight nodes for each relation, so we
+          //   can toggle them between hidden and displayed based on user's
+          //   hover behavior
+          this.knownRelations.push(
+            {
+              selectorObj: selector,
+              nodes: nodes,
+              relationOutput: relationOutput,
+              highlighted: false
+            }
+          );
+        } catch (err) {
+          console.warn(`Known relation ${JSON.stringify(resp[i])} failed.`);
+          continue;
+        }
       }  
     }
   
@@ -135,7 +108,7 @@ export class RelationHighlighter {
      * Given an element, find most relevant relation and highlight.
      * @param element element to highlight
      */
-    public highlight(element: Element) {
+    public highlightRelevantRelation(element: Element) {
       // for now we'll just pick whichever node includes the current node and has
       //   the largest number of nodes on the current page
       let winningRelation = null;
@@ -166,7 +139,7 @@ export class RelationHighlighter {
           //   recompute those positions
           highlightNodes = winningRelation.highlightNodes;
         } else {
-          highlightNodes = RelationFinder.highlightRelation(
+          highlightNodes = this.highlightRelation(
             winningRelation.relationOutput, false, false);
         }
         winningRelation.highlightNodes = highlightNodes;
@@ -176,7 +149,37 @@ export class RelationHighlighter {
           highlightNodes[i].css("display", "block");
         }
       }
-    };
+    }
+
+    /**
+     * Highlight the relation.
+     * @param relation elements in relation
+     * @param display whether to show highlight nodes or not
+     * @param pointerEvents whether to enable or disable CSS pointer-events on
+     *   highlight nodes
+     * @returns highlighted nodes
+     */
+    public highlightRelation(relation: (Element | null)[][], display: boolean,
+      pointerEvents: boolean) {
+      let nodes = [];
+      for (const row of relation) {
+        for (let cellIndex = 0; cellIndex < row.length; cellIndex++) {
+          let cell = row[cellIndex];
+          if (cell === null){ continue; }
+          // first make sure there is a color at index j, add one if there isn't
+          if (cellIndex >= this.highlightColors.length) {
+            this.highlightColors.push(
+              "#000000".replace(/0/g,function () {
+                return (~~(Math.random()*16)).toString(16);
+              }));
+          }
+          let node = window.Highlight.highlightNode(cell,
+            this.highlightColors[cellIndex], display, pointerEvents);
+          nodes.push(node);
+        }
+      }
+      return nodes;
+    }
   
     /**
      * Unhighlight the relation.

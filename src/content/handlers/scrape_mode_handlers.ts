@@ -5,7 +5,7 @@ import { EventMessage } from "../utils/event";
  **********************************************************************/
 
 // TODO: cjbaik: move this to `node_rep.js` after that is converted to TS.
-interface MainpanelNodeRep {
+export interface MainpanelNodeRep {
   text: string;
   textContent: string;
   link: string;
@@ -13,7 +13,7 @@ interface MainpanelNodeRep {
   value: string;
   frame: string | null;
   source_url: string;
-  top_frame_source_url: string;
+  top_frame_source_url?: string;
   date: number;
   linkScraping?: boolean;
 }
@@ -26,13 +26,12 @@ export namespace ScrapeModeHandlers {
    */
   export function sendScrapedDataToMainpanel(node: Node,
     eventMessage: EventMessage) {
-    let data: MainpanelNodeRep = NodeRep.nodeToMainpanelNodeRepresentation(node,
-      window.helenaContent.tabTopUrl);
+    let data: MainpanelNodeRep = NodeRep.nodeToMainpanelNodeRepresentation(node);
     // convention is SHIFT means we want to scrape the link, not the text 
     let linkScraping = eventMessage.data.shiftKey || eventMessage.data.metaKey;
     data.linkScraping = linkScraping;
     if (eventMessage.data.type === "click") {
-      utilities.sendMessage("content", "mainpanel", "scrapedData", data);
+      window.utilities.sendMessage("content", "mainpanel", "scrapedData", data);
     } // send it to the mainpanel for visualization
     return data;
   };
@@ -56,9 +55,9 @@ export namespace ScrapeModeHandlers {
       //   during replay
       return;
     }
-    Highlight.clearHighlight(window.helenaContent.highlightedElement);
-    window.helenaContent.highlightedElement = Highlight.highlightNode(
-      MiscUtilities.targetFromEvent(event), "#E04343", true, false);
+    window.Highlight.clearHighlight(window.helenaContent.highlightedElement);
+    window.helenaContent.highlightedElement = window.Highlight.highlightNode(
+      window.MiscUtilities.targetFromEvent(event), "#E04343", true, false);
   }
 
   /**
@@ -66,7 +65,7 @@ export namespace ScrapeModeHandlers {
    * @param event mouseout event
    */
   export function unhighlightMouseoutElement(event: Event) {
-    Highlight.clearHighlight(window.helenaContent.highlightedElement);
+    window.Highlight.clearHighlight(window.helenaContent.highlightedElement);
   }
 
   /**
