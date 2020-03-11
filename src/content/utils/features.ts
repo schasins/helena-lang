@@ -40,7 +40,8 @@ export namespace Features {
   /**
    * A generic interface to inherit specific feature sets from.
    */
-  export interface GenericFeatureSet {}
+  export interface GenericFeatureSet {
+  }
   
   /**
    * A set of features describing how to find the rows for a relation.

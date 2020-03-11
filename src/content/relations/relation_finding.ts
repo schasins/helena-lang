@@ -1,402 +1,22 @@
 import * as $ from "jquery";
-import * as stringify from "json-stable-stringify";
 
-import { Features } from "./utils/features";
-import GenericFeatureSet = Features.GenericFeatureSet;
-import FeatureSet = Features.FeatureSet;
-import TableFeatureSet = Features.TableFeatureSet;
+import { Features } from "../utils/features";
 import PulldownFeatureSet = Features.PulldownFeatureSet;
 
-import { MainpanelNodeRep } from "./handlers/scrape_mode_handlers";
+import { PulldownSelector, ColumnSelector, ContentSelector, ComparisonSelector,
+  NextButtonSelector, RelationSelector, TableSelector } from "./relation_selector";
 
-import { XPath } from "./utils/xpath";
+import { MainpanelNodeRep } from "../handlers/scrape_mode_handlers";
+
+import { XPath } from "../utils/xpath";
 import SuffixXPathList = XPath.SuffixXPathList;
-import { LikelyRelationMessageContent, FreshRelationItemsMessage } from "../common/messages";
-
-export interface ColumnSelector {
-  xpath: string;
-  suffix: SuffixXPathList | SuffixXPathList[];
-  name?: string;
-  id: number | null;
-  index?: number;
-}
-
-interface NextButtonSelector {
-  id: string;
-  class: string;
-  src: string | null;
-  frame_id: string | null;
-  tag: string;
-  text: string | null;
-  xpath: string;
-}
-
-export interface GenericSelector {
-  selector_version: number;
-  selector: GenericFeatureSet | GenericFeatureSet[];
-  name?: string | null;
-  exclude_first: number;
-  id?: number;
-  columns: ColumnSelector[];
-  num_rows_in_demonstration?: number;
-  next_type?: number;
-  prior_next_button_text?: string;
-  next_button_selector?: NextButtonSelector | null;
-  url?: string;
-  
-  positive_nodes?: Element[];
-  negative_nodes?: Element[];
-
-  relation?: ((Element | MainpanelNodeRep | null)[][]) | null;
-  page_var_name?: string;
-  relation_id?: number | null;
-  first_page_relation?: (Element | MainpanelNodeRep | null)[][];
-  pulldown_relations?: GenericSelector[];
-
-  relation_scrape_wait?: number;
-}
-
-export interface ContentSelector extends GenericSelector {
-  relation: (Element | null)[][];
-  editingClickColumnIndex?: number;
-  origSelector?: ContentSelector;
-  currentIndividualSelector?: ContentSelector;
-}
-
-export interface MainpanelSelector extends GenericSelector {
-  relation: (MainpanelNodeRep[][]) | null;
-  demonstration_time_relation?: MainpanelNodeRep[][];
-}
+import { LikelyRelationMessageContent, FreshRelationItemsMessage } from "../../common/messages";
 
 export interface ScrapedElement extends Element {
   ___relationFinderId___?: number;
 }
 
-/**
- * Selector with additional metadata for selecting the "best" selector.
- */ 
-export interface ComparisonSelector extends GenericSelector {
-  relation: MainpanelNodeRep[][];
-  numMatchedXpaths: number;
-  numRows: number;
-  numRowsInDemo: number;
-  numColumns: number;
-}
-
 export namespace RelationFinder {
-
-  /**********************************************************************
-   * Web-specific relation-finder code -- how to get features, how to tell when features match, how to combine features to get a more general feature, all candidates
-   **********************************************************************/
-
-  /**
-   * Get cells in each of the candidateRowNodes matching the suffixes.
-   * @param suffixes the tail end of each XPath for a column, which excludes the
-   *   XPath up to the row element
-   * @param candidateRowNodes candidate row nodes, or null if none found  
-   */
-  function getCellsInRowMatchingSuffixes(
-      suffixes: SuffixXPathList | SuffixXPathList[],
-      candidateRowNodes: (Element | null)[]) {
-    let candidateSubitems = [];
-    let rowNodeXPaths = candidateRowNodes.map(
-      (candidateRow) => OldXPathList.xPathToXPathList(nodeToXPath(candidateRow))
-    );
-    for (let j = 0; j < suffixes.length; j++){
-      // TODO: clean this up
-      // suffixes[j] will be depth 2 if only one suffix available,
-      // depth 3 if list of suffixes available
-      let suffixLs: SuffixXPathList[];
-      // < 3 rather than = 2 because we use empty suffix for single-col datasets
-      if (window.MiscUtilities.depthOf(suffixes[j]) < 3){ 
-        suffixLs = [ <SuffixXPathList> suffixes[j] ];
-      } else {
-        suffixLs = <SuffixXPathList[]> suffixes[j];
-      }
-
-      let foundSubItem = null;
-      for (let k = 0; k < suffixLs.length; k++){
-        let rowNodeXPath = null;
-        let suffixListRep = null;
-        let selectorIndex = suffixLs[k].selectorIndex;
-
-        // selectorIndex can be 0, which is why we check for undefined
-        if (selectorIndex !== undefined) {
-          // we know exactly which of the candidate row nodes to use because a
-          //   selector index is provided
-          rowNodeXPath = rowNodeXPaths[selectorIndex];
-          suffixListRep = suffixLs[k].suffixRepresentation;
-        } else {
-          // this suffix isn't one of our selectorIndex-labeled objects. it is
-          //   the old array representation so we should have only one selector
-          //   and thus only one candidate row node
-          rowNodeXPath = rowNodeXPaths[0];
-          suffixListRep = suffixLs[k];
-          if (candidateRowNodes.length > 1){
-            window.WALconsole.warn("Woah, bad, we have no selector index associated " +
-              "with a column suffix, but we have multiple row nodes.");
-          }
-        }
-        let xpath = rowNodeXPath.concat(suffixListRep);
-        let xpath_string = OldXPathList.xPathToString(xpath);
-        let nodes = <Element[]> xPathToNodes(xpath_string);
-        if (nodes.length > 0){
-          foundSubItem = nodes[0];
-          break;
-        }
-      }
-      // either push the found subitem, or null if none found
-      candidateSubitems.push(foundSubItem);
-    }
-    let atLeastOneNonNullCandidate = candidateSubitems.some((item) => item);
-    if (candidateSubitems.length > 0 && atLeastOneNonNullCandidate){
-      return candidateSubitems;
-    }
-    return null;
-  }
-
-  /**
-   * Retrieve all candidate elements from the document.
-   */
-  function getAllCandidateElements() {
-    return document.getElementsByTagName("*");
-  }
-
-  /**********************************************************************
-   * Domain-independent function to go from a selector to a relation of elements
-   **********************************************************************/
-
-  /**
-   * Gets the document elements matching the features specified in selector for
-   *   the general, non-table case.
-   * @param selector the selector specifying features
-   * @param excludeFirst exclude this many rows from extraction (e.g. headers)
-   */
-  export function getElementsMatchingRelationSelector(
-    selector: FeatureSet, excludeFirst: number) {
-    // window.WALconsole.log("interpretRelationSelectorHelper", feature_dict,
-    //   excludeFirst, subcomponents_function);
-    let candidates = getAllCandidateElements();
-    let listOfRowNodes = [];
-    for (let i = 0; i < candidates.length; i++) {
-      let candidate = candidates[i];
-      let candidate_ok = true;
-      for (const feature in selector) {
-        let value = Features.computeFeatureFromElement(candidate, feature);
-        let acceptable_values = selector[feature].values;
-        let pos = selector[feature].pos;
-        let candidate_feature_match = Features.featureMatches(feature, value,
-          acceptable_values);
-        if ((pos && !candidate_feature_match) ||
-           (!pos && candidate_feature_match)) {
-          candidate_ok = false;
-          break;
-        }
-      }
-      if (candidate_ok) {
-        listOfRowNodes.push(candidate);
-      }
-    }
-    if (excludeFirst > 0 && listOfRowNodes.length > excludeFirst){
-      return listOfRowNodes.slice(excludeFirst, listOfRowNodes.length);
-    }
-    window.WALconsole.log("listOfRowNodes", listOfRowNodes);
-    return listOfRowNodes;
-  };
-
-
-  /**
-   * Gets the document elements matching the features specified in selector for
-   *   a table element.
-   * @param selector the selector specifying features
-   * @param excludeFirst exclude this many rows from extraction (e.g. headers)
-   */
-  export function getElementsMatchingTableSelector(selector: TableFeatureSet,
-    excludeFirst: number) {
-    // we don't use this for nested tables! this is just for very simple tables,
-    //   otherwise we'd graduate to the standard approach
-    let nodes = xPathToNodes(selector.xpath);
-    let table = null;
-    if (nodes.length > 0) {
-      // awesome, we have something at the exact xpath
-      table = <Element> nodes[0];
-    } else {
-      // ok, I guess we'll have to see which table on the page is closest
-      let tables = [].slice.call(document.getElementsByTagName("table"));
-      let bestTableScore = Number.POSITIVE_INFINITY;
-
-      for (const t of tables) {
-        let distance = window.MiscUtilities.levenshteinDistance(nodeToXPath(t),
-          selector.xpath);
-        if (distance < bestTableScore){
-          bestTableScore = distance;
-          table = t;
-        }
-      }
-    }
-
-    // ok, now we know which table to use
-
-    if (table === null) {
-      throw new ReferenceError(`Could not find table matching ${JSON.stringify(selector)}`);
-      // todo: why is this arising?
-      // return []; 
-    }
-
-    let rows = [].slice.call(table.querySelectorAll("tr"));
-    rows = rows.slice(excludeFirst, rows.length);
-    return rows;
-  };
-
-  /**
-   * Gets elements representing the rows of the relation to be extracted.
-   * @param selector the selector specifying what elements to match
-   */
-  export function getRowsMatchingSelector(selector: GenericSelector): Element[][] {
-    if (!selector.selector){
-      return [];
-    }
-
-    if (Array.isArray(selector.selector)){
-      // the case where we need to recurse
-      let selectorArray = selector.selector;
-      let rowNodeLists: Element[][] = [];
-      for (let i = 0; i < selectorArray.length; i++){
-        let possibleSelector = selectorArray[i];
-        selector.selector = possibleSelector;
-        let newRowNodesLs = getRowsMatchingSelector(selector);
-        rowNodeLists = rowNodeLists.concat(newRowNodesLs);
-      }
-      selector.selector = selectorArray;
-      return rowNodeLists;
-    }
-
-    window.WALconsole.log("interpretRelationSelector", selector);
-
-    if ('table' in selector.selector &&
-        (<TableFeatureSet> selector.selector).table) {
-      // special case: table extractor
-      return [ getElementsMatchingTableSelector(
-        <TableFeatureSet> selector.selector, selector.exclude_first) ];
-    } else {
-      // the normal extractor
-      return [ getElementsMatchingRelationSelector(
-        <FeatureSet> selector.selector, selector.exclude_first) ];
-    }
-  }
-
-  /**
-   * Get all the cells to be extracted given multiple rows where each row is
-   *   extracted from a selector.
-   * @param selector selector specifying what elements to match
-   * @param rowsPerSelector for each selector, a collection of nodes where each
-   *   node represents a row
-   */
-  export function getCellsMatchingSelector(selector: GenericSelector,
-    rowsPerSelector: Element[][]) {
-    window.WALconsole.log("rowNodeLists", rowsPerSelector);
-    // now we'll use the columns info to actually get the cells
-    let suffixes = selector.columns.map((col) => col.suffix);
-    
-    // only use multiple selectors up to the point where they have the same
-    //   number of rows
-    let allCells = [];
-    let maxRowCount = Math.max(...(rowsPerSelector.map(rows => rows.length)));
-    for (let rowIndex = 0; rowIndex < maxRowCount; rowIndex++) {
-      let curRowNodes = [];
-      for (let selIndex = 0; selIndex < rowsPerSelector.length; selIndex++) {
-        if (rowsPerSelector[selIndex].length > rowIndex) {
-          curRowNodes.push(rowsPerSelector[selIndex][rowIndex]);
-        } else {
-          curRowNodes.push(null);
-        }
-      }
-      let curRowCells = getCellsInRowMatchingSuffixes(suffixes, curRowNodes);
-      if (curRowCells !== null) {
-        allCells.push(curRowCells);
-      }
-    }
-    return allCells;
-  }
-
-  /**
-   * cjbaik: Not sure what this does, or if it is even ever called.
-   * @param selector 
-   */
-  export function interpretPulldownSelector(selector: PulldownFeatureSet) {
-    let allSelectNodes = document.getElementsByTagName("select");
-    // then just index into it, because our current approach to pulldowns is
-    //   crazy simplistic
-    let selectorNode = allSelectNodes[selector.index];
-    console.log("selector: ", selector, selector.index, selectorNode);
-    if (!selectorNode.disabled) {
-      console.log("selector enabled");
-      let optionNodes = [].slice.call(selectorNode.querySelectorAll("option"));
-      console.log("option nodes", optionNodes);
-      return optionNodes;
-    }
-    console.log("selector not enabled");
-    // else, we know which pulldown we want, but it's disabled right now.
-    //   let's wait
-    return [];
-  }
-
-  /* a wrapper function that goes through and tosses cells/rows
-     that are display:none
-  function onlyDisplayedCellsAndRows(rows){
-    var outputRows = [];
-    for (var i = 0; i < rows.length; i++){
-      var cells = rows[i];
-      var allCellsInvisible = true;
-      for (var j = 0; j < cells.length; j++){
-        if ($(cells[j]).is(":visible")){
-          allCellsInvisible = false;
-        }
-        else{
-          // huh, it is invisible.  ok, null it out
-          cells[j] = null;
-        }
-      }
-      if (!allCellsInvisible){
-        outputRows.push(cells);
-      }
-    }
-    return outputRows;
-  }*/
-
-  /**
-   * Get a relation from the document given the selector.
-   * @param selector selector describing the relation to retrieve
-   * @returns a relation (i.e. a 2d array) with the matching data
-   */
-  export function getRelationMatchingSelector(selector: GenericSelector):
-    (Element | null)[][] {
-    if (!selector.selector_version || selector.selector_version === 1) {
-      let rowNodeLists = getRowsMatchingSelector(selector);
-      // now that we have some row nodes, time to extract the individual cells
-      let cells = getCellsMatchingSelector(selector, rowNodeLists);
-      window.WALconsole.log("cells", cells);
-      //cells = onlyDisplayedCellsAndRows(cells);
-      window.WALconsole.log("returning cells 1", cells);
-      return cells;      
-    } else if (selector.selector_version === 2) {
-      // TODO: cjbaik: cannot tell if this is ever used...
-      // todo: ugh, gross that we descend here butnot in the above
-      let optionNodes = interpretPulldownSelector(
-        <PulldownFeatureSet> selector.selector);
-      console.log("selector.exclude_first", selector.exclude_first);
-      optionNodes = optionNodes.splice(selector.exclude_first,
-        optionNodes.length);
-      return optionNodes.map((o: Element[]) => [o]);
-      // cells = onlyDisplayedCellsAndRows(cells);
-      // window.WALconsole.log("returning cells 2", cells);
-    } else {
-      console.log("about to throw new unknown selector type version error",
-        selector);
-      throw new Error("Unknown selectorTypeVersion");
-    }
-  }
-
 
 /**********************************************************************
  * How to actually synthesize the selectors used by the relation-finder above
@@ -425,75 +45,6 @@ export namespace RelationFinder {
   }
 
   /**
-   * Create a selector given relevant parameters
-   * @param selector
-   * @param exclude_first 
-   * @param columns 
-   * @param positive_nodes 
-   * @param negative_nodes 
-   */
-  function createSelector(
-    selector: GenericFeatureSet,
-    exclude_first: number,
-    columns: ColumnSelector[],
-    positive_nodes?: Element[],
-    negative_nodes?: Element[]): GenericSelector {
-    // this form of Selector object should only be used for version 1 selectors,
-    //   or else change this
-    return {
-      selector: selector, 
-      exclude_first: exclude_first, 
-      columns: columns, 
-      positive_nodes: positive_nodes, 
-      negative_nodes: negative_nodes,
-      selector_version: 1
-    }; 
-  }
-
-  function synthesizeSelector(positiveNodes: Element[],
-    negativeNodes: Element[], columns: ColumnSelector[],
-    features = ["tag", "xpath"]): GenericSelector {
-    let featureSet = Features.getFeatureSet(features, positiveNodes);
-
-    // If we can't shrink things down to less than 3 common XPaths, then exclude
-    //   XPath and use the other features.
-    if (featureSet["xpath"]?.values.length > 3 &&
-        features !== Features.FEATURES_EXCEPT_XPATH) {
-      return synthesizeSelector(positiveNodes, negativeNodes, columns,
-        Features.FEATURES_EXCEPT_XPATH);
-    }
-
-    let rows = getRelationMatchingSelector(
-      createSelector(featureSet, 0, columns)
-    );
-    
-    //now handle negative examples
-    let exclude_first = 0;
-    for (let rowIndex = 0; rowIndex < rows.length; rowIndex++){
-      let nodes = rows[rowIndex];
-      for (const node of nodes) {
-        if (node && negativeNodes.includes(node)) {
-          if (rowIndex === 0) {
-            exclude_first = 1;
-          } else if (features !== Features.FEATURES_EXCEPT_XPATH) {
-            // xpaths weren't enough to exclude nodes we need to exclude
-            window.WALconsole.log("need to try more features.");
-            return synthesizeSelector(positiveNodes, negativeNodes, columns,
-              Features.FEATURES_EXCEPT_XPATH);
-          }
-          else {
-            window.WALconsole.log(featureSet);
-            throw new Error("Failed to exclude all negative nodes " + 
-              "even with all features.");
-          }
-        }
-      }
-    }
-    return createSelector(featureSet, exclude_first, columns, positiveNodes,
-      negativeNodes);
-  }
-
-  /**
    * TODO: cjbaik: what is this for?
    * @param curSelector original selector
    */
@@ -504,8 +55,9 @@ export namespace RelationFinder {
     if (!curSelector.negative_nodes) {
       throw new ReferenceError('Selector does not contain any negative nodes.');
     }
-    let newSelector = synthesizeSelector(curSelector.positive_nodes,
-      curSelector.negative_nodes, curSelector.columns);
+    let newSelector = RelationSelector.fromPositiveAndNegativeElements(
+      curSelector.positive_nodes, curSelector.negative_nodes,
+      curSelector.columns);
     
     // keep features of old selector that don't relate to actual row selector
     newSelector.next_type = curSelector.next_type;
@@ -531,8 +83,9 @@ export namespace RelationFinder {
     if (matchingDescendantSibling !== null){
       positiveNodes.push(matchingDescendantSibling);
     }
-    let selector = synthesizeSelector(positiveNodes, [], columns);
-    let relation = getRelationMatchingSelector(selector);
+    let selector = RelationSelector.fromPositiveAndNegativeElements(
+      positiveNodes, [], columns);
+    let relation = selector.getMatchingRelation();
     selector.relation = relation;
 
     for (let i = 0; i < relation.length; i++){
@@ -679,9 +232,11 @@ export namespace RelationFinder {
       let tdThCells = [].slice.call(tr.querySelectorAll("td, th"));
       // union of td/th cells and originally provided cells
       let allCells = [...new Set([...tdThCells, ...cells])];
-      let selector = createSelector(tableFeatureSet, index,
-        getColumnSelectors(tr, allCells), cells, []);
-      let relation = getRelationMatchingSelector(selector);
+      let selector = new TableSelector(tableFeatureSet, index,
+        getColumnSelectors(tr, allCells));
+      selector.positive_nodes = cells;
+      selector.negative_nodes = [];
+      let relation = selector.getMatchingRelation();
       selector.relation = relation;
       let score = relation.length * relation[0].length;
       if (score > bestScore){
@@ -694,17 +249,6 @@ export namespace RelationFinder {
   }
 
   /**
-   * Counts how many XPath expressions in xpaths intersects with the xpaths of
-   *   the cells in the first row.
-   * @param xpaths XPath expressions
-   * @param firstRow cells in first row
-   */
-  function numMatchedXpaths(xpaths: string[], firstRow: MainpanelNodeRep[]) {
-    let firstRowXpaths = firstRow.map((cell) => cell.xpath);
-    return xpaths.filter((xpath) => firstRowXpaths.includes(xpath)).length;
-  }
-
-  /**
    * Returns the XPath expression in xpaths that do not intersect with any of
    *   the xpaths of the cells in the first row.
    * @param xpaths XPath expressions
@@ -713,57 +257,6 @@ export namespace RelationFinder {
   function unmatchedXpaths(xpaths: string[], firstRow: MainpanelNodeRep[]) {
     let firstRowXpaths = firstRow.map((cell) => cell.xpath);
     return xpaths.filter((xpath) => !firstRowXpaths.includes(xpath));
-  }
-
-  /**
-   * Converts selector to a comparison selector for finding the best selector.
-   * @param selector selector
-   * @param xpaths xpaths
-   */
-  function convertToComparisonSelector(selector: GenericSelector,
-    xpaths: string[]): ComparisonSelector {
-    let rel = <MainpanelNodeRep[][]> selector.relation;
-    
-    if (!rel) {
-      throw new ReferenceError('Relation on selector undefined.')
-    }
-
-    return {
-      ...selector,
-      relation: rel,
-      numMatchedXpaths: rel.length === 0? 0 : numMatchedXpaths(xpaths, rel[0]),
-      numRows: rel.length,
-      numRowsInDemo: rel.length,
-      numColumns: rel.length === 0? 0 : rel[0].length
-    };
-  }
-
-  /**
-   * Converts a selector retrieved from the server to a comparison selector for
-   *   finding the best selector.
-   * @param selector selector
-   * @param xpaths xpaths
-   */
-  function convertServerSelectorForComparison(selector: GenericSelector,
-    xpaths: string[]): ComparisonSelector {
-    let rel = <MainpanelNodeRep[][]> selector.relation;
-    
-    if (!rel) {
-      throw new ReferenceError('Relation on selector undefined.');
-    }
-
-    if (!selector.num_rows_in_demonstration) {
-      throw new ReferenceError('Selector missing `num_rows_in_demonstration`.');
-    }
-
-    return {
-      ...selector,
-      relation: rel,
-      numMatchedXpaths: numMatchedXpaths(xpaths, rel[0]),
-      numRows: rel.length,
-      numRowsInDemo: selector.num_rows_in_demonstration,
-      numColumns: rel[0].length
-    };
   }
 
   /**
@@ -850,84 +343,6 @@ export namespace RelationFinder {
   }
 
   /**
-   * Adds necessary information for {@link SuffixXPathNode} to a list of
-   *   {@link ColumnSelector}s.
-   * @param colSelectors column selectors 
-   * @param selectorIndex selector index for suffix
-   */
-  function labelColumnSuffixesWithTheirSelectors(colSelectors: ColumnSelector[],
-    selectorIndex: number) {
-  
-    for (const col of colSelectors) {
-      let curSuffixes = col.suffix;
-      if (window.MiscUtilities.depthOf(curSuffixes) < 3) {
-        // when we have only one suffix node, we don't store it in a list, but
-        //   the below is cleaner if we just have a list; todo: clean up
-        curSuffixes = [ <SuffixXPathList> curSuffixes ];
-      }
-      let outputSuffixLs = [];
-      for (const suffix of curSuffixes) {
-        if (suffix.selectorIndex) {
-          // it's already an object with a selector index, and we just need to
-          //   update the selectorIndex
-          suffix.selectorIndex = selectorIndex;
-          outputSuffixLs.push(suffix);
-        } else {
-          // ah, still just the old list representation of a selector.  need to
-          //   make it into a selectorIndex-labeled object
-          outputSuffixLs.push({
-            selectorIndex: selectorIndex,
-            suffixRepresentation: suffix
-          });
-        }
-      }
-      col.suffix = outputSuffixLs;
-    }
-  }
-
-  /**
-   * Modifies origSelector by merging selectorToAdd into it.
-   * @param origSelector original selector
-   * @param selectorToAdd selector to add
-   */
-  function mergeSelectors(origSelector: GenericSelector,
-    selectorToAdd: GenericSelector) {
-    if (Array.isArray(selectorToAdd)) {
-      throw new ReferenceError("This function only permits a singular value" +
-        " for `selectorToAdd.selector`");
-    }
-    let featureSetToAdd = <GenericFeatureSet> selectorToAdd.selector;
-
-    let origFeatureSet = origSelector.selector;
-    if (!origFeatureSet) { 
-      // can happen that we have no selector to augment, if we're actually
-      //   demo-ing a new relation
-      origFeatureSet = [];
-      origSelector.columns = [];
-    }
-    
-    if (Array.isArray(origFeatureSet)) {
-      // cool, no need to mess around with the current selector's columns
-      // let's just add the new selector to the list
-      origSelector.selector = origFeatureSet.concat([ featureSetToAdd ]);
-    } else {
-      // ok, this selector used to have just one.  let's go ahead and turn it
-      //   into a list and make sure all its column objects have all their
-      //   suffixes labeled with index 0, since the current selector will be
-      //   the first in the list
-      origSelector.selector = [origFeatureSet, featureSetToAdd];
-      labelColumnSuffixesWithTheirSelectors(origSelector.columns, 0);
-    }
-    // and in either case, we need to add the new selectors columns to the prior
-    //   set of columns, and we need to label them with the position in the list
-    //   of selectors (len minus one)
-    labelColumnSuffixesWithTheirSelectors(selectorToAdd.columns,
-      (<GenericFeatureSet[]> origSelector.selector).length - 1);
-    origSelector.columns = origSelector.columns.concat(selectorToAdd.columns);
-    return origSelector;
-  }
-
-  /**
    * Extract relation of child option elements given a select element.
    * @param selectEl select element
    */
@@ -956,17 +371,9 @@ export namespace RelationFinder {
         type: "pulldown",
         index: -1
       };
-      let selector: GenericSelector = {
-        selector_version: 2,  // 2 is for pulldown selectors
-        selector: featureSet,
-        page_var_name: msg.pageVarName,
-        url: window.location.href,
-        columns: [],
-
-        // convenient to always use 0 so we can correctly index into the
-        //   relation
-        exclude_first: 0,   // TODO: can we do better?
-      };
+      let selector = new PulldownSelector(featureSet, 0, []);
+      selector.page_var_name = msg.pageVarName;
+      selector.url = window.location.href;
       let node = xPathToNodes(pulldownXPath)[0];
       if (!node) {
         continue; // TODO: right thing to do?
@@ -1043,12 +450,12 @@ export namespace RelationFinder {
           continue;
         }
         let columns = rel.columns;
-        let relXpaths = columns.map((col) => col.xpath);
+        let relXpaths = columns.map((col: ColumnSelector) => col.xpath);
         window.WALconsole.log(relXpaths);
 
         let matched = 0;
         for (const xpath of nonPulldownXPaths) {
-          if (relXpaths.includes(xpath)){
+          if (relXpaths.includes(xpath)) {
             matched += 1;
           }
         }
@@ -1064,60 +471,45 @@ export namespace RelationFinder {
     // if this is actually in an html table, let's take a shortcut, since some
     //   sites use massive tables and trying to run the other approach would
     //   take forever
-    let genericSelector = createSelectorFromSingleTableRow(elements);
+    let selector = createSelectorFromSingleTableRow(elements);
 
-    if (genericSelector === null) {
+    if (selector === null) {
       // ok, no table, we have to do the standard, possibly slow approach
-      genericSelector = createSelectorFromLargestRowSubset(elements,
+      selector = createSelectorFromLargestRowSubset(elements,
         maxNodesCoveredByServerRelations + 1);
     }
-    if (genericSelector === null) {
-      genericSelector = {
-        selector_version: 1,
-        selector: {},
-        exclude_first: 0,
-        columns: [],
-        relation: []
-      };
+    if (selector === null) {
+      selector = new ContentSelector({}, 0, []);
+      selector.relation = [];
       console.warn("Generated empty selector, not sure what it means.");
     }
-
-    let selectorData = {
-      ...genericSelector,
-      relation: relationNodesToMainpanelNodeRepresentation(
-        genericSelector.relation)
-    };
-    window.WALconsole.log("synthesized a selector, selectorData", selectorData);
 
     // this (above) is the candidate we auto-generate from the page, but want to
     //   compare to the relations the server-suggested criteria.
     let bestSelectorIsNew = true;
-    let curBestSelector = convertToComparisonSelector(selectorData, xpaths);
+    let curBestSelector = selector.toComparisonSelector(
+      relationNodesToMainpanelNodeRepresentation(selector.relation),
+      xpaths);
 
     if (serverSuggestedRelations) {
       for (const serverRel of serverSuggestedRelations) {
         if (serverRel === null) {
           continue;
         }
-        let serverSelector = createSelector(serverRel.selector,
-          serverRel.exclude_first, serverRel.columns);
-        serverSelector.selector_version = serverRel.selector_version;
-        let relationNodes = getRelationMatchingSelector(serverSelector);
+        let serverSelector = RelationSelector.fromMessage(serverRel);
+        let relationNodes = serverSelector.getMatchingRelation();
         if (relationNodes.length === 0){
           // no need to consider empty one
           continue;
         }
         
-        serverRel.relation = relationNodesToMainpanelNodeRepresentation(
-          relationNodes);
-        let compServerRel = convertServerSelectorForComparison(serverRel,
-          xpaths);
+        let compServerSel = serverSelector.toComparisonSelector(
+          relationNodesToMainpanelNodeRepresentation(relationNodes), xpaths);
 
-        window.WALconsole.log("default", serverRel, "new", curBestSelector);
         // use the server-provided rel as our default, since that'll make the
         //   server-side processing when we save the relation easier, and also
         //   gives us the nice names
-        let newBestSelector = bestSelector(compServerRel, curBestSelector);
+        let newBestSelector = bestSelector(compServerSel, curBestSelector);
         if (newBestSelector !== curBestSelector){
           curBestSelector = newBestSelector;
           bestSelectorIsNew = false;
@@ -1143,9 +535,8 @@ export namespace RelationFinder {
       if (newSelector &&
         curBestSelector.relation?.length === newSelector.relation?.length){
         window.WALconsole.log("We're adding an additional selector.", newSelector);
-        curBestSelector = <ComparisonSelector> mergeSelectors(curBestSelector,
-          newSelector);
-        let rel = getRelationMatchingSelector(curBestSelector);
+        curBestSelector.merge(newSelector);
+        let rel = curBestSelector.getMatchingRelation();
         curBestSelector.relation = relationNodesToMainpanelNodeRepresentation(rel);
         window.WALconsole.log("currBestSelector.relation", curBestSelector.relation);
       }
@@ -1153,16 +544,12 @@ export namespace RelationFinder {
 
     // this pageVarName is used by the mainpanel to keep track of which pages
     //   have been handled already
-    let resultSelector: GenericSelector = {
-      selector_version: 1,
-      selector: curBestSelector.selector,
-      columns: curBestSelector.columns,
-      exclude_first: curBestSelector.exclude_first,
-      first_page_relation: curBestSelector.relation,
-      num_rows_in_demonstration: curBestSelector.relation.length,
-      page_var_name: msg.pageVarName,
-      url: window.location.href
-    };
+    let resultSelector = new RelationSelector(curBestSelector.selector,
+      curBestSelector.exclude_first, curBestSelector.columns);
+    resultSelector.first_page_relation = curBestSelector.relation;
+    resultSelector.num_rows_in_demonstration = curBestSelector.relation.length;
+    resultSelector.page_var_name = msg.pageVarName;
+    resultSelector.url = window.location.href;
 
     if (bestSelectorIsNew) {
       resultSelector.relation_id = null;
@@ -1205,11 +592,11 @@ export namespace RelationFinder {
    * Send relation matching selector to mainpanel.
    * @param selector selector
    */
-  export function sendRelationToMainpanel(selector: GenericSelector) {
+  export function sendRelationToMainpanel(selector: RelationSelector) {
     if (!selector.selector_version){
       console.error("No selector version!!!");
     }
-    let relation = getRelationMatchingSelector(selector);
+    let relation = selector.getMatchingRelation();
     let relationData = relationNodesToMainpanelNodeRepresentation(relation);
     window.utilities.sendMessage("content", "mainpanel", "relationItems", 
       { relation: relationData });
@@ -1227,21 +614,6 @@ export namespace RelationFinder {
     );
   }
 
-  /**
-   * Produces a stringified version of necessary keys on the selector.
-   * TODO: cjbaik: convert to Selector.hash
-   * @param selector selector
-   */
-  function selectorId(selector: GenericSelector) {
-    // Only keep necessary keys with ES6 destructuring
-    let cleanedSelector = (({ name, selector, columns, selector_version,
-        exclude_first, next_type, next_button_selector, url,
-        num_rows_in_demonstration }) =>
-        ({ name, selector, columns, selector_version, exclude_first, next_type,
-          next_button_selector, url, num_rows_in_demonstration }))(selector);
-    return stringify(cleanedSelector);
-  }
-  
 
 /**********************************************************************
  * Everything we need for editing a relation selector
@@ -1249,7 +621,7 @@ export namespace RelationFinder {
 
   let currentSelectorToEdit: ContentSelector | null = null;
   let currentSelectorEmptyOnThisPage = false;
-  export function editRelation(selector: GenericSelector){
+  export function editRelation(selector: RelationSelector){
     if (currentSelectorToEdit !== null) {
       // we've already set up to edit a selector, and we should never use the
       //   same tab to edit multiples always close tab and reload.  so don't run
@@ -1269,7 +641,7 @@ export namespace RelationFinder {
         throw new ReferenceError('Current selector to edit is null!');
       }
 
-      let contentSelector = convertToContentSelector(currentSelectorToEdit);
+      let contentSelector = currentSelectorToEdit.toContentSelector();
       if (contentSelector.relation.length < 1) {
         // ugh, but maybe the page just hasn't really finished loading, so try again in a sec
         // setTimeout(editingSetup, 1000);
@@ -1343,16 +715,6 @@ export namespace RelationFinder {
     currentHoverHighlight = window.Highlight.highlightNode(event.target, color);
   }
 
-  /**
-   * Converts a generic selector to a content selector by setting the relation.
-   * @param selector selector
-   */
-  export function convertToContentSelector(selector: GenericSelector){
-    selector.relation = getRelationMatchingSelector(selector);
-    selector.num_rows_in_demonstration = selector.relation.length;
-    return <ContentSelector> selector;
-  }
-
   let currentSelectorHighlightNodes: JQuery<HTMLElement>[] = [];
   export function highlightSelector(selector: ContentSelector) {
     // we want to allow clicks on the highlights (see editingClick)
@@ -1394,8 +756,8 @@ export namespace RelationFinder {
     currentSelectorHighlightNodes = [];
   };
 
-  export function newSelectorGuess(selector: GenericSelector) {
-    let contentSelector = convertToContentSelector(selector);
+  export function newSelectorGuess(selector: RelationSelector) {
+    let contentSelector = selector.toContentSelector();
     clearCurrentSelectorHighlight();
     highlightSelector(contentSelector);
     sendEditedSelectorToMainpanel(contentSelector);
@@ -1431,20 +793,20 @@ export namespace RelationFinder {
 
     if (currentSelectorEmptyOnThisPage) {
       // ok, it's empty right now, need to make a new one
-      if (!currentSelectorToEdit.origSelector){
+      if (currentSelectorToEdit.origSelector === undefined) {
         // deepcopy
         currentSelectorToEdit.origSelector = JSON.parse(
           JSON.stringify(currentSelectorToEdit)
-        ); 
+        );
       }
       targetsSoFar.push(target);
 
       let newSelector = createSelectorFromSingleRow(targetsSoFar);
-      currentSelectorToEdit.currentIndividualSelector = newSelector; // just the individual selector that we want to play with
-      let mergedSelector = mergeSelectors(
-        <ContentSelector> currentSelectorToEdit.origSelector, newSelector);
-      currentSelectorToEdit.selector = mergedSelector.selector;
-      currentSelectorToEdit.columns = mergedSelector.columns;
+      // just the individual selector that we want to play with
+      currentSelectorToEdit.currentIndividualSelector = newSelector;
+      currentSelectorToEdit.origSelector!.merge(newSelector);
+      currentSelectorToEdit.selector = currentSelectorToEdit.origSelector!.selector;
+      currentSelectorToEdit.columns = currentSelectorToEdit.origSelector!.columns;
       //currentSelectorToEdit = newSelector;
       newSelectorGuess(currentSelectorToEdit);
       // and let's go back to using .selector as the current one we want to edit and play with
@@ -1894,10 +1256,10 @@ export namespace RelationFinder {
     }
   }
 
-  export function clearRelationInfo(selector: GenericSelector) {
+  export function clearRelationInfo(selector: RelationSelector) {
     window.WALconsole.namedLog("nextInteraction", "clearing relation info",
       selector);
-    var sid = selectorId(selector);
+    let sid = selector.hash();
     delete nextInteractionSinceLastGetFreshRelationItems[sid];
     delete currentRelationData[sid];
     delete currentRelationSeenNodes[sid];
@@ -1910,7 +1272,7 @@ export namespace RelationFinder {
   //   page of results. this also identifies if there are no more items to
   //   retrieve, in which case that info is stored in case someone tries to run
   //   getFreshRelationItems on us
-  export function runNextInteraction(selector: GenericSelector) {
+  export function runNextInteraction(selector: RelationSelector) {
     window.WALconsole.namedLog("nextInteraction", "running next interaction",
       selector);
 
@@ -1918,7 +1280,7 @@ export namespace RelationFinder {
     window.utilities.sendMessage("content", "mainpanel",
       "runningNextInteraction", {});
 
-    let sid = selectorId(selector);
+    let sid = selector.hash();
     if (sid in currentRelationData) {
       window.WALconsole.namedLog("nextInteraction",
         "sid in currentRelationData");
@@ -1989,11 +1351,12 @@ export namespace RelationFinder {
     }
   }
 
-  export function getFreshRelationItems(msg: GenericSelector) {
-    getFreshRelationItemsHelper(msg, function(respMsg: FreshRelationItemsMessage) {
-      window.WALconsole.log('respMsg', respMsg);
-      window.utilities.sendMessage("content", "mainpanel", "freshRelationItems",
-        respMsg);
+  export function getFreshRelationItems(selector: RelationSelector) {
+    getFreshRelationItemsHelper(selector,
+      (respMsg: FreshRelationItemsMessage) => {
+        window.WALconsole.log('respMsg', respMsg);
+        window.utilities.sendMessage("content", "mainpanel", "freshRelationItems",
+          respMsg);
     });
   }
 
@@ -2035,19 +1398,22 @@ export namespace RelationFinder {
 
   let relationFinderIdCounter = 0;
   let waitingOnPriorGetFreshRelationItemsHelper = false;
-  export function getFreshRelationItemsHelper(selector: GenericSelector,
+  export function getFreshRelationItemsHelper(selector: RelationSelector,
     continuation: Function, doData = false) {
     if (waitingOnPriorGetFreshRelationItemsHelper && doData === false){
       return;
     }
-    let sid = selectorId(selector);
+    let sid = selector.hash();
     window.WALconsole.log("noMoreItemsAvailable", noMoreItemsAvailable[sid],
       noMoreItemsAvailable);
   
     if (noMoreItemsAvailable[sid]) {
       // that's it, we're done.  last use of the next interaction revealed there's nothing left
       window.WALconsole.log("no more items at all, because noMoreItemsAvailable was set.");
-      continuation({ type: window.RelationItemsOutputs.NOMOREITEMS, relation: null });
+      continuation({
+        type: window.RelationItemsOutputs.NOMOREITEMS,
+        relation: null
+      });
     }
     // below is commented out in case there are cases where after first load, it may take a while for the data to all get there (get empty list first, that kind of deal)  Does that happen or is this a wasted opportunity to cache?
     /*
@@ -2059,7 +1425,7 @@ export namespace RelationFinder {
     */
     // ok, don't have a cached version, either because never collected before, or bc done a next interaction since then.  better grab the data afresh
 
-    let relationNodes = getRelationMatchingSelector(selector);
+    let relationNodes = selector.getMatchingRelation();
     window.WALconsole.log("relationNodes", relationNodes);
 
     // ok, let's go through these nodes and give them ids if they've never been

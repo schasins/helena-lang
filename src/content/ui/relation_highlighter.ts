@@ -1,32 +1,12 @@
-import { GenericSelector, RelationFinder } from "../relation_finding";
+import { SelectorMessage } from "../../common/messages";
+import { RelationSelector } from "../relations/relation_selector";
 
 /**
  * TODO: cjbaik: returned from Helena back-end server.
  *   Not sure what all parameters mean yet.
  */
-interface KnownRelationResponse {
-  selector_version: number;
-  selector: string;
-  name: string;
-  exclude_first: number;
-  id: number;
-  columns: {
-    id: number;
-    xpath: string;
-    suffix: string;
-    name: string;
-  }[];
-  num_rows_in_demonstration: number;
-  next_type: number;
-  next_button_selector: string;
-}
-
-/**
- * TODO: cjbaik: returned from Helena back-end server.
- *   Not sure what all parameters mean yet.
- */
-interface SelectorMessage {
-  selectorObj: GenericSelector;
+interface KnownRelationMessage {
+  selectorObj: SelectorMessage;
   nodes: (Element | null)[];
   relationOutput: (Element | null)[][];
   highlighted: boolean;
@@ -41,7 +21,7 @@ interface SelectorMessage {
  */
 export class RelationHighlighter {
     highlightColors: string[];
-    knownRelations: SelectorMessage[];
+    knownRelations: KnownRelationMessage[];
 
     constructor () {
       this.knownRelations = [];
@@ -64,7 +44,7 @@ export class RelationHighlighter {
         params: {url: window.location.href }
       });
       window.utilities.listenForMessageOnce("background", "content", "postForMe",
-        function (resp: { relations: KnownRelationResponse[] }) {
+        function (resp: { relations: SelectorMessage[] }) {
           window.WALconsole.log(resp);
           self.preprocessKnownRelations(resp.relations);
         }
@@ -75,14 +55,14 @@ export class RelationHighlighter {
      * Massage and reformat server response about known relations.
      * @param resp server response
      */
-    private preprocessKnownRelations(resp: KnownRelationResponse[]) {
+    private preprocessKnownRelations(resp: SelectorMessage[]) {
       for (let i = 0; i < resp.length; i++) {
-        let selector = window.ServerTranslationUtilities.unJSONifyRelation(resp[i]);
+        let selectorMsg = window.ServerTranslationUtilities.unJSONifyRelation(resp[i]);
         // first let's apply each of our possible relations to see which nodes
         //   appear in them
         try {
-          let relationOutput = RelationFinder.getRelationMatchingSelector(
-            selector);
+          let selector = RelationSelector.fromMessage(selectorMsg);
+          let relationOutput = selector.getMatchingRelation();
           let nodes = relationOutput.reduce((memo, row) => memo.concat(row),
             []);
 
