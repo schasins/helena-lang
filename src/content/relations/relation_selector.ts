@@ -42,7 +42,7 @@ export interface NextButtonSelector {
  * Retrieve all candidate elements from the document.
  */
 function getAllCandidateElements() {
-  return document.getElementsByTagName("*");
+  return <HTMLElement[]> [].slice.call(document.getElementsByTagName("*"));
 }
 
 /**
@@ -64,7 +64,7 @@ function numMatchedXpaths(xpaths: string[], firstRow: MainpanelNodeRep[]) {
  */
 function getCellsInRowMatchingSuffixes(
     suffixes: SuffixXPathList | SuffixXPathList[],
-    candidateRowNodes: (Element | null)[]) {
+    candidateRowNodes: (HTMLElement | null)[]) {
   let candidateSubitems = [];
   let rowNodeXPaths = candidateRowNodes.map(
     (candidateRow) => OldXPathList.xPathToXPathList(nodeToXPath(candidateRow))
@@ -106,7 +106,7 @@ function getCellsInRowMatchingSuffixes(
       }
       let xpath = rowNodeXPath.concat(suffixListRep);
       let xpath_string = OldXPathList.xPathToString(xpath);
-      let nodes = <Element[]> xPathToNodes(xpath_string);
+      let nodes = <HTMLElement[]> xPathToNodes(xpath_string);
       if (nodes.length > 0){
         foundSubItem = nodes[0];
         break;
@@ -171,13 +171,13 @@ export class RelationSelector {
   next_button_selector?: NextButtonSelector | null;
   url?: string;
   
-  positive_nodes?: Element[];
-  negative_nodes?: Element[];
+  positive_nodes?: HTMLElement[];
+  negative_nodes?: HTMLElement[];
 
-  relation?: ((Element | MainpanelNodeRep | null)[][]) | null;
+  relation?: ((HTMLElement | MainpanelNodeRep | null)[][]) | null;
   page_var_name?: string;
   relation_id?: number | null;
-  first_page_relation?: (Element | MainpanelNodeRep | null)[][];
+  first_page_relation?: (HTMLElement | MainpanelNodeRep | null)[][];
   pulldown_relations?: SelectorMessage[];
 
   relation_scrape_wait?: number;
@@ -201,7 +201,7 @@ export class RelationSelector {
    *   extracted from a selector.
    * @param rows a collection of elements where each element represents a row
    */
-  public getMatchingCells(rows: Element[][]) {
+  public getMatchingCells(rows: HTMLElement[][]) {
     // now we'll use the columns info to actually get the cells
     let suffixes = this.columns.map((col) => col.suffix);
     
@@ -229,7 +229,7 @@ export class RelationSelector {
   /**
    * Gets elements representing the rows of the relation to be extracted.
    */
-  public getMatchingRows() {
+  public getMatchingRows(): HTMLElement[][] {
     if (!this.selector){
       return [];
     }
@@ -237,7 +237,7 @@ export class RelationSelector {
     if (Array.isArray(this.selector)){
       // the case where we need to recurse
       let selectorArray = this.selector;
-      let rowNodeLists: Element[][] = [];
+      let rowNodeLists: HTMLElement[][] = [];
       for (let i = 0; i < selectorArray.length; i++){
         let possibleSelector = selectorArray[i];
         this.selector = possibleSelector;
@@ -294,7 +294,7 @@ export class RelationSelector {
    * Get a relation from the document given the selector.
    * @returns a relation (i.e. a 2d array) with the matching data
    */
-  public getMatchingRelation(): (Element | null)[][] {
+  public getMatchingRelation(): (HTMLElement | null)[][] {
     let rowNodeLists = this.getMatchingRows();
     // now that we have some row nodes, time to extract the individual cells
     let cells = this.getMatchingCells(rowNodeLists);
@@ -344,8 +344,8 @@ export class RelationSelector {
    * @param columns {@link ColumnSelector}s to include in selector
    * @param features set of features to examine
    */
-  public static fromPositiveAndNegativeElements(positiveEls: Element[],
-    negativeEls: Element[], columns: ColumnSelector[],
+  public static fromPositiveAndNegativeElements(positiveEls: HTMLElement[],
+    negativeEls: HTMLElement[], columns: ColumnSelector[],
     features = ["tag", "xpath"]): RelationSelector {
       let featureSet = Features.getFeatureSet(features, positiveEls);
 
@@ -477,7 +477,7 @@ export class RelationSelector {
  * TODO: cjbaik: do something about strange additional properties here?
  */
 export class ContentSelector extends RelationSelector {
-  relation: (Element | null)[][];
+  relation: (HTMLElement | null)[][];
   editingClickColumnIndex?: number;
   origSelector?: ContentSelector;
   currentIndividualSelector?: ContentSelector;
@@ -508,7 +508,7 @@ export class TableSelector extends RelationSelector {
     let table = null;
     if (nodes.length > 0) {
       // awesome, we have something at the exact xpath
-      table = <Element> nodes[0];
+      table = <HTMLElement> nodes[0];
     } else {
       // ok, I guess we'll have to see which table on the page is closest
       let tables = [].slice.call(document.getElementsByTagName("table"));
@@ -573,12 +573,12 @@ export class PulldownSelector extends RelationSelector {
    * Get a relation from the document given the selector.
    * @returns a relation (i.e. a 2d array) with the matching data
    */
-  public getMatchingRelation(): (Element | null)[][] {
+  public getMatchingRelation(): (HTMLElement | null)[][] {
     // TODO: cjbaik: cannot tell if this is ever used...
     let optionNodes = PulldownSelector.getNodesForPulldownSelector(
       <PulldownFeatureSet> this.selector);
     optionNodes = optionNodes.splice(this.exclude_first, optionNodes.length);
-    return optionNodes.map((o: Element[]) => [o]);
+    return optionNodes.map((o: HTMLElement[]) => [o]);
   }
 
   constructor(featureSet: GenericFeatureSet | GenericFeatureSet[],

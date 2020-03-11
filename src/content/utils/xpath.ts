@@ -14,7 +14,7 @@ export namespace XPath {
    * Find the common ancestor of multiple elements.
    * @param elements elements
    */
-  export function findCommonAncestor(elements: (Element | null)[]) {
+  export function findCommonAncestor(elements: (HTMLElement | null)[]) {
     if (elements.length === 0) {
       throw new ReferenceError("Cannot get common ancestor of 0 nodes.");
     }
@@ -38,7 +38,7 @@ export namespace XPath {
     let ancestor_xpath_list = firstXPathList.slice(0, last_matching + 1);
     let ancestor_nodes = xPathToNodes(
       OldXPathList.xPathToString(ancestor_xpath_list));
-    return <Element> ancestor_nodes[0];
+    return <HTMLElement> ancestor_nodes[0];
   }
 
   /**
@@ -64,7 +64,7 @@ export namespace XPath {
    * @param element element
    * @param suffixes list of {@link SuffixXPathList}s
    */
-  export function findDescendantSiblingMatchingSuffixes(element: Element,
+  export function findDescendantSiblingMatchingSuffixes(element: HTMLElement,
     suffixes: SuffixXPathList[]) {
     let elXPath = OldXPathList.xPathToXPathList(nodeToXPath(element));
     
@@ -80,7 +80,7 @@ export namespace XPath {
         // [cjbaik: I presume it's not possible to have > 1 node here?]
         let siblingNode = siblingNodes[0];
         if (matchesAllSuffixes(siblingNode, suffixes)) {
-          return <Element> siblingNode;
+          return <HTMLElement> siblingNode;
         }
       }
     }

@@ -1,12 +1,11 @@
 import { MessageContent, ColumnIndexMessageContent,
 	LikelyRelationMessageContent, SelectorMessage } from "../common/messages";
 import { RelationFinder } from "./relations/relation_finding";
-import {  RelationSelector } from "./relations/relation_selector";
+import { RelationSelector } from "./relations/relation_selector";
 import { RelationOutput } from "../common/relation";
 import { HelenaContent } from "./helena_content";
 
 // TODO: modularize later
-// import { RelationFinder } from "./relation_finding";
 // import { MiscUtilities, utilities, window.WALconsole } from "../common/misc_utilities";
 
 /**********************************************************************

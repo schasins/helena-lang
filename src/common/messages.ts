@@ -27,13 +27,13 @@ export interface SelectorMessage {
     next_button_selector?: NextButtonSelector | null;
     url?: string;
 
-    positive_nodes?: Element[];
-    negative_nodes?: Element[];
+    positive_nodes?: HTMLElement[];
+    negative_nodes?: HTMLElement[];
 
-    relation?: ((Element | MainpanelNodeRep | null)[][]) | null;
+    relation?: ((HTMLElement | MainpanelNodeRep | null)[][]) | null;
     page_var_name?: string;
     relation_id?: number | null;
-    first_page_relation?: (Element | MainpanelNodeRep | null)[][];
+    first_page_relation?: (HTMLElement | MainpanelNodeRep | null)[][];
     pulldown_relations?: SelectorMessage[];
 
     relation_scrape_wait?: number;

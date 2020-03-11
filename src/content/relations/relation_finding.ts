@@ -12,7 +12,7 @@ import { XPath } from "../utils/xpath";
 import SuffixXPathList = XPath.SuffixXPathList;
 import { LikelyRelationMessageContent, FreshRelationItemsMessage } from "../../common/messages";
 
-export interface ScrapedElement extends Element {
+export interface ScrapedElement extends HTMLElement {
   ___relationFinderId___?: number;
 }
 
@@ -26,8 +26,8 @@ export namespace RelationFinder {
    * @param ancestor ancestor node
    * @param descendants descendant nodes
    */
-  function getColumnSelectors(ancestor: Element,
-    descendants: (Element | null)[]) {
+  function getColumnSelectors(ancestor: HTMLElement,
+    descendants: (HTMLElement | null)[]) {
     let columns: ColumnSelector[] = [];
     for (const descendant of descendants) {
       if (!descendant) {
@@ -73,7 +73,7 @@ export namespace RelationFinder {
    * Create {@link Selector} given a list of column nodes comprising a row.
    * @param cells list of cell elements in the row
    */
-  export function createSelectorFromSingleRow(cells: Element[]) {
+  export function createSelectorFromSingleRow(cells: HTMLElement[]) {
     let ancestor = XPath.findCommonAncestor(cells);
     let positiveNodes = [ancestor];
     let columns = getColumnSelectors(ancestor, cells);
@@ -92,7 +92,7 @@ export namespace RelationFinder {
       let relRow = relation[i];
       // Find the first relation row that contains the first column node to find
       //   how many header rows there are
-      if (relRow.some((cell: Element) => cells[0] === cell)) {
+      if (relRow.some((cell: HTMLElement) => cells[0] === cell)) {
         selector.exclude_first = i;
         break;
       }
@@ -128,7 +128,7 @@ export namespace RelationFinder {
    * @param cells list of cell elements in the row
    * @param minSubsetSize minimum number of cell elements to consider
    */
-  function createSelectorFromLargestRowSubset(cells: Element[],
+  function createSelectorFromLargestRowSubset(cells: HTMLElement[],
     minSubsetSize: number) {
     // TODO: cjbaik: in future, can we just order the combos by number of
     //   rowNodes included in the combo, stop once we get one that has a good
@@ -188,7 +188,7 @@ export namespace RelationFinder {
    * Create a selector for cells residing in a <table> element.
    * @param cells elements describing cells in the row
    */
-  function createSelectorFromSingleTableRow(cells: Element[]) {
+  function createSelectorFromSingleTableRow(cells: HTMLElement[]) {
     window.WALconsole.log(cells);
 
     let trs = [];
@@ -327,7 +327,7 @@ export namespace RelationFinder {
     }
     let elements = [];
     for (let i = 0; i < xpaths.length; i++){
-      let element = <Element> xPathToNodes(xpaths[i])[0];
+      let element = <HTMLElement> xPathToNodes(xpaths[i])[0];
       if (!element) {
         // todo: this may not be the right thing to do!
         // for now we're assuming that if we can't find a node at this xpath,
@@ -346,9 +346,9 @@ export namespace RelationFinder {
    * Extract relation of child option elements given a select element.
    * @param selectEl select element
    */
-  function extractOptionsRelationFromSelectElement(selectEl: Element){
+  function extractOptionsRelationFromSelectElement(selectEl: HTMLElement){
     let optionEls = [].slice.call(selectEl.querySelectorAll("option"));
-    let optionsRelation = optionEls.map((el: Element) =>
+    let optionsRelation = optionEls.map((el: HTMLElement) =>
       [ NodeRep.nodeToMainpanelNodeRepresentation(el) ]);
     console.log("optionsRelation in extractOptionsRelationFromSelectorNode",
       optionsRelation, optionsRelation.length);
@@ -380,7 +380,7 @@ export namespace RelationFinder {
       }
       let index = selectNodes.indexOf(node);
       let optionsRelation = extractOptionsRelationFromSelectElement(
-        <Element> node);
+        <HTMLElement> node);
       let firstRowXpath = optionsRelation[0][0].xpath;
       
       // TODO: cjbaik: this is a no-op so long as excludeFirst is always 0
@@ -608,7 +608,7 @@ export namespace RelationFinder {
    * @param relation relation
    */
   export function relationNodesToMainpanelNodeRepresentation(
-    relation: (Element | null)[][]) {
+    relation: (HTMLElement | null)[][]) {
     return relation.map((row) =>
       row.map((cell) => NodeRep.nodeToMainpanelNodeRepresentation(cell))
     );
@@ -763,7 +763,8 @@ export namespace RelationFinder {
     sendEditedSelectorToMainpanel(contentSelector);
   }
 
-  function findAncestorLikeSpec(specAncestor: Element, element: Element){
+  function findAncestorLikeSpec(specAncestor: HTMLElement,
+    element: HTMLElement) {
     //will return exactly the same node if there's only one item in first_row_items
     window.WALconsole.log("findAncestorLikeSpec", specAncestor, element);
     let spec_xpath_list = OldXPathList.xPathToXPathList(nodeToXPath(specAncestor));
@@ -771,10 +772,10 @@ export namespace RelationFinder {
     let ancestor_xpath_list = xpath_list.slice(0,spec_xpath_list.length);
     let ancestor_xpath_string = OldXPathList.xPathToString(ancestor_xpath_list);
     let ancestor_xpath_nodes = xPathToNodes(ancestor_xpath_string);
-    return <Element> ancestor_xpath_nodes[0];
+    return <HTMLElement> ancestor_xpath_nodes[0];
   }
 
-  let targetsSoFar: Element[] = [];
+  let targetsSoFar: HTMLElement[] = [];
   function editingClick(event: MouseEvent) {
     if (!currentSelectorToEdit) {
       throw new ReferenceError('No selector to edit!');
@@ -789,7 +790,7 @@ export namespace RelationFinder {
     event.stopPropagation();
     event.preventDefault();
 
-    let target = <Element> event.target;
+    let target = <HTMLElement> event.target;
 
     if (currentSelectorEmptyOnThisPage) {
       // ok, it's empty right now, need to make a new one
@@ -931,7 +932,7 @@ export namespace RelationFinder {
           components = components.slice(0, components.length - depthDiff);
           let newxpath = components.join("/");
           currentSelectorToEdit.positive_nodes[i] =
-            <Element> xPathToNodes(newxpath)[0];
+            <HTMLElement> xPathToNodes(newxpath)[0];
         }
         if (!currentSelectorToEdit.positive_nodes.includes(
           deepestCommonAncestor)) {
@@ -1032,7 +1033,7 @@ export namespace RelationFinder {
       throw new ReferenceError('Event has no target!');
     }
     
-    let nextOrMoreButton = <Element> event.target;
+    let nextOrMoreButton = <HTMLElement> event.target;
     let data: NextButtonSelector = {
       tag: nextOrMoreButton.tagName,
       text: nextOrMoreButton.textContent,
@@ -1059,7 +1060,7 @@ export namespace RelationFinder {
    *   last page index clicked
    */
   function isPromisingNextButton(nextSelector: NextButtonSelector,
-    candEl: Element, priorPageIndexText?: string) {
+    candEl: HTMLElement, priorPageIndexText?: string) {
     // either there's an actual image and it's the same, or the text is the same
     if (nextSelector.src) {
       return (candEl.getAttribute('src') === nextSelector.src);
@@ -1099,7 +1100,7 @@ export namespace RelationFinder {
     let candButtons = [].slice.call(
       document.querySelectorAll(nextSelector.tag)
     );
-    candButtons = candButtons.filter((button: Element) =>
+    candButtons = candButtons.filter((button: HTMLElement) =>
       isPromisingNextButton(nextSelector, button, priorPageIndexText)
     );
     window.WALconsole.namedLog("findNextButton", "candidate_buttons",
@@ -1123,7 +1124,7 @@ export namespace RelationFinder {
     }
 
     // if not and demo button had class, try using the class
-    let cbuttons = candButtons.filter((cand: Element) => 
+    let cbuttons = candButtons.filter((cand: HTMLElement) => 
       cand.className === nextSelector.class);
     if (cbuttons.length === 1 && !doNumberVersion) {
       window.WALconsole.namedLog("findNextButton",
@@ -1224,7 +1225,7 @@ export namespace RelationFinder {
       let row = relation[i];
       for (let j = 0; j < row.length; j++){
         let elem = row[j];
-        let elemNodes = <Element[]> xPathToNodes(elem.xpath);
+        let elemNodes = <HTMLElement[]> xPathToNodes(elem.xpath);
         if (elemNodes.length > 0){
           let elemNode = elemNodes[0];
           elemNode.scrollIntoView(true);
