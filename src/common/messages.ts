@@ -7,10 +7,6 @@ import { NextButtonSelector } from "../content/selector/next_button_selector";
 
 import { ColumnSelector } from "../content/selector/column_selector";
 
-export interface MessageContent {
-
-}
-
 /**
  * A generic selector describing how to extract a relation from a page.
  * TODO: cjbaik: a lot of strange properties to edit here.
@@ -40,25 +36,25 @@ export interface SelectorMessage {
     relation_scrape_wait?: number;
 }
 
-export interface TabDetailsMessageContent {
+export interface TabDetailsMessage {
     tab_id: number;
     window_id: number;
     top_frame_url: string;
 }
 
-export interface WindowIdMessageContent {
+export interface WindowIdMessage {
     window: number;
 }
 
-export interface WindowsMessageContent {
+export interface WindowsMessage {
     window_ids: number[];
 }
 
-export interface ColumnIndexMessageContent {
+export interface ColumnIndexMessage {
     index: number;
 }
 
-export interface LikelyRelationMessageContent {
+export interface LikelyRelationMessage {
     xpaths: string[];
     pageVarName: string;
     serverSuggestedRelations: (SelectorMessage | null)[];

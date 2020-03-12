@@ -36,7 +36,7 @@ export namespace XPath {
     }
     let last_matching = i - 1;
     let ancestor_xpath_list = firstXPathList.slice(0, last_matching + 1);
-    let ancestor_nodes = xPathToNodes(
+    let ancestor_nodes = getNodes(
       OldXPathList.xPathToString(ancestor_xpath_list));
     return <HTMLElement> ancestor_nodes[0];
   }
@@ -51,7 +51,7 @@ export namespace XPath {
     //check whether this node has an entry for all desired suffixes
     for (const suffix of suffixes) {
       let suffixXPath = OldXPathList.xPathToString(elXPath.concat(suffix));
-      let suffixNodes = xPathToNodes(suffixXPath);
+      let suffixNodes = getNodes(suffixXPath);
       if (suffixNodes.length === 0) {
         return false;
       }
@@ -73,7 +73,7 @@ export namespace XPath {
       let index = parseInt(elXPath[i].index);
       
       elXPath[i].index = index + 1; // modify XPath, try next sibling
-      let siblingNodes = xPathToNodes(OldXPathList.xPathToString(elXPath));
+      let siblingNodes = getNodes(OldXPathList.xPathToString(elXPath));
       elXPath[i].index = index;     // return index to original value
     
       if (siblingNodes.length > 0) {
@@ -139,5 +139,81 @@ export namespace XPath {
       }
     }
     throw new ReferenceError('Child node does not belong to its own parent!');
+  }
+
+  /**
+   * Get DOM nodes matching the XPath expression on the current document.
+   * @param xpath XPath expression
+   */
+  export function getNodes(xpath: string) {
+    // a special case for events that happen on document
+    if (xpath === "document") {
+      return [document];
+    }
+    try {
+      let lowerCaseXpath = xpath.toLowerCase();
+      if (lowerCaseXpath.indexOf("/svg") > -1){
+        // ok, have to mess around with the prefixes for the svg components
+        let components = lowerCaseXpath.split("/");
+        let foundSvg = false;
+        for (let i = 0; i < components.length; i++){
+          let c = components[i];
+          if (c.startsWith("svg")){
+            foundSvg = true;
+          }
+          if (foundSvg){
+            components[i] = "svg:" + c;
+          }
+        }
+        xpath = components.join("/");
+      }
+  
+      let q = document.evaluate(xpath, document, (prefix: string) => { 
+          if (prefix === 'svg') {
+            return 'http://www.w3.org/2000/svg';
+          }
+          else {
+            return null; // the default namespace
+          }
+        }, XPathResult.ANY_TYPE, null);
+      let results = [];
+  
+      let next = q.iterateNext();
+      while (next) {
+        results.push(next);
+        next = q.iterateNext();
+      }
+      return results;
+    } catch (e) {
+      console.error('xPath throws error when evaluated:', xpath);
+    }
+    return [];
+  }
+
+  /**
+   * Returns the first {@link HTMLElement} corresponding to each supplied XPath
+   *   expression.
+   * @param xpaths XPath expressions
+   */
+  export function getFirstElementOfEach(xpaths: string[]) {
+    if (!xpaths || xpaths.length === 0){
+      console.warn("No xpaths supplied.");
+      return [];
+    }
+    let elements = [];
+    for (const xpath of xpaths) {
+      let element = XPath.getNodes(xpath)[0];
+      if (!element) {
+        // todo: this may not be the right thing to do!
+        // for now we're assuming that if we can't find a node at this xpath,
+        //   it's because we jumbled in the nodes from a different page into the
+        //   relation for this page (becuase no updat to url or something); but
+        //   it may just mean that this page changed super super quickly, since
+        //   the recording
+        continue;
+      }
+      elements.push(<HTMLElement> element);
+    }
+    return elements;
   }
 }

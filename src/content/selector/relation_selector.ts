@@ -2,7 +2,7 @@ import * as stringify from "json-stable-stringify";
 
 import { MainpanelNodeRep } from "../handlers/scrape_mode_handlers";
 
-import { SelectorMessage } from "../../common/messages";
+import { LikelyRelationMessage, SelectorMessage } from "../../common/messages";
 
 import { ColumnSelector } from "./column_selector";
 
@@ -16,7 +16,6 @@ import TableFeatureSet = Features.TableFeatureSet;
 
 import { XPath } from "../utils/xpath";
 import SuffixXPathList = XPath.SuffixXPathList;
-
 
 /**
  * Produce the powerset of the array.
@@ -37,6 +36,17 @@ function powerset(arr: any[], descSize = false) {
   } else {
     return ps;
   }
+}
+
+/**
+ * Extract relation of child option elements given a select element.
+ * @param selectEl select element
+ */
+function extractOptionsRelationFromSelectElement(selectEl: HTMLElement){
+  let optionEls = [].slice.call(selectEl.querySelectorAll("option"));
+  let optionsRelation = optionEls.map((el: HTMLElement) =>
+    [ NodeRep.nodeToMainpanelNodeRepresentation(el) ]);
+  return optionsRelation;
 }
 
 /**
@@ -107,7 +117,7 @@ function getCellsInRowMatchingSuffixes(
       }
       let xpath = rowNodeXPath.concat(suffixListRep);
       let xpath_string = OldXPathList.xPathToString(xpath);
-      let nodes = <HTMLElement[]> xPathToNodes(xpath_string);
+      let nodes = <HTMLElement[]> XPath.getNodes(xpath_string);
       if (nodes.length > 0){
         foundSubItem = nodes[0];
         break;
@@ -600,7 +610,7 @@ export class TableSelector extends ContentSelector {
 
     // we don't use this for nested tables! this is just for very simple tables,
     //   otherwise we'd graduate to the standard approach
-    let nodes = xPathToNodes(selector.xpath);
+    let nodes = XPath.getNodes(selector.xpath);
     let table = null;
     if (nodes.length > 0) {
       // awesome, we have something at the exact xpath
@@ -739,6 +749,60 @@ export class PulldownSelector extends RelationSelector {
       <PulldownFeatureSet> this.selector);
     optionNodes = optionNodes.splice(this.exclude_first, optionNodes.length);
     return optionNodes.map((o: HTMLElement[]) => [o]);
+  }
+
+  /**
+   * Create list of {@link PulldownSelector}s for XPaths of <select>
+   *   (i.e. pulldown) elements.
+   * @param msg message content from mainpanel
+   * @param pulldownXPaths xpaths containing pulldowns
+   */
+  public static fromXPaths(msg: LikelyRelationMessage,
+    pulldownXPaths: string[]) {
+      let pulldownSelectors = [];
+      let selectNodes = [].slice.call(document.querySelectorAll("select"));
+      for (const pulldownXPath of pulldownXPaths) {
+        // pageVarName is used by the mainpanel to keep track of which pages have
+        //   been handled already
+        let featureSet: PulldownFeatureSet = {
+          type: "pulldown",
+          index: -1
+        };
+        let selector = new PulldownSelector(featureSet, 0, []);
+        selector.page_var_name = msg.pageVarName;
+        selector.url = window.location.href;
+        let node = XPath.getNodes(pulldownXPath)[0];
+        if (!node) {
+          continue; // TODO: right thing to do?
+        }
+        let index = selectNodes.indexOf(node);
+        let optionsRelation = extractOptionsRelationFromSelectElement(
+          <HTMLElement> node);
+        let firstRowXpath = optionsRelation[0][0].xpath;
+        
+        // TODO: cjbaik: this is a no-op so long as excludeFirst is always 0
+        // optionsRelation = optionsRelation.splice(selector.exclude_first,
+        // optionsRelation.length);
+  
+        selector.relation_id = null;
+        selector.name = "pulldown_" + (index + 1);
+        // for a pulldown menu, there better be no more items
+        selector.next_type = window.NextTypes.NONE;
+        selector.next_button_selector = null;
+        selector.num_rows_in_demonstration = optionsRelation.length;
+        featureSet.index = index;
+        selector.columns.push({
+          id: null,
+          index: 0, // only one column
+          name: selector.name + "_option",
+          suffix: [],
+          xpath: firstRowXpath
+        });
+        selector.first_page_relation = optionsRelation;  
+  
+        pulldownSelectors.push(selector);
+      }
+      return pulldownSelectors;
   }
 
   constructor(featureSet: GenericFeatureSet | GenericFeatureSet[],

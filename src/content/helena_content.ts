@@ -1,8 +1,8 @@
 import { ScrapeModeFilters } from "./filters/scrape_mode_filters";
 import { RecordingModeHandlers } from "./handlers/recording_mode_handlers";
 import { ScrapeModeHandlers } from "./handlers/scrape_mode_handlers";
-import { TabDetailsMessageContent, WindowsMessageContent,
-  WindowIdMessageContent } from "../common/messages";
+import { TabDetailsMessage, WindowsMessage,
+  WindowIdMessage } from "../common/messages";
 import { RecordingModeFilters } from "./filters/recording_mode_filters";
 import { RelationHighlighter } from "./ui/relation_highlighter";
 import { Screenshot } from "./utils/screenshot";
@@ -131,7 +131,7 @@ export class HelenaContent {
      */
 
     window.utilities.listenForMessage("background", "content", "tabID",
-    function (msg: TabDetailsMessageContent) {
+    function (msg: TabDetailsMessage) {
         self.tabId = msg.tab_id;
         self.windowId = msg.window_id;
         self.tabTopUrl = msg.top_frame_url;
@@ -140,12 +140,12 @@ export class HelenaContent {
       }
     );
     window.utilities.listenForMessage("mainpanel", "content",
-      "currentRecordingWindows", function (msg: WindowsMessageContent) {
+      "currentRecordingWindows", function (msg: WindowsMessage) {
         self.currentRecordingWindows = msg.window_ids;
     });
 
     window.utilities.listenForMessage("mainpanel", "content",
-      "currentReplayWindowId", function (msg: WindowIdMessageContent) {
+      "currentReplayWindowId", function (msg: WindowIdMessage) {
         self.currentReplayWindowId = msg.window; 
         RecordingModeHandlers.applyReplayOverlayIfAppropriate(msg.window);
     });

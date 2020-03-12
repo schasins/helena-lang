@@ -1,17 +1,10 @@
-import { MessageContent, ColumnIndexMessageContent,
-	LikelyRelationMessageContent, SelectorMessage } from "../common/messages";
+import { ColumnIndexMessage, LikelyRelationMessage,
+	SelectorMessage } from "../common/messages";
 import { RelationFinder } from "./selector/relation_finding";
 import { RelationSelector } from "./selector/relation_selector";
 import { RelationOutput } from "../common/relation";
 import { HelenaContent } from "./helena_content";
 import { NextButtonSelector } from "./selector/next_button_selector";
-
-// TODO: modularize later
-// import { MiscUtilities, utilities, window.WALconsole } from "../common/misc_utilities";
-
-/**********************************************************************
- * Listeners and general set up
- **********************************************************************/
 
 // TODO: cjbaik: is there a way of avoiding using these as globals?
 declare global {
@@ -48,70 +41,93 @@ declare global {
 }
 
 // TODO: cjbaik: move all this stuff after we update `relation_finding.js`
-window.utilities.listenForMessage("mainpanel", "content", "getRelationItems", function (msg: SelectorMessage) {
-	let selector = RelationSelector.fromMessage(msg);
-	RelationFinder.sendMatchingRelationToMainpanel(selector);
-});
-window.utilities.listenForMessage("mainpanel", "content", "getFreshRelationItems", function (msg: SelectorMessage) {
+window.utilities.listenForMessage("mainpanel", "content", "getRelationItems",
+	(msg: SelectorMessage) => {
+		let selector = RelationSelector.fromMessage(msg);
+		RelationFinder.sendMatchingRelationToMainpanel(selector);
+	}
+);
+
+window.utilities.listenForMessage("mainpanel", "content",
+	"getFreshRelationItems", (msg: SelectorMessage) => {
 	let selector = RelationSelector.fromMessage(msg);
 	RelationFinder.getFreshRelationItems(selector);
 });
-window.utilities.listenForMessage("mainpanel", "content", "editRelation", function (msg: SelectorMessage) {
-	let selector = RelationSelector.fromMessage(msg);
-	RelationFinder.editRelation(selector);
-});
-window.utilities.listenForMessage("mainpanel", "content", "nextButtonSelector", function (msg: MessageContent) {
-	NextButtonSelector.listenForNextButtonClick();
-});
-window.utilities.listenForMessage("mainpanel", "content", "clearNextButtonSelector", function (msg: MessageContent) {
-	NextButtonSelector.unhighlightNextButton();
-});
-window.utilities.listenForMessage("mainpanel", "content", "backButton", function() {
+
+window.utilities.listenForMessage("mainpanel", "content", "editRelation",
+	(msg: SelectorMessage) => {
+		let selector = RelationSelector.fromMessage(msg);
+		RelationFinder.editRelation(selector);
+	}
+);
+
+window.utilities.listenForMessage("mainpanel", "content", "nextButtonSelector",
+	() => {
+		NextButtonSelector.listenForNextButtonClick();
+	}
+);
+
+window.utilities.listenForMessage("mainpanel", "content",
+	"clearNextButtonSelector", () => {
+		NextButtonSelector.unhighlightNextButton();
+	}
+);
+
+window.utilities.listenForMessage("mainpanel", "content", "backButton", () => {
 	history.back();
 });
-window.utilities.listenForMessage("mainpanel", "content", "pageStats", function() {
+
+window.utilities.listenForMessage("mainpanel", "content", "pageStats", () => {
 	window.utilities.sendMessage("content", "mainpanel", "pageStats", {
 		"numNodes": document.querySelectorAll('*').length
 	});
 });
-window.utilities.listenForMessage("mainpanel", "content", "runNextInteraction", function (msg: SelectorMessage) {
-	let selector = RelationSelector.fromMessage(msg);
-	RelationFinder.getNextPage(selector);
-});
-window.utilities.listenForMessage("mainpanel", "content", "currentColumnIndex", function (msg: ColumnIndexMessageContent) {
-	RelationFinder.setEditRelationIndex(msg.index);
-});
-window.utilities.listenForMessage("mainpanel", "content", "clearRelationInfo", function (msg: SelectorMessage) {
-	let selector = RelationSelector.fromMessage(msg);
-	RelationFinder.clearRelationInfo(selector);
-});
 
-window.utilities.listenForFrameSpecificMessage("mainpanel", "content", "likelyRelation",
-	function (msg: MessageContent, sendResponse: Function){
+window.utilities.listenForMessage("mainpanel", "content", "runNextInteraction",
+	(msg: SelectorMessage) => {
+		let selector = RelationSelector.fromMessage(msg);
+		RelationFinder.getNextPage(selector);
+	}
+);
+
+window.utilities.listenForMessage("mainpanel", "content", "currentColumnIndex",
+	(msg: ColumnIndexMessage) => {
+		RelationFinder.setEditRelationIndex(msg.index);
+	}
+);
+
+window.utilities.listenForMessage("mainpanel", "content", "clearRelationInfo",
+	(msg: SelectorMessage) => {
+		let selector = RelationSelector.fromMessage(msg);
+		RelationFinder.clearRelationInfo(selector);
+	}
+);
+
+window.utilities.listenForFrameSpecificMessage("mainpanel", "content",
+"likelyRelation", (msg: object, sendResponse: Function) => {
 		window.MiscUtilities.registerCurrentResponseRequested(msg,
-			function (m: LikelyRelationMessageContent) {
+			(m: LikelyRelationMessage) => {
 				let likelyRel = RelationFinder.likelyRelation(m);
 				console.log('likelyRel', likelyRel);
 				if (likelyRel) {
 					sendResponse(likelyRel);
 				}
-			});
+			}
+		);
 	}
 );
 
-window.utilities.listenForFrameSpecificMessage("mainpanel", "content", "getFreshRelationItems", 
-	function(msg: MessageContent, sendResponse: Function){
-		var newSendResponse = function(ans: RelationOutput) {
-			window.WALconsole.namedLog("getRelationItems", "actually running sendResponse with arg", ans);
-			sendResponse(ans);
-		}
+window.utilities.listenForFrameSpecificMessage("mainpanel", "content",
+	"getFreshRelationItems", (msg: object, sendResponse: Function) => {
 		window.MiscUtilities.registerCurrentResponseRequested(msg, 
-			function(m: SelectorMessage) {
+			(m: SelectorMessage) => {
 				let selector = RelationSelector.fromMessage(m);
-				RelationFinder.getFreshRelationItemsHelper(selector, function(freshRelationItems: RelationOutput) {
-					window.WALconsole.namedLog("getRelationItems", 'freshRelationItems, about to send', freshRelationItems.type, freshRelationItems);
-					newSendResponse(freshRelationItems);
-				});
+				RelationFinder.getFreshRelationItemsHelper(selector,
+					(freshRelationItems: RelationOutput) => {
+						window.WALconsole.namedLog("getRelationItems", 'freshRelationItems, about to send', freshRelationItems.type, freshRelationItems);
+						sendResponse(freshRelationItems);
+					}
+				);
 			});
 	}
 );

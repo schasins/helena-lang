@@ -1,8 +1,5 @@
 import * as $ from "jquery";
 
-import { Features } from "../utils/features";
-import PulldownFeatureSet = Features.PulldownFeatureSet;
-
 import { PulldownSelector, ContentSelector, ComparisonSelector,
   RelationSelector, TableSelector } from "./relation_selector";
 
@@ -14,7 +11,7 @@ import { MainpanelNodeRep } from "../handlers/scrape_mode_handlers";
 
 import { XPath } from "../utils/xpath";
 import SuffixXPathList = XPath.SuffixXPathList;
-import { LikelyRelationMessageContent, FreshRelationItemsMessage } from "../../common/messages";
+import { LikelyRelationMessage, FreshRelationItemsMessage } from "../../common/messages";
 
 export interface ScrapedElement extends HTMLElement {
   ___relationFinderId___?: number;
@@ -27,107 +24,24 @@ export namespace RelationFinder {
  **********************************************************************/
 
   /**
-   * Returns the XPath expression in xpaths that do not intersect with any of
-   *   the xpaths of the cells in the first row.
+   * Returns the XPath expression in xpaths that are not a component of any of
+   *   the xpaths of the cells.
    * @param xpaths XPath expressions
-   * @param firstRow cells in first row
+   * @param cells cells in mainpanel representation
    */
-  function unmatchedXpaths(xpaths: string[], firstRow: MainpanelNodeRep[]) {
-    let firstRowXpaths = firstRow.map((cell) => cell.xpath);
-    return xpaths.filter((xpath) => !firstRowXpaths.includes(xpath));
-  }
-
-  function xpathsToElements(xpaths: string[]) {
-    if (!xpaths || xpaths.length === 0){
-      window.WALconsole.warn("Woah woah woah, why are there no xpaths.  This is probably very bad.");
-      return [];
-    }
-    let elements = [];
-    for (let i = 0; i < xpaths.length; i++){
-      let element = <HTMLElement> xPathToNodes(xpaths[i])[0];
-      if (!element) {
-        // todo: this may not be the right thing to do!
-        // for now we're assuming that if we can't find a node at this xpath,
-        //   it's because we jumbled in the nodes from a different page into the
-        //   relation for this page (becuase no updat to url or something); but
-        //   it may just mean that this page changed super super quickly, since
-        //   the recording
-        continue;
-      }
-      elements.push(element);
-    }
-    return elements;
-  }
-
-  /**
-   * Extract relation of child option elements given a select element.
-   * @param selectEl select element
-   */
-  function extractOptionsRelationFromSelectElement(selectEl: HTMLElement){
-    let optionEls = [].slice.call(selectEl.querySelectorAll("option"));
-    let optionsRelation = optionEls.map((el: HTMLElement) =>
-      [ NodeRep.nodeToMainpanelNodeRepresentation(el) ]);
-    console.log("optionsRelation in extractOptionsRelationFromSelectorNode",
-      optionsRelation, optionsRelation.length);
-    return optionsRelation;
-  }
-
-  /**
-   * Create relations for XPaths of <select> (i.e. pulldown) elements.
-   * @param msg message content from mainpanel
-   * @param pulldownXPaths xpaths containing pulldowns
-   */
-  function makeRelationsForPulldownXpaths(msg: LikelyRelationMessageContent,
-    pulldownXPaths: string[]) {
-    let pulldownRelations = [];
-    let selectNodes = [].slice.call(document.querySelectorAll("select"));
-    for (const pulldownXPath of pulldownXPaths) {
-      // pageVarName is used by the mainpanel to keep track of which pages have
-      //   been handled already
-      let featureSet: PulldownFeatureSet = {
-        type: "pulldown",
-        index: -1
-      };
-      let selector = new PulldownSelector(featureSet, 0, []);
-      selector.page_var_name = msg.pageVarName;
-      selector.url = window.location.href;
-      let node = xPathToNodes(pulldownXPath)[0];
-      if (!node) {
-        continue; // TODO: right thing to do?
-      }
-      let index = selectNodes.indexOf(node);
-      let optionsRelation = extractOptionsRelationFromSelectElement(
-        <HTMLElement> node);
-      let firstRowXpath = optionsRelation[0][0].xpath;
-      
-      // TODO: cjbaik: this is a no-op so long as excludeFirst is always 0
-      // optionsRelation = optionsRelation.splice(selector.exclude_first,
-      // optionsRelation.length);
-
-      selector.relation_id = null;
-      selector.name = "pulldown_" + (index + 1);
-      // for a pulldown menu, there better be no more items
-      selector.next_type = window.NextTypes.NONE;
-      selector.next_button_selector = null;
-      selector.num_rows_in_demonstration = optionsRelation.length;
-      featureSet.index = index;
-      selector.columns.push({
-        id: null,
-        index: 0, // only one column
-        name: selector.name + "_option",
-        suffix: [],
-        xpath: firstRowXpath
-      });
-      selector.first_page_relation = optionsRelation;  
-
-      pulldownRelations.push(selector);
-    }
-    return pulldownRelations;
+  function unmatchedXpaths(xpaths: string[], cells: MainpanelNodeRep[]) {
+    let cellXPaths = cells.map((cell) => cell.xpath);
+    return xpaths.filter((xpath) => !cellXPaths.includes(xpath));
   }
 
   let processedCount = 0;
   let processedLikelyRelationRequest = false;
-  export function likelyRelation(msg: LikelyRelationMessageContent) {
+  /**
+   * Retrieve the {@link RelationSelector} of the most likely relation given
+   *   the information in the message.
+   * @param msg message about likely relation
+   */
+  export function likelyRelation(msg: LikelyRelationMessage) {
     if (processedLikelyRelationRequest) {
       // should only even send a likely relation once from one page, since it
       //   gets closed after we get the answer we wanted may end up sending
@@ -151,13 +65,13 @@ export namespace RelationFinder {
     }
 
     // for pulldown xpaths, we'll do something different
-    let pulldownRelations = makeRelationsForPulldownXpaths(msg, pulldownxpaths);
+    let pulldownRelations = PulldownSelector.fromXPaths(msg, pulldownxpaths);
 
     // for the non-pulldown xpaths, we'll proceed with normal processing
     let nonPulldownXPaths = xpaths.filter((xpath) =>
       !pulldownxpaths.includes(xpath));
 
-    let elements = xpathsToElements(nonPulldownXPaths);
+    let elements = XPath.getFirstElementOfEach(nonPulldownXPaths);
 
     let maxNodesCoveredByServerRelations = 0;
     let serverSuggestedRelations = msg.serverSuggestedRelations;
@@ -246,7 +160,7 @@ export namespace RelationFinder {
     window.WALconsole.log("uncoveredSoFar", uncoveredSoFar);
     if (uncoveredSoFar.length > 0) {
       // let's see if we can cover as many as possible of the remaining nodes
-      let uncoveredNodes = xpathsToElements(uncoveredSoFar);
+      let uncoveredNodes = XPath.getFirstElementOfEach(uncoveredSoFar);
       let newSelector = ContentSelector.fromLargestRowSubset(uncoveredNodes, 0);
       
       // now reason about the length of the lists and whether it even makes
@@ -490,7 +404,7 @@ export namespace RelationFinder {
     let xpath_list = OldXPathList.xPathToXPathList(XPath.fromNode(element));
     let ancestor_xpath_list = xpath_list.slice(0,spec_xpath_list.length);
     let ancestor_xpath_string = OldXPathList.xPathToString(ancestor_xpath_list);
-    let ancestor_xpath_nodes = xPathToNodes(ancestor_xpath_string);
+    let ancestor_xpath_nodes = XPath.getNodes(ancestor_xpath_string);
     return <HTMLElement> ancestor_xpath_nodes[0];
   }
 
@@ -653,7 +567,7 @@ export namespace RelationFinder {
           components = components.slice(0, components.length - depthDiff);
           let newxpath = components.join("/");
           currentSelectorToEdit.positive_nodes[i] =
-            <HTMLElement> xPathToNodes(newxpath)[0];
+            <HTMLElement> XPath.getNodes(newxpath)[0];
         }
         if (!currentSelectorToEdit.positive_nodes.includes(
           deepestCommonAncestor)) {
@@ -763,7 +677,7 @@ export namespace RelationFinder {
       let row = relation[i];
       for (let j = 0; j < row.length; j++){
         let elem = row[j];
-        let elemNodes = <HTMLElement[]> xPathToNodes(elem.xpath);
+        let elemNodes = <HTMLElement[]> XPath.getNodes(elem.xpath);
         if (elemNodes.length > 0){
           let elemNode = elemNodes[0];
           elemNode.scrollIntoView(true);
