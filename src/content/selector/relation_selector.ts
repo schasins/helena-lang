@@ -4,6 +4,9 @@ import { MainpanelNodeRep } from "../handlers/scrape_mode_handlers";
 
 import { SelectorMessage } from "../../common/messages";
 
+import { ColumnSelector } from "./column_selector";
+import ColSelector = ColumnSelector.ColSelector;
+
 import { Features } from "../utils/features";
 import GenericFeatureSet = Features.GenericFeatureSet;
 import FeatureSet = Features.FeatureSet;
@@ -12,18 +15,6 @@ import TableFeatureSet = Features.TableFeatureSet;
 
 import { XPath } from "../utils/xpath";
 import SuffixXPathList = XPath.SuffixXPathList;
-
-/**
- * A selector describing how to extract a column of a relation with respect to
- *   some kind of common ancestor describing a row.
- */
-export interface ColumnSelector {
-  xpath: string;
-  suffix: SuffixXPathList | SuffixXPathList[];
-  name?: string;
-  id: number | null;
-  index?: number;
-}
 
 /**
  * A selector describing a next/pagination button on a page.
@@ -66,8 +57,8 @@ function getCellsInRowMatchingSuffixes(
     suffixes: SuffixXPathList | SuffixXPathList[],
     candidateRowNodes: (HTMLElement | null)[]) {
   let candidateSubitems = [];
-  let rowNodeXPaths = candidateRowNodes.map(
-    (candidateRow) => OldXPathList.xPathToXPathList(nodeToXPath(candidateRow))
+  let rowNodeXPaths = candidateRowNodes.map((candidateRow) =>
+    OldXPathList.xPathToXPathList(XPath.fromNode(candidateRow))
   );
   for (let j = 0; j < suffixes.length; j++){
     // TODO: clean this up
@@ -124,12 +115,12 @@ function getCellsInRowMatchingSuffixes(
 
 /**
    * Adds necessary information for {@link SuffixXPathNode} to a list of
-   *   {@link ColumnSelector}s.
+   *   {@link ColSelector}s.
    * @param colSelectors column selectors 
    * @param selectorIndex selector index for suffix
    */
-  function labelColumnSuffixesWithTheirSelectors(colSelectors: ColumnSelector[],
-    selectorIndex: number) {
+  function labelColumnSuffixesWithTheirSelectors(
+    colSelectors: ColSelector[], selectorIndex: number) {
   
     for (const col of colSelectors) {
       let curSuffixes = col.suffix;
@@ -164,7 +155,7 @@ export class RelationSelector {
   name?: string | null;
   exclude_first: number;
   id?: number;
-  columns: ColumnSelector[];
+  columns: ColSelector[];
   num_rows_in_demonstration?: number;
   next_type?: number;
   prior_next_button_text?: string;
@@ -189,7 +180,7 @@ export class RelationSelector {
   numColumns?: number;
 
   constructor(featureSet: GenericFeatureSet | GenericFeatureSet[],
-    exclude_first: number, columns: ColumnSelector[], selector_version = 1) {
+    exclude_first: number, columns: ColSelector[], selector_version = 1) {
       this.selector_version = selector_version;
       this.selector = featureSet;
       this.exclude_first = exclude_first;
@@ -341,11 +332,11 @@ export class RelationSelector {
    * Create a {@link RelationSelector} given positive and negative elements.
    * @param positiveEls positive elements to include
    * @param negativeEls negative elements to exclude
-   * @param columns {@link ColumnSelector}s to include in selector
+   * @param columns {@link ColSelector}s to include in selector
    * @param features set of features to examine
    */
   public static fromPositiveAndNegativeElements(positiveEls: HTMLElement[],
-    negativeEls: HTMLElement[], columns: ColumnSelector[],
+    negativeEls: HTMLElement[], columns: ColSelector[],
     features = ["tag", "xpath"]): RelationSelector {
       let featureSet = Features.getFeatureSet(features, positiveEls);
 
@@ -483,7 +474,7 @@ export class ContentSelector extends RelationSelector {
   currentIndividualSelector?: ContentSelector;
 
   constructor(featureSet: GenericFeatureSet | GenericFeatureSet[],
-    exclude_first: number, columns: ColumnSelector[], selector_version = 1) {
+    exclude_first: number, columns: ColSelector[], selector_version = 1) {
       super(featureSet, exclude_first, columns, selector_version);
   }
 }
@@ -515,8 +506,8 @@ export class TableSelector extends RelationSelector {
       let bestTableScore = Number.POSITIVE_INFINITY;
 
       for (const t of tables) {
-        let distance = window.MiscUtilities.levenshteinDistance(nodeToXPath(t),
-          selector.xpath);
+        let distance = window.MiscUtilities.levenshteinDistance(
+          XPath.fromNode(t), selector.xpath);
         if (distance < bestTableScore){
           bestTableScore = distance;
           table = t;
@@ -538,7 +529,7 @@ export class TableSelector extends RelationSelector {
   }
 
   constructor(featureSet: TableFeatureSet, exclude_first: number,
-    columns: ColumnSelector[], selector_version = 1) {
+    columns: ColSelector[], selector_version = 1) {
       super(featureSet, exclude_first, columns, selector_version);
   }
 }
@@ -582,7 +573,7 @@ export class PulldownSelector extends RelationSelector {
   }
 
   constructor(featureSet: GenericFeatureSet | GenericFeatureSet[],
-    exclude_first: number, columns: ColumnSelector[]) {
+    exclude_first: number, columns: ColSelector[]) {
       // selector_version is always 2 for PulldownSelector
       super(featureSet, exclude_first, columns, 2);
 

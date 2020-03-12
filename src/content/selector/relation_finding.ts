@@ -3,8 +3,11 @@ import * as $ from "jquery";
 import { Features } from "../utils/features";
 import PulldownFeatureSet = Features.PulldownFeatureSet;
 
-import { PulldownSelector, ColumnSelector, ContentSelector, ComparisonSelector,
+import { PulldownSelector, ContentSelector, ComparisonSelector,
   NextButtonSelector, RelationSelector, TableSelector } from "./relation_selector";
+
+import { ColumnSelector } from "./column_selector";
+import ColSelector = ColumnSelector.ColSelector;
 
 import { MainpanelNodeRep } from "../handlers/scrape_mode_handlers";
 
@@ -21,28 +24,7 @@ export namespace RelationFinder {
 /**********************************************************************
  * How to actually synthesize the selectors used by the relation-finder above
  **********************************************************************/
-  /**
-   * Gets {@link ColumnSelector}s of descendant nodes given the ancestor node.
-   * @param ancestor ancestor node
-   * @param descendants descendant nodes
-   */
-  function getColumnSelectors(ancestor: HTMLElement,
-    descendants: (HTMLElement | null)[]) {
-    let columns: ColumnSelector[] = [];
-    for (const descendant of descendants) {
-      if (!descendant) {
-        throw new ReferenceError('TODO: This descendant is null. Handle it?');
-      }
-      let xpath = nodeToXPath(descendant);
-      let suffix = XPath.suffixFromAncestor(ancestor, descendant);
-      columns.push({
-        xpath: xpath,
-        suffix: suffix,
-        id: null}
-      );
-    }
-    return columns;
-  }
+
 
   /**
    * TODO: cjbaik: what is this for?
@@ -76,7 +58,7 @@ export namespace RelationFinder {
   export function createSelectorFromSingleRow(cells: HTMLElement[]) {
     let ancestor = XPath.findCommonAncestor(cells);
     let positiveNodes = [ancestor];
-    let columns = getColumnSelectors(ancestor, cells);
+    let columns = ColumnSelector.compute(ancestor, cells);
     let suffixes = columns.map((col) => col.suffix);
     let matchingDescendantSibling = 
       XPath.findDescendantSiblingMatchingSuffixes(ancestor, suffixes);
@@ -233,7 +215,7 @@ export namespace RelationFinder {
       // union of td/th cells and originally provided cells
       let allCells = [...new Set([...tdThCells, ...cells])];
       let selector = new TableSelector(tableFeatureSet, index,
-        getColumnSelectors(tr, allCells));
+        ColumnSelector.compute(tr, allCells));
       selector.positive_nodes = cells;
       selector.negative_nodes = [];
       let relation = selector.getMatchingRelation();
@@ -389,7 +371,8 @@ export namespace RelationFinder {
           continue;
         }
         let columns = rel.columns;
-        let relXpaths = columns.map((col: ColumnSelector) => col.xpath);
+        let relXpaths = columns.map(
+          (col: ColSelector) => col.xpath);
         window.WALconsole.log(relXpaths);
 
         let matched = 0;
@@ -707,8 +690,8 @@ export namespace RelationFinder {
     element: HTMLElement) {
     //will return exactly the same node if there's only one item in first_row_items
     window.WALconsole.log("findAncestorLikeSpec", specAncestor, element);
-    let spec_xpath_list = OldXPathList.xPathToXPathList(nodeToXPath(specAncestor));
-    let xpath_list = OldXPathList.xPathToXPathList(nodeToXPath(element));
+    let spec_xpath_list = OldXPathList.xPathToXPathList(XPath.fromNode(specAncestor));
+    let xpath_list = OldXPathList.xPathToXPathList(XPath.fromNode(element));
     let ancestor_xpath_list = xpath_list.slice(0,spec_xpath_list.length);
     let ancestor_xpath_string = OldXPathList.xPathToString(ancestor_xpath_list);
     let ancestor_xpath_nodes = xPathToNodes(ancestor_xpath_string);
@@ -839,7 +822,7 @@ export namespace RelationFinder {
           throw new ReferenceError('No deepestCommonAncestor found.');
         }
 
-        let columns = getColumnSelectors(deepestCommonAncestor,
+        let columns = ColumnSelector.compute(deepestCommonAncestor,
           currRelation[currRelationIndex].concat([ target ]));
         currentSelectorToEdit.columns = columns;
 
@@ -861,13 +844,14 @@ export namespace RelationFinder {
         //   depth.  not really a good assumption, but we already assume that we
         //   have fixed xpaths to get to subcomponents, so we're already making
         //   that assumption)
-        let xpath = nodeToXPath(newAncestor);
+        let xpath = <string> XPath.fromNode(newAncestor);
         let xpathlen = xpath.split("/").length;
-        let xpathO = nodeToXPath(origAncestor);
+        let xpathO = <string> XPath.fromNode(origAncestor);
         let xpathlenO = xpathO.split("/").length;
         let depthDiff = xpathlenO - xpathlen;
         for (let i = 0; i < currentSelectorToEdit.positive_nodes.length; i++) {
-          let ixpath = nodeToXPath(currentSelectorToEdit.positive_nodes[i]);
+          let ixpath = <string> XPath.fromNode(
+            currentSelectorToEdit.positive_nodes[i]);
           let components = ixpath.split("/");
           components = components.slice(0, components.length - depthDiff);
           let newxpath = components.join("/");
@@ -980,7 +964,7 @@ export namespace RelationFinder {
       id: nextOrMoreButton.id,
       class: nextOrMoreButton.className,
       src: nextOrMoreButton.getAttribute('src'),
-      xpath: nodeToXPath(nextOrMoreButton),
+      xpath: <string> XPath.fromNode(nextOrMoreButton),
       frame_id: SimpleRecord.getFrameId()
     }
     
@@ -1108,7 +1092,7 @@ export namespace RelationFinder {
       let min_distance = 999999;
       let min_candidate = null;
       for (const candButton of candButtons) {
-        let candXPath = nodeToXPath(candButton);
+        let candXPath = XPath.fromNode(candButton);
         let distance = window.MiscUtilities.levenshteinDistance(candXPath,
           nextSelector.xpath);
         if (distance < min_distance){

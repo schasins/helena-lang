@@ -74,7 +74,7 @@ export namespace Features {
   export function computeFeatureFromElement(element: HTMLElement,
     feature: string) {
     if (feature === "xpath") {
-      return OldXPathList.xPathToXPathList(nodeToXPath(element));
+      return OldXPathList.xPathToXPathList(XPath.fromNode(element));
     } else if (feature === "preceding-text") {
       return element.previousElementSibling?.textContent;
     } else if (feature === "text") {
@@ -179,6 +179,9 @@ export namespace Features {
    * @param tableEl table element
    */
   export function createTableFeatureSet(tableEl: HTMLElement): TableFeatureSet {
-    return { table: true, xpath: nodeToXPath(tableEl) };
+    return {
+      table: true,
+      xpath: <string> XPath.fromNode(tableEl)
+    };
   }
 }

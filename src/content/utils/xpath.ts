@@ -22,7 +22,7 @@ export namespace XPath {
     // this doesn't handle null nodes, so filter those out first
     elements = elements.filter((el) => el && $(el).parents().length);
     let xPathLists = elements.map((node) =>
-      OldXPathList.xPathToXPathList(nodeToXPath(node)));
+      OldXPathList.xPathToXPathList(fromNode(node)));
     let firstXPathList = xPathLists[0];
     // TODO: cjbaik eliminate this `var` call; but don't want to mess with logic
     for (var i = 0; i < firstXPathList.length; i++) {
@@ -47,7 +47,7 @@ export namespace XPath {
    * @param suffixes list of suffixes
    */
   function matchesAllSuffixes(node: Node, suffixes: XPathNode[][]){
-    let elXPath = OldXPathList.xPathToXPathList(nodeToXPath(node));
+    let elXPath = OldXPathList.xPathToXPathList(fromNode(node));
     //check whether this node has an entry for all desired suffixes
     for (const suffix of suffixes) {
       let suffixXPath = OldXPathList.xPathToString(elXPath.concat(suffix));
@@ -66,7 +66,7 @@ export namespace XPath {
    */
   export function findDescendantSiblingMatchingSuffixes(element: HTMLElement,
     suffixes: SuffixXPathList[]) {
-    let elXPath = OldXPathList.xPathToXPathList(nodeToXPath(element));
+    let elXPath = OldXPathList.xPathToXPathList(fromNode(element));
     
     // start at the end of the xpath, move back towards root
     for (let i = (elXPath.length - 1); i >= 0; i--) {
@@ -94,9 +94,50 @@ export namespace XPath {
    */
   export function suffixFromAncestor(ancestor: Node, descendant: Node):
     XPathNode[] {
-    let ancestorList = OldXPathList.xPathToXPathList(nodeToXPath(ancestor));
-    let descList = OldXPathList.xPathToXPathList(nodeToXPath(descendant));
+    let ancestorList = OldXPathList.xPathToXPathList(fromNode(ancestor));
+    let descList = OldXPathList.xPathToXPathList(fromNode(descendant));
     return descList.slice(ancestorList.length, descList.length);
   }
 
+  /**
+   * Convert a DOM node to an XPath expression representing the path from the
+   *   document element.
+   * @param node the DOM node
+   */
+  export function fromNode(node?: Node | null): string | null {
+    // a special case for events that happen on document
+    if (node === document){
+      return "document";
+    }
+
+    if (node === null || node === undefined){
+      return null;
+    }
+
+    let element = <HTMLElement> node;
+
+    if (element.tagName.toLowerCase() === 'html') {
+      return element.tagName;
+    }
+
+    // if there is no parent node then this element has been disconnected
+    // from the root of the DOM tree
+    if (!element.parentElement) {
+      return '';
+    }
+
+    let ix = 0;
+    let siblings = element.parentElement.children;
+    for (let i = 0, ii = siblings.length; i < ii; i++) {
+      let sibling = siblings[i];
+      if (sibling === element) {
+        return fromNode(element.parentElement) + '/' + element.tagName +
+              '[' + (ix + 1) + ']';
+      }
+      if (sibling.nodeType === 1 && sibling.tagName === element.tagName) {
+        ix++;
+      }
+    }
+    throw new ReferenceError('Child node does not belong to its own parent!');
+  }
 }

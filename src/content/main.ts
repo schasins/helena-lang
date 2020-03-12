@@ -1,7 +1,7 @@
 import { MessageContent, ColumnIndexMessageContent,
 	LikelyRelationMessageContent, SelectorMessage } from "../common/messages";
-import { RelationFinder } from "./relations/relation_finding";
-import { RelationSelector } from "./relations/relation_selector";
+import { RelationFinder } from "./selector/relation_finding";
+import { RelationSelector } from "./selector/relation_selector";
 import { RelationOutput } from "../common/relation";
 import { HelenaContent } from "./helena_content";
 

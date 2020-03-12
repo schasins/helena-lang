@@ -1,5 +1,5 @@
 import { SelectorMessage } from "../../common/messages";
-import { RelationSelector } from "../relations/relation_selector";
+import { RelationSelector } from "../selector/relation_selector";
 
 /**
  * TODO: cjbaik: returned from Helena back-end server.

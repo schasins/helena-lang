@@ -3,8 +3,9 @@ import { MainpanelNodeRep } from "../content/handlers/scrape_mode_handlers";
 import { Features } from "../content/utils/features";
 import GenericFeatureSet = Features.GenericFeatureSet;
 
-import { ColumnSelector,
-    NextButtonSelector } from "../content/relations/relation_selector";
+import { NextButtonSelector } from "../content/selector/relation_selector";
+
+import { ColumnSelector } from "../content/selector/column_selector";
 
 export interface MessageContent {
 
@@ -20,7 +21,7 @@ export interface SelectorMessage {
     name?: string | null;
     exclude_first: number;
     id?: number;
-    columns: ColumnSelector[];
+    columns: ColumnSelector.ColSelector[];
     num_rows_in_demonstration?: number;
     next_type?: number;
     prior_next_button_text?: string;
