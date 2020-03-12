@@ -4,10 +4,11 @@ import { Features } from "../utils/features";
 import PulldownFeatureSet = Features.PulldownFeatureSet;
 
 import { PulldownSelector, ContentSelector, ComparisonSelector,
-  NextButtonSelector, RelationSelector, TableSelector } from "./relation_selector";
+  RelationSelector, TableSelector } from "./relation_selector";
 
 import { ColumnSelector } from "./column_selector";
-import ColSelector = ColumnSelector.ColSelector;
+
+import { NextButtonSelector } from "./next_button_selector";
 
 import { MainpanelNodeRep } from "../handlers/scrape_mode_handlers";
 
@@ -24,211 +25,6 @@ export namespace RelationFinder {
 /**********************************************************************
  * How to actually synthesize the selectors used by the relation-finder above
  **********************************************************************/
-
-
-  /**
-   * TODO: cjbaik: what is this for?
-   * @param curSelector original selector
-   */
-  function synthesizeEditedSelectorFromOldSelector(curSelector: ContentSelector) {
-    if (!curSelector.positive_nodes) {
-      throw new ReferenceError('Selector does not contain any positive nodes.');
-    }
-    if (!curSelector.negative_nodes) {
-      throw new ReferenceError('Selector does not contain any negative nodes.');
-    }
-    let newSelector = RelationSelector.fromPositiveAndNegativeElements(
-      curSelector.positive_nodes, curSelector.negative_nodes,
-      curSelector.columns);
-    
-    // keep features of old selector that don't relate to actual row selector
-    newSelector.next_type = curSelector.next_type;
-    newSelector.next_button_selector = curSelector.next_button_selector;
-    newSelector.name = curSelector.name;
-    newSelector.id = curSelector.id;
-    newSelector.url = curSelector.url;
-
-    return newSelector;
-  }
-
-  /**
-   * Create {@link Selector} given a list of column nodes comprising a row.
-   * @param cells list of cell elements in the row
-   */
-  export function createSelectorFromSingleRow(cells: HTMLElement[]) {
-    let ancestor = XPath.findCommonAncestor(cells);
-    let positiveNodes = [ancestor];
-    let columns = ColumnSelector.compute(ancestor, cells);
-    let suffixes = columns.map((col) => col.suffix);
-    let matchingDescendantSibling = 
-      XPath.findDescendantSiblingMatchingSuffixes(ancestor, suffixes);
-    if (matchingDescendantSibling !== null){
-      positiveNodes.push(matchingDescendantSibling);
-    }
-    let selector = RelationSelector.fromPositiveAndNegativeElements(
-      positiveNodes, [], columns);
-    let relation = selector.getMatchingRelation();
-    selector.relation = relation;
-
-    for (let i = 0; i < relation.length; i++){
-      let relRow = relation[i];
-      // Find the first relation row that contains the first column node to find
-      //   how many header rows there are
-      if (relRow.some((cell: HTMLElement) => cells[0] === cell)) {
-        selector.exclude_first = i;
-        break;
-      }
-    }
-    return <ContentSelector> selector;
-  }
-
-  /**
-   * Produce the powerset of the array.
-   * @param arr the array
-   * @param descSize true if descending size
-   */
-  function powerset(arr: any[], descSize = false) {
-      let ps = [[]];
-      for (let i = 0; i < arr.length; i++) {
-        let prevLength = ps.length;
-        for (let j = 0; j < prevLength; j++) {
-            ps.push(ps[j].concat(arr[i]));
-        }
-      }
-      // ok, ps has them in order from smallest to largest.  let's reverse that
-      if (descSize) {
-        return ps.reverse();
-      } else {
-        return ps;
-      }
-  }
-
-  /**
-   * Create {@link Selector} from a subset of cell elements comprising a row
-   *   such that the largest subsets are considered first, with the number of
-   *   rows found in the relation acting as a tiebreaker.
-   * @param cells list of cell elements in the row
-   * @param minSubsetSize minimum number of cell elements to consider
-   */
-  function createSelectorFromLargestRowSubset(cells: HTMLElement[],
-    minSubsetSize: number) {
-    // TODO: cjbaik: in future, can we just order the combos by number of
-    //   rowNodes included in the combo, stop once we get one that has a good
-    //   selector? could this avoid wasting so much time on this? even in cases
-    //   where we don't already have server-suggested to help us with
-    //   smallestSubsetToConsider?
-    let combos = powerset(cells, true);
-    window.WALconsole.log("combos", combos);
-    let maxNumCells = -1;
-    let maxSelector: ContentSelector | null = null;
-    let maxComboSize = -1;
-    for (const combo of combos) {
-      window.WALconsole.log("working on a new combo", combo);
-      // TODO: cjbaik: the if below is an inefficient way to do this!
-      //   do it better in future!  just make the smaller set of combos!
-      if (combo.length < minSubsetSize){
-        window.WALconsole.log("skipping a combo becuase it's smaller than the server-suggested combo", combo, minSubsetSize);
-        continue;
-      }
-      if (combo.length < maxComboSize){
-        // remember, we're going through combinations in order from the largest
-        //   to smallest size so if we've already found one of a large size (a
-        //   large number of matched xpaths), there's no need to spend time
-        //   looking for smaller ones that we actually don't prefer
-        continue;
-      }
-      if (combo.length == 0) { break; }
-
-      let selector = createSelectorFromSingleRow(combo);
-      window.WALconsole.log("selector", selector);
-      if (selector.relation.length <= 1) {
-        // we're really not interested in relations of size one -- it's not
-        //   going to require parameterization at all
-        window.WALconsole.log("ignoring a combo because it produces a length 1 relation", combo, selector.relation);
-        continue;
-      }
-
-      let numCells = combo.length * selector.relation.length;
-      if (numCells > maxNumCells) {
-        maxNumCells = numCells;
-        maxSelector = selector;
-        maxComboSize = combo.length;
-        window.WALconsole.log("maxselector so far", maxSelector);
-        window.WALconsole.log("relation so far", selector.relation);
-      }
-    }
-
-    if (!maxSelector){
-      window.WALconsole.log("No maxSelector");
-      return null;
-    }
-    window.WALconsole.log("returning maxselector", maxSelector);
-    return maxSelector;
-  }
-
-  /**
-   * Create a selector for cells residing in a <table> element.
-   * @param cells elements describing cells in the row
-   */
-  function createSelectorFromSingleTableRow(cells: HTMLElement[]) {
-    window.WALconsole.log(cells);
-
-    let trs = [];
-
-    // Get ancestor <tr> elements
-    // TODO: cjbaik: currently only retrieving first one (i.e. does not consider
-    //   nested tables)
-    let closestTr = cells[0].closest("tr");
-    if (closestTr && closestTr !== cells[0]) {
-      trs.push(closestTr);
-    }
-
-    if (trs.length === 0){
-      window.WALconsole.log("No tr parents.");
-      return null;
-    }
-    
-    // Keep only <tr> elements which contain all the column elements
-    trs = trs.filter((tr) =>
-      cells.every((el) => tr.contains(el))
-    );
-
-    if (trs.length === 0){
-      window.WALconsole.log("No shared tr parents.");
-      return null;
-    }
-
-    let bestScore = -1;
-    let bestSelector: ContentSelector | null = null;
-    for (const tr of trs) {
-      let tableParent = tr.closest("table");
-
-      if (!tableParent) {
-        throw new ReferenceError("<tr> has no <table> parent!");
-      }
-
-      let siblingTrs = [].slice.call(tableParent.querySelectorAll("tr"));
-      let index = siblingTrs.indexOf(tr);
-      let tableFeatureSet = Features.createTableFeatureSet(tableParent);
-      
-      let tdThCells = [].slice.call(tr.querySelectorAll("td, th"));
-      // union of td/th cells and originally provided cells
-      let allCells = [...new Set([...tdThCells, ...cells])];
-      let selector = new TableSelector(tableFeatureSet, index,
-        ColumnSelector.compute(tr, allCells));
-      selector.positive_nodes = cells;
-      selector.negative_nodes = [];
-      let relation = selector.getMatchingRelation();
-      selector.relation = relation;
-      let score = relation.length * relation[0].length;
-      if (score > bestScore){
-        bestScore = score;
-        bestSelector = <ContentSelector> selector;
-      }
-    }
-
-    return bestSelector;
-  }
 
   /**
    * Returns the XPath expression in xpaths that do not intersect with any of
@@ -372,7 +168,7 @@ export namespace RelationFinder {
         }
         let columns = rel.columns;
         let relXpaths = columns.map(
-          (col: ColSelector) => col.xpath);
+          (col: ColumnSelector.Interface) => col.xpath);
         window.WALconsole.log(relXpaths);
 
         let matched = 0;
@@ -393,11 +189,12 @@ export namespace RelationFinder {
     // if this is actually in an html table, let's take a shortcut, since some
     //   sites use massive tables and trying to run the other approach would
     //   take forever
-    let selector = createSelectorFromSingleTableRow(elements);
+    let selector: TableSelector | ContentSelector | null =
+      TableSelector.fromTableRow(elements);
 
     if (selector === null) {
       // ok, no table, we have to do the standard, possibly slow approach
-      selector = createSelectorFromLargestRowSubset(elements,
+      selector = ContentSelector.fromLargestRowSubset(elements,
         maxNodesCoveredByServerRelations + 1);
     }
     if (selector === null) {
@@ -450,8 +247,7 @@ export namespace RelationFinder {
     if (uncoveredSoFar.length > 0) {
       // let's see if we can cover as many as possible of the remaining nodes
       let uncoveredNodes = xpathsToElements(uncoveredSoFar);
-      let newSelector = createSelectorFromLargestRowSubset(
-        uncoveredNodes, 0);
+      let newSelector = ContentSelector.fromLargestRowSubset(uncoveredNodes, 0);
       
       // now reason about the length of the lists and whether it even makes
       //   sense to pair them
@@ -515,7 +311,7 @@ export namespace RelationFinder {
    * Send relation matching selector to mainpanel.
    * @param selector selector
    */
-  export function sendRelationToMainpanel(selector: RelationSelector) {
+  export function sendMatchingRelationToMainpanel(selector: RelationSelector) {
     if (!selector.selector_version){
       console.error("No selector version!!!");
     }
@@ -544,7 +340,7 @@ export namespace RelationFinder {
 
   let currentSelectorToEdit: ContentSelector | null = null;
   let currentSelectorEmptyOnThisPage = false;
-  export function editRelation(selector: RelationSelector){
+  export function editRelation(selector: RelationSelector) {
     if (currentSelectorToEdit !== null) {
       // we've already set up to edit a selector, and we should never use the
       //   same tab to edit multiples always close tab and reload.  so don't run
@@ -569,8 +365,8 @@ export namespace RelationFinder {
         // ugh, but maybe the page just hasn't really finished loading, so try again in a sec
         // setTimeout(editingSetup, 1000);
 	      // but also need to send the editing colors just in case
-	       sendEditedSelectorToMainpanel(contentSelector);
-         currentSelectorEmptyOnThisPage = true;
+	      sendEditedSelectorToMainpanel(contentSelector);
+        currentSelectorEmptyOnThisPage = true;
         return;
       }
       highlightSelector(contentSelector);
@@ -582,9 +378,9 @@ export namespace RelationFinder {
       selector.negative_nodes = [];
       sendEditedSelectorToMainpanel(contentSelector);
       if (selector.next_type === window.NextTypes.NEXTBUTTON ||
-          selector.next_type === window.NextTypes.MOREBUTTON){
-        highlightNextOrMoreButton(
-          <NextButtonSelector> selector.next_button_selector);
+          selector.next_type === window.NextTypes.MOREBUTTON) {
+        NextButtonSelector.highlightNextButton(
+          <NextButtonSelector.Interface> selector.next_button_selector);
       }
 
       // we want to highlight the currently hovered node
@@ -628,7 +424,7 @@ export namespace RelationFinder {
   function highlightHovered(event: Event) {
     let prevHoverHighlight = currentHoverHighlight;
     let color = "#9D00FF";
-    if (listeningForNextButtonClick) {
+    if (NextButtonSelector.listeningForNextButtonClick) {
       color = "#E04343";
     }
     if (prevHoverHighlight) {
@@ -704,9 +500,9 @@ export namespace RelationFinder {
       throw new ReferenceError('No selector to edit!');
     }
 
-    if (listeningForNextButtonClick) {
+    if (NextButtonSelector.listeningForNextButtonClick) {
       // don't want to do normal editing click...
-      nextButtonSelectorClick(event);
+      NextButtonSelector.record(event);
       return;
     }
 
@@ -725,7 +521,7 @@ export namespace RelationFinder {
       }
       targetsSoFar.push(target);
 
-      let newSelector = createSelectorFromSingleRow(targetsSoFar);
+      let newSelector = ContentSelector.fromRow(targetsSoFar);
       // just the individual selector that we want to play with
       currentSelectorToEdit.currentIndividualSelector = newSelector;
       currentSelectorToEdit.origSelector!.merge(newSelector);
@@ -761,8 +557,9 @@ export namespace RelationFinder {
           let parent = parents[i];
           let index = currentSelectorToEdit.positive_nodes.indexOf(parent);
           if (index > -1) {
-            // ok, so this click is for removing a node.  removing the row?  removing the column?
-            // not that useful to remove a column, so probably for removing a row...
+            // ok, so this click is for removing a node.  removing the row?
+            //   removing the column? not that useful to remove a column, so 
+            //   probably for removing a row...
             nodeToRemove = parent;
             break;
           }
@@ -919,208 +716,25 @@ export namespace RelationFinder {
           currentSelectorToEdit.positive_nodes.push(appropriateAncestor);
         }
       }
-
     }
 
-    let newSelector = synthesizeEditedSelectorFromOldSelector(
-      currentSelectorToEdit);
+    if (!currentSelectorToEdit.negative_nodes) {
+      throw new ReferenceError('Selector does not contain any negative nodes.');
+    }
+
+    let newSelector = RelationSelector.fromPositiveAndNegativeElements(
+      currentSelectorToEdit.positive_nodes,
+      currentSelectorToEdit.negative_nodes,
+      currentSelectorToEdit.columns);
+    newSelector.next_type = currentSelectorToEdit.next_type;
+    newSelector.next_button_selector =
+      currentSelectorToEdit.next_button_selector;
+    newSelector.name = currentSelectorToEdit.name;
+    newSelector.id = currentSelectorToEdit.id;
+    newSelector.url = currentSelectorToEdit.url;
+    
     newSelectorGuess(newSelector);
     currentSelectorToEdit = <ContentSelector> newSelector;
-  }
-
-/**********************************************************************
- * Handling next buttons
- **********************************************************************/
-
-  let listeningForNextButtonClick = false;
-  export function nextButtonSelector() {
-    // ok, now we're listening for a next button click
-    listeningForNextButtonClick = true;
-    clearNextButtonSelector(); // remove an old one if there is one
-    
-    // in case the highlighting of cells blocks the next button, hide this
-    clearCurrentSelectorHighlight(); 
-  }
-
-  export function clearNextButtonSelector() {
-    // we just want to unhighlight it if there is one...
-    unHighlightNextOrMoreButton();
-  }
-
-  function nextButtonSelectorClick(event: MouseEvent) {
-    listeningForNextButtonClick = false;
-
-    event.stopPropagation();
-    event.preventDefault();
-
-    if (!event.target) {
-      throw new ReferenceError('Event has no target!');
-    }
-    
-    let nextOrMoreButton = <HTMLElement> event.target;
-    let data: NextButtonSelector = {
-      tag: nextOrMoreButton.tagName,
-      text: nextOrMoreButton.textContent,
-      id: nextOrMoreButton.id,
-      class: nextOrMoreButton.className,
-      src: nextOrMoreButton.getAttribute('src'),
-      xpath: <string> XPath.fromNode(nextOrMoreButton),
-      frame_id: SimpleRecord.getFrameId()
-    }
-    
-    window.utilities.sendMessage("content", "mainpanel", "nextButtonSelector",
-      { selector: data }
-    );
-    highlightNextOrMoreButton(data);
-
-    highlightCurrentSelector(); // rehighlight the relaiton items
-  }
-
-  /**
-   * Determines whether a candidate element is a promising next button
-   * @param nextSelector selector for the next button
-   * @param candEl the candidate element to check
-   * @param priorPageIndexText if traversing to pagination, the string of the
-   *   last page index clicked
-   */
-  function isPromisingNextButton(nextSelector: NextButtonSelector,
-    candEl: HTMLElement, priorPageIndexText?: string) {
-    // either there's an actual image and it's the same, or the text is the same
-    if (nextSelector.src) {
-      return (candEl.getAttribute('src') === nextSelector.src);
-    }
-    if (!priorPageIndexText || isNaN(+priorPageIndexText)) {
-      // we don't have a past next button or the past next button wasn't numeric
-      //   so just look for the exact text
-      return (candEl.textContent === nextSelector.text);
-    } else {
-      // it was a number!  so we're looking for the next number bigger than this
-      //   one...
-      // oh cool, there's been a prior next button, and it had a number text
-      //   we'd better look for a button like it but that has a bigger number...
-      // todo: make this more robust
-      let prior = parseInt(priorPageIndexText);
-      let currNodeText = candEl.textContent;
-      if (!currNodeText) {
-        throw new ReferenceError('Current element has no textContent.');
-      }
-      if (isNaN(+currNodeText)){
-        return false;
-      }
-      let curr = parseInt(currNodeText);
-      if (curr > prior){
-        return true;
-      }
-    }
-    return false;
-  }
-
-  function findNextButton(nextSelector: NextButtonSelector,
-    priorPageIndexText?: string): HTMLElement | null {
-    window.WALconsole.log(nextSelector);
-
-    let next_or_more_button_text = nextSelector.text;
-    let button = null;
-    let candButtons = [].slice.call(
-      document.querySelectorAll(nextSelector.tag)
-    );
-    candButtons = candButtons.filter((button: HTMLElement) =>
-      isPromisingNextButton(nextSelector, button, priorPageIndexText)
-    );
-    window.WALconsole.namedLog("findNextButton", "candidate_buttons",
-      candButtons);
-
-    let doNumberVersion = priorPageIndexText && !isNaN(+priorPageIndexText);
-
-    // hope there's only one button
-    if (candButtons.length === 1 && !doNumberVersion) {
-      window.WALconsole.namedLog("findNextButton", "only one button");
-      return candButtons[0];
-    }
-    
-    // if not and demo button had id, try using the id
-    if (nextSelector.id && nextSelector.id !== "" && !doNumberVersion) {
-      window.WALconsole.namedLog("findNextButton", "we had an id")
-      let idElement = document.getElementById(nextSelector.id);
-      if (idElement) {
-        return idElement;
-      }
-    }
-
-    // if not and demo button had class, try using the class
-    let cbuttons = candButtons.filter((cand: HTMLElement) => 
-      cand.className === nextSelector.class);
-    if (cbuttons.length === 1 && !doNumberVersion) {
-      window.WALconsole.namedLog("findNextButton",
-        "filtered by class and there was only one");
-      return cbuttons[0];
-    }
-    // ok, another case where we probably want to decide based on sharing class
-    // is the case where we have numeric next buttons
-    let lowestNodeSoFar = null
-    if (priorPageIndexText && !isNaN(+priorPageIndexText)) {
-      window.WALconsole.namedLog("findNextButton",
-        "filtered by class and now trying to do numeric");
-      
-      // let's go through and just figure out which one has the next highest number relative to the prior next button text
-      let lsToSearch = cbuttons;
-      if (cbuttons.length < 1) {
-        lsToSearch = candButtons;
-      }
-      let priorButtonNum = parseInt(priorPageIndexText);
-      let lowestNumSoFar = Number.MAX_VALUE;
-      window.WALconsole.namedLog("findNextButton", "potential buttons",
-        lsToSearch);
-      for (const button of lsToSearch) {
-        let buttonText = button.textContent;
-        console.log("button", button, buttonText);
-        var buttonNum = parseInt(buttonText);
-        console.log("comparison", buttonNum, lowestNumSoFar, priorButtonNum,
-          buttonNum < lowestNumSoFar, buttonNum > priorButtonNum);
-        if (buttonNum < lowestNumSoFar && buttonNum > priorButtonNum){
-          lowestNumSoFar = buttonNum;
-          lowestNodeSoFar = button;
-        }
-      }
-    }
-
-    if (lowestNodeSoFar) {
-      window.WALconsole.namedLog("findNextButton", "numeric worked");
-      return lowestNodeSoFar;
-    } else {
-      //see which candidate has the right text and closest xpath
-      let min_distance = 999999;
-      let min_candidate = null;
-      for (const candButton of candButtons) {
-        let candXPath = XPath.fromNode(candButton);
-        let distance = window.MiscUtilities.levenshteinDistance(candXPath,
-          nextSelector.xpath);
-        if (distance < min_distance){
-          min_distance = distance;
-          min_candidate = candButton;
-        }
-      }
-      if (min_candidate === null) {
-        window.WALconsole.log("couldn't find an appropriate 'more' button");
-        window.WALconsole.log(nextSelector.tag, nextSelector.id,
-          next_or_more_button_text, nextSelector.xpath);
-      }
-      return min_candidate;
-    }
-  }
-
-  let nextOrMoreButtonHighlight: JQuery<HTMLElement> | null = null;
-  function highlightNextOrMoreButton(selector: NextButtonSelector){
-    window.WALconsole.log(selector);
-    var button = findNextButton(selector);
-    nextOrMoreButtonHighlight = window.Highlight.highlightNode(button,
-      "#E04343", true);
-  }
-
-  function unHighlightNextOrMoreButton(){
-    if (nextOrMoreButtonHighlight !== null) {
-      window.Highlight.clearHighlight(nextOrMoreButtonHighlight);
-    }
   }
 
 /**********************************************************************
@@ -1193,11 +807,14 @@ export namespace RelationFinder {
       {});
   }
 
-  // below the methods for actually using the next button when we need the next
-  //   page of results. this also identifies if there are no more items to
-  //   retrieve, in which case that info is stored in case someone tries to run
-  //   getFreshRelationItems on us
-  export function runNextInteraction(selector: RelationSelector) {
+  /**
+   * Run the interaction needed to retrieve the next page of results (using the
+   *   next/more/pagination buttons). If there are no more items to retrieved,
+   *   the information is stored for the next time {@link getFreshRelationItems}
+   *   is called.
+   * @param selector relation selector
+   */
+  export function getNextPage(selector: RelationSelector) {
     window.WALconsole.namedLog("nextInteraction", "running next interaction",
       selector);
 
@@ -1244,8 +861,8 @@ export namespace RelationFinder {
         scrollThroughRowsOrSpace(crd);
       }
 
-      let button = findNextButton(
-        <NextButtonSelector> selector.next_button_selector,
+      let button = NextButtonSelector.findNextButton(
+        <NextButtonSelector.Interface> selector.next_button_selector,
         selector.prior_next_button_text);
       if (button) {
         window.utilities.sendMessage("content", "mainpanel", "nextButtonText",

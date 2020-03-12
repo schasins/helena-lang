@@ -5,7 +5,8 @@ import { MainpanelNodeRep } from "../handlers/scrape_mode_handlers";
 import { SelectorMessage } from "../../common/messages";
 
 import { ColumnSelector } from "./column_selector";
-import ColSelector = ColumnSelector.ColSelector;
+
+import { NextButtonSelector } from "./next_button_selector";
 
 import { Features } from "../utils/features";
 import GenericFeatureSet = Features.GenericFeatureSet;
@@ -16,19 +17,28 @@ import TableFeatureSet = Features.TableFeatureSet;
 import { XPath } from "../utils/xpath";
 import SuffixXPathList = XPath.SuffixXPathList;
 
+
 /**
- * A selector describing a next/pagination button on a page.
+ * Produce the powerset of the array.
+ * @param arr the array
+ * @param descSize true if descending size
  */
-export interface NextButtonSelector {
-  id: string;
-  class: string;
-  src: string | null;
-  frame_id: string | null;
-  tag: string;
-  text: string | null;
-  xpath: string;
+function powerset(arr: any[], descSize = false) {
+  let ps = [[]];
+  for (let i = 0; i < arr.length; i++) {
+    let prevLength = ps.length;
+    for (let j = 0; j < prevLength; j++) {
+        ps.push(ps[j].concat(arr[i]));
+    }
+  }
+  // ok, ps has them in order from smallest to largest.  let's reverse that
+  if (descSize) {
+    return ps.reverse();
+  } else {
+    return ps;
+  }
 }
-  
+
 /**
  * Retrieve all candidate elements from the document.
  */
@@ -115,12 +125,12 @@ function getCellsInRowMatchingSuffixes(
 
 /**
    * Adds necessary information for {@link SuffixXPathNode} to a list of
-   *   {@link ColSelector}s.
+   *   {@link ColumnSelector.Interface}s.
    * @param colSelectors column selectors 
    * @param selectorIndex selector index for suffix
    */
   function labelColumnSuffixesWithTheirSelectors(
-    colSelectors: ColSelector[], selectorIndex: number) {
+    colSelectors: ColumnSelector.Interface[], selectorIndex: number) {
   
     for (const col of colSelectors) {
       let curSuffixes = col.suffix;
@@ -155,11 +165,11 @@ export class RelationSelector {
   name?: string | null;
   exclude_first: number;
   id?: number;
-  columns: ColSelector[];
+  columns: ColumnSelector.Interface[];
   num_rows_in_demonstration?: number;
   next_type?: number;
   prior_next_button_text?: string;
-  next_button_selector?: NextButtonSelector | null;
+  next_button_selector?: NextButtonSelector.Interface | null;
   url?: string;
   
   positive_nodes?: HTMLElement[];
@@ -180,7 +190,7 @@ export class RelationSelector {
   numColumns?: number;
 
   constructor(featureSet: GenericFeatureSet | GenericFeatureSet[],
-    exclude_first: number, columns: ColSelector[], selector_version = 1) {
+    exclude_first: number, columns: ColumnSelector.Interface[], selector_version = 1) {
       this.selector_version = selector_version;
       this.selector = featureSet;
       this.exclude_first = exclude_first;
@@ -332,11 +342,11 @@ export class RelationSelector {
    * Create a {@link RelationSelector} given positive and negative elements.
    * @param positiveEls positive elements to include
    * @param negativeEls negative elements to exclude
-   * @param columns {@link ColSelector}s to include in selector
+   * @param columns {@link ColumnSelector.Interface}s to include in selector
    * @param features set of features to examine
    */
   public static fromPositiveAndNegativeElements(positiveEls: HTMLElement[],
-    negativeEls: HTMLElement[], columns: ColSelector[],
+    negativeEls: HTMLElement[], columns: ColumnSelector.Interface[],
     features = ["tag", "xpath"]): RelationSelector {
       let featureSet = Features.getFeatureSet(features, positiveEls);
 
@@ -473,8 +483,103 @@ export class ContentSelector extends RelationSelector {
   origSelector?: ContentSelector;
   currentIndividualSelector?: ContentSelector;
 
+  /**
+   * Create {@link ContentSelector} from a subset of cell elements comprising a
+   *   row such that the largest subsets are considered first, with the number
+   *   of rows found in the relation acting as a tiebreaker.
+   * @param cells list of cell elements in the row
+   * @param minSubsetSize minimum number of cell elements to consider
+   */
+  public static fromLargestRowSubset(cells: HTMLElement[],
+    minSubsetSize: number) {
+    // TODO: cjbaik: in future, can we just order the combos by number of
+    //   rowNodes included in the combo, stop once we get one that has a good
+    //   selector? could this avoid wasting so much time on this? even in cases
+    //   where we don't already have server-suggested to help us with
+    //   smallestSubsetToConsider?
+    let combos = powerset(cells, true);
+    window.WALconsole.log("combos", combos);
+    let maxNumCells = -1;
+    let maxSelector: ContentSelector | null = null;
+    let maxComboSize = -1;
+    for (const combo of combos) {
+      window.WALconsole.log("working on a new combo", combo);
+      // TODO: cjbaik: the if below is an inefficient way to do this!
+      //   do it better in future!  just make the smaller set of combos!
+      if (combo.length < minSubsetSize){
+        window.WALconsole.log("skipping a combo becuase it's smaller than the server-suggested combo", combo, minSubsetSize);
+        continue;
+      }
+      if (combo.length < maxComboSize){
+        // remember, we're going through combinations in order from the largest
+        //   to smallest size so if we've already found one of a large size (a
+        //   large number of matched xpaths), there's no need to spend time
+        //   looking for smaller ones that we actually don't prefer
+        continue;
+      }
+      if (combo.length == 0) { break; }
+
+      let selector = ContentSelector.fromRow(combo);
+      window.WALconsole.log("selector", selector);
+      if (selector.relation.length <= 1) {
+        // we're really not interested in relations of size one -- it's not
+        //   going to require parameterization at all
+        window.WALconsole.log("ignoring a combo because it produces a length 1 relation", combo, selector.relation);
+        continue;
+      }
+
+      let numCells = combo.length * selector.relation.length;
+      if (numCells > maxNumCells) {
+        maxNumCells = numCells;
+        maxSelector = selector;
+        maxComboSize = combo.length;
+        window.WALconsole.log("maxselector so far", maxSelector);
+        window.WALconsole.log("relation so far", selector.relation);
+      }
+    }
+
+    if (!maxSelector){
+      window.WALconsole.log("No maxSelector");
+      return null;
+    }
+    window.WALconsole.log("returning maxselector", maxSelector);
+    return maxSelector;
+  }
+
+  /**
+   * Create {@link ContentSelector} given a list of cells comprising a row.
+   * @param cells list of cell elements in the row
+   */
+  public static fromRow(cells: HTMLElement[]) {
+    let ancestor = XPath.findCommonAncestor(cells);
+    let positiveNodes = [ancestor];
+    let columns = ColumnSelector.compute(ancestor, cells);
+    let suffixes = columns.map((col) => col.suffix);
+    let matchingDescendantSibling = 
+      XPath.findDescendantSiblingMatchingSuffixes(ancestor, suffixes);
+    if (matchingDescendantSibling !== null){
+      positiveNodes.push(matchingDescendantSibling);
+    }
+    let selector = RelationSelector.fromPositiveAndNegativeElements(
+      positiveNodes, [], columns);
+    let relation = selector.getMatchingRelation();
+    selector.relation = relation;
+
+    for (let i = 0; i < relation.length; i++){
+      let relRow = relation[i];
+      // Find the first relation row that contains the first column node to find
+      //   how many header rows there are
+      if (relRow.some((cell: HTMLElement) => cells[0] === cell)) {
+        selector.exclude_first = i;
+        break;
+      }
+    }
+    return <ContentSelector> selector;
+  }
+
   constructor(featureSet: GenericFeatureSet | GenericFeatureSet[],
-    exclude_first: number, columns: ColSelector[], selector_version = 1) {
+    exclude_first: number, columns: ColumnSelector.Interface[],
+    selector_version = 1) {
       super(featureSet, exclude_first, columns, selector_version);
   }
 }
@@ -482,7 +587,7 @@ export class ContentSelector extends RelationSelector {
 /**
  * A selector specifically for handling tables.
  */
-export class TableSelector extends RelationSelector {
+export class TableSelector extends ContentSelector {
   selector: TableFeatureSet;
 
   /**
@@ -528,8 +633,72 @@ export class TableSelector extends RelationSelector {
     return [rows];
   }
 
+  /**
+   * Create a selector for cells residing in a <table> element.
+   * @param cells elements describing cells in the row
+   */
+  public static fromTableRow(cells: HTMLElement[]) {
+    window.WALconsole.log(cells);
+
+    let trs = [];
+
+    // Get ancestor <tr> elements
+    // TODO: cjbaik: currently only retrieving first one (i.e. does not consider
+    //   nested tables)
+    let closestTr = cells[0].closest("tr");
+    if (closestTr && closestTr !== cells[0]) {
+      trs.push(closestTr);
+    }
+
+    if (trs.length === 0){
+      window.WALconsole.log("No tr parents.");
+      return null;
+    }
+    
+    // Keep only <tr> elements which contain all the column elements
+    trs = trs.filter((tr) =>
+      cells.every((el) => tr.contains(el))
+    );
+
+    if (trs.length === 0){
+      window.WALconsole.log("No shared tr parents.");
+      return null;
+    }
+
+    let bestScore = -1;
+    let bestSelector: TableSelector | null = null;
+    for (const tr of trs) {
+      let tableParent = tr.closest("table");
+
+      if (!tableParent) {
+        throw new ReferenceError("<tr> has no <table> parent!");
+      }
+
+      let siblingTrs = [].slice.call(tableParent.querySelectorAll("tr"));
+      let index = siblingTrs.indexOf(tr);
+      let tableFeatureSet = Features.createTableFeatureSet(tableParent);
+      
+      let tdThCells = [].slice.call(tr.querySelectorAll("td, th"));
+      // union of td/th cells and originally provided cells
+      let allCells = [...new Set([...tdThCells, ...cells])];
+      let selector = new TableSelector(tableFeatureSet, index,
+        ColumnSelector.compute(tr, allCells));
+      selector.positive_nodes = cells;
+      selector.negative_nodes = [];
+      let relation = selector.getMatchingRelation();
+      selector.relation = relation;
+      let score = relation.length * relation[0].length;
+      if (score > bestScore){
+        bestScore = score;
+        bestSelector = selector;
+      }
+    }
+
+    return bestSelector;
+  }
+
   constructor(featureSet: TableFeatureSet, exclude_first: number,
-    columns: ColSelector[], selector_version = 1) {
+    columns: ColumnSelector.Interface[], selector_version = 1) {
       super(featureSet, exclude_first, columns, selector_version);
   }
 }
@@ -573,7 +742,7 @@ export class PulldownSelector extends RelationSelector {
   }
 
   constructor(featureSet: GenericFeatureSet | GenericFeatureSet[],
-    exclude_first: number, columns: ColSelector[]) {
+    exclude_first: number, columns: ColumnSelector.Interface[]) {
       // selector_version is always 2 for PulldownSelector
       super(featureSet, exclude_first, columns, 2);
 

@@ -4,6 +4,7 @@ import { RelationFinder } from "./selector/relation_finding";
 import { RelationSelector } from "./selector/relation_selector";
 import { RelationOutput } from "../common/relation";
 import { HelenaContent } from "./helena_content";
+import { NextButtonSelector } from "./selector/next_button_selector";
 
 // TODO: modularize later
 // import { MiscUtilities, utilities, window.WALconsole } from "../common/misc_utilities";
@@ -49,7 +50,7 @@ declare global {
 // TODO: cjbaik: move all this stuff after we update `relation_finding.js`
 window.utilities.listenForMessage("mainpanel", "content", "getRelationItems", function (msg: SelectorMessage) {
 	let selector = RelationSelector.fromMessage(msg);
-	RelationFinder.sendRelationToMainpanel(selector);
+	RelationFinder.sendMatchingRelationToMainpanel(selector);
 });
 window.utilities.listenForMessage("mainpanel", "content", "getFreshRelationItems", function (msg: SelectorMessage) {
 	let selector = RelationSelector.fromMessage(msg);
@@ -60,10 +61,10 @@ window.utilities.listenForMessage("mainpanel", "content", "editRelation", functi
 	RelationFinder.editRelation(selector);
 });
 window.utilities.listenForMessage("mainpanel", "content", "nextButtonSelector", function (msg: MessageContent) {
-	RelationFinder.nextButtonSelector();
+	NextButtonSelector.listenForNextButtonClick();
 });
 window.utilities.listenForMessage("mainpanel", "content", "clearNextButtonSelector", function (msg: MessageContent) {
-	RelationFinder.clearNextButtonSelector();
+	NextButtonSelector.unhighlightNextButton();
 });
 window.utilities.listenForMessage("mainpanel", "content", "backButton", function() {
 	history.back();
@@ -75,7 +76,7 @@ window.utilities.listenForMessage("mainpanel", "content", "pageStats", function(
 });
 window.utilities.listenForMessage("mainpanel", "content", "runNextInteraction", function (msg: SelectorMessage) {
 	let selector = RelationSelector.fromMessage(msg);
-	RelationFinder.runNextInteraction(selector);
+	RelationFinder.getNextPage(selector);
 });
 window.utilities.listenForMessage("mainpanel", "content", "currentColumnIndex", function (msg: ColumnIndexMessageContent) {
 	RelationFinder.setEditRelationIndex(msg.index);

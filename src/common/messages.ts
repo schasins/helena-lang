@@ -3,7 +3,7 @@ import { MainpanelNodeRep } from "../content/handlers/scrape_mode_handlers";
 import { Features } from "../content/utils/features";
 import GenericFeatureSet = Features.GenericFeatureSet;
 
-import { NextButtonSelector } from "../content/selector/relation_selector";
+import { NextButtonSelector } from "../content/selector/next_button_selector";
 
 import { ColumnSelector } from "../content/selector/column_selector";
 
@@ -21,11 +21,11 @@ export interface SelectorMessage {
     name?: string | null;
     exclude_first: number;
     id?: number;
-    columns: ColumnSelector.ColSelector[];
+    columns: ColumnSelector.Interface[];
     num_rows_in_demonstration?: number;
     next_type?: number;
     prior_next_button_text?: string;
-    next_button_selector?: NextButtonSelector | null;
+    next_button_selector?: NextButtonSelector.Interface | null;
     url?: string;
 
     positive_nodes?: HTMLElement[];

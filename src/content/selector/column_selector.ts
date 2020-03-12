@@ -1,12 +1,12 @@
 import { XPath } from "../utils/xpath";
 import SuffixXPathList = XPath.SuffixXPathList;
 
-export namespace ColumnSelector {
- /**
+/**
   * A selector describing how to extract a column of a relation with respect to
   *   some kind of common ancestor describing a row.
   */
-  export interface ColSelector {
+export namespace ColumnSelector {
+  export interface Interface {
     xpath: string;
     suffix: SuffixXPathList | SuffixXPathList[];
     name?: string;
@@ -15,14 +15,14 @@ export namespace ColumnSelector {
   }
   
   /**
-   * Gets array of {@link ColSelector} of each descendant element given the
-   *   ancestor element.
+   * Gets array of {@link ColumnSelector.Interface} of each descendant element
+   *   given the ancestor element.
    * @param ancestor ancestor element
    * @param descendants descendant elements
    */
   export function compute(ancestor: HTMLElement,
     descendants: (HTMLElement | null)[]) {
-    let columns: ColSelector[] = [];
+    let columns: ColumnSelector.Interface[] = [];
     for (const descendant of descendants) {
       if (!descendant) {
         throw new ReferenceError('TODO: This descendant is null. Handle it?');
