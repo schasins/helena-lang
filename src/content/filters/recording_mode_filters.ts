@@ -1,3 +1,6 @@
+/**
+ * DOM events to filter (i.e. ignore) during recording.
+ */
 export namespace RecordingModeFilters {
   /**
    * Because Windows has this habit of producing multiple keypress, keydown

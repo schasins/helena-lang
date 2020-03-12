@@ -1,6 +1,6 @@
 import * as html2canvas from "html2canvas";
 
-import { EventMessage } from "./event";
+import { EventMessage } from "../../common/messages";
 
 interface ScreenshotHTMLElement extends HTMLElement {
   html2canvasDataUrl: string;

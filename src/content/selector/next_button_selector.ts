@@ -1,10 +1,10 @@
 import { RelationFinder } from "./relation_finding";
 import { XPath } from "../utils/xpath";
 
+/**
+ * Methods for selecting a next/pagination button on a page.
+ */
 export namespace NextButtonSelector {
-  /**
-   * A selector describing a next/pagination button on a page.
-   */
   export interface Interface {
     id: string;
     class: string;

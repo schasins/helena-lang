@@ -1,8 +1,8 @@
 import { ColumnIndexMessage, LikelyRelationMessage,
-	SelectorMessage } from "../common/messages";
+	SelectorMessage, 
+	FreshRelationItemsMessage} from "../common/messages";
 import { RelationFinder } from "./selector/relation_finding";
 import { RelationSelector } from "./selector/relation_selector";
-import { RelationOutput } from "../common/relation";
 import { HelenaContent } from "./helena_content";
 import { NextButtonSelector } from "./selector/next_button_selector";
 
@@ -123,7 +123,7 @@ window.utilities.listenForFrameSpecificMessage("mainpanel", "content",
 			(m: SelectorMessage) => {
 				let selector = RelationSelector.fromMessage(m);
 				RelationFinder.getFreshRelationItemsHelper(selector,
-					(freshRelationItems: RelationOutput) => {
+					(freshRelationItems: FreshRelationItemsMessage) => {
 						window.WALconsole.namedLog("getRelationItems", 'freshRelationItems, about to send', freshRelationItems.type, freshRelationItems);
 						sendResponse(freshRelationItems);
 					}
@@ -131,6 +131,5 @@ window.utilities.listenForFrameSpecificMessage("mainpanel", "content",
 			});
 	}
 );
-
 
 window.helenaContent = new HelenaContent();

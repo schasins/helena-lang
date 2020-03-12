@@ -1,7 +1,11 @@
-import { EventMessage } from "../utils/event";
+import { EventMessage } from "../../common/messages";
 import { MainpanelNode } from "../../common/mainpanel_node";
 import MainpanelNodeI = MainpanelNode.Interface;
 
+/**
+ * Handlers during "scrape mode" when scraping is activated (e.g. when the Alt
+ *   button is pressed down).
+ */
 export namespace ScrapeModeHandlers {
   /**
    * Send scraped data to the mainpanel for visualization. This line must run

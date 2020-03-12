@@ -1,3 +1,7 @@
+/**
+ * DOM events to filter (i.e. ignore) during scrape mode (e.g. when the Alt
+ *   button is pressed down).
+ */
 export namespace ScrapeModeFilters {
   /**
    * Filter out extra Ctrl or Alt key events from being recorded, specifically

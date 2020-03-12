@@ -89,3 +89,11 @@ export interface FreshRelationItemsMessage {
     type: number;
     relation: MainpanelNodeI[][];
 }
+
+export interface EventMessage {
+    data: {
+        type: string;
+        shiftKey: boolean;
+        metaKey: boolean;
+    }
+}
