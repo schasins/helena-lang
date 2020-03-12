@@ -1,6 +1,7 @@
 import * as stringify from "json-stable-stringify";
 
-import { MainpanelNodeRep } from "../handlers/scrape_mode_handlers";
+import { MainpanelNode } from "../../common/mainpanel_node";
+import MainpanelNodeI = MainpanelNode.Interface;
 
 import { FeatureSetMessage, LikelyRelationMessage,
   SelectorMessage } from "../../common/messages";
@@ -47,7 +48,7 @@ function powerset(arr: any[], descSize = false) {
 function extractOptionsRelationFromSelectElement(selectEl: HTMLElement){
   let optionEls = [].slice.call(selectEl.querySelectorAll("option"));
   let optionsRelation = optionEls.map((el: HTMLElement) =>
-    [ NodeRep.nodeToMainpanelNodeRepresentation(el) ]);
+    [ MainpanelNode.fromDOMNode(el) ]);
   return optionsRelation;
 }
 
@@ -64,7 +65,7 @@ function getAllCandidateElements() {
  * @param xpaths XPath expressions
  * @param firstRow cells in first row
  */
-function numMatchedXpaths(xpaths: string[], firstRow: MainpanelNodeRep[]) {
+function numMatchedXpaths(xpaths: string[], firstRow: MainpanelNodeI[]) {
   let firstRowXpaths = firstRow.map((cell) => cell.xpath);
   return xpaths.filter((xpath) => firstRowXpaths.includes(xpath)).length;
 }
@@ -172,10 +173,10 @@ export class RelationSelector {
   positive_nodes?: HTMLElement[];
   negative_nodes?: HTMLElement[];
 
-  relation?: ((HTMLElement | MainpanelNodeRep | null)[][]) | null;
+  relation?: ((HTMLElement | MainpanelNodeI | null)[][]) | null;
   page_var_name?: string;
   relation_id?: number | null;
-  first_page_relation?: (HTMLElement | MainpanelNodeRep | null)[][];
+  first_page_relation?: (HTMLElement | MainpanelNodeI | null)[][];
   pulldown_relations?: RelationSelector[];
 
   relation_scrape_wait?: number;
@@ -413,7 +414,7 @@ export class RelationSelector {
    * @param relation relation in mainpanel format
    * @param xpaths xpaths
    */
-  public toComparisonSelector(rel: MainpanelNodeRep[][], xpaths: string[]):
+  public toComparisonSelector(rel: MainpanelNodeI[][], xpaths: string[]):
     ComparisonSelector {
     let compSel = <ComparisonSelector> this;
     compSel.relation = rel;
@@ -815,7 +816,7 @@ export class PulldownSelector extends RelationSelector {
  * Selector with additional metadata for selecting the "best" selector.
  */ 
 export class ComparisonSelector extends RelationSelector {
-  relation: MainpanelNodeRep[][];
+  relation: MainpanelNodeI[][];
   numMatchedXpaths: number;
   numRows: number;
   numRowsInDemo: number;

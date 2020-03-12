@@ -108,14 +108,14 @@ export namespace XPath {
    *   document element.
    * @param node the DOM node
    */
-  export function fromNode(node?: Node | null): string | null {
+  export function fromNode(node?: Node | null): string {
     // a special case for events that happen on document
     if (node === document){
       return "document";
     }
 
     if (node === null || node === undefined){
-      return null;
+      return "";
     }
 
     let element = <HTMLElement> node;

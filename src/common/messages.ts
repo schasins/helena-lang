@@ -1,4 +1,5 @@
-import { MainpanelNodeRep } from "../content/handlers/scrape_mode_handlers";
+import { MainpanelNode } from "./mainpanel_node";
+import MainpanelNodeI = MainpanelNode.Interface;
 
 import { Features } from "../content/utils/features";
 import TableFeatureSet = Features.TableFeatureSet;
@@ -51,10 +52,10 @@ export interface SelectorMessage {
     positive_nodes?: HTMLElement[];
     negative_nodes?: HTMLElement[];
 
-    relation?: ((HTMLElement | MainpanelNodeRep | null)[][]) | null;
+    relation?: ((HTMLElement | MainpanelNodeI | null)[][]) | null;
     page_var_name?: string;
     relation_id?: number | null;
-    first_page_relation?: (HTMLElement | MainpanelNodeRep | null)[][];
+    first_page_relation?: (HTMLElement | MainpanelNodeI | null)[][];
     pulldown_relations?: SelectorMessage[];
 
     relation_scrape_wait?: number;
@@ -86,5 +87,5 @@ export interface LikelyRelationMessage {
 
 export interface FreshRelationItemsMessage {
     type: number;
-    relation: MainpanelNodeRep[][];
+    relation: MainpanelNodeI[][];
 }

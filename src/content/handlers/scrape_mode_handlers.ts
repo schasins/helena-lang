@@ -1,22 +1,6 @@
 import { EventMessage } from "../utils/event";
-
-/**********************************************************************
- * Handle scraping interaction
- **********************************************************************/
-
-// TODO: cjbaik: move this to `node_rep.js` after that is converted to TS.
-export interface MainpanelNodeRep {
-  text: string;
-  textContent: string;
-  link: string;
-  xpath: string;
-  value: string;
-  frame: string | null;
-  source_url: string;
-  top_frame_source_url?: string;
-  date: number;
-  linkScraping?: boolean;
-}
+import { MainpanelNode } from "../../common/mainpanel_node";
+import MainpanelNodeI = MainpanelNode.Interface;
 
 export namespace ScrapeModeHandlers {
   /**
@@ -26,7 +10,7 @@ export namespace ScrapeModeHandlers {
    */
   export function sendScrapedDataToMainpanel(node: Node,
     eventMessage: EventMessage) {
-    let data: MainpanelNodeRep = NodeRep.nodeToMainpanelNodeRepresentation(node);
+    let data: MainpanelNodeI = MainpanelNode.fromDOMNode(node);
     // convention is SHIFT means we want to scrape the link, not the text 
     let linkScraping = eventMessage.data.shiftKey || eventMessage.data.metaKey;
     data.linkScraping = linkScraping;

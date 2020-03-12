@@ -7,7 +7,8 @@ import { ColumnSelector } from "./column_selector";
 
 import { NextButtonSelector } from "./next_button_selector";
 
-import { MainpanelNodeRep } from "../handlers/scrape_mode_handlers";
+import { MainpanelNode } from "../../common/mainpanel_node";
+import MainpanelNodeI = MainpanelNode.Interface;
 
 import { XPath } from "../utils/xpath";
 import SuffixXPathList = XPath.SuffixXPathList;
@@ -31,7 +32,7 @@ export namespace RelationFinder {
    * @param xpaths XPath expressions
    * @param cells cells in mainpanel representation
    */
-  function unmatchedXpaths(xpaths: string[], cells: MainpanelNodeRep[]) {
+  function unmatchedXpaths(xpaths: string[], cells: MainpanelNodeI[]) {
     let cellXPaths = cells.map((cell) => cell.xpath);
     return xpaths.filter((xpath) => !cellXPaths.includes(xpath));
   }
@@ -123,7 +124,7 @@ export namespace RelationFinder {
     //   compare to the relations the server-suggested criteria.
     let bestSelectorIsNew = true;
     let curBestSelector = selector.toComparisonSelector(
-      relationNodesToMainpanelNodeRepresentation(selector.relation),
+      MainpanelNode.convertRelation(selector.relation),
       xpaths);
 
     if (serverSuggestedRelations) {
@@ -139,7 +140,7 @@ export namespace RelationFinder {
         }
         
         let compServerSel = serverSelector.toComparisonSelector(
-          relationNodesToMainpanelNodeRepresentation(relationNodes), xpaths);
+          MainpanelNode.convertRelation(relationNodes), xpaths);
 
         // use the server-provided rel as our default, since that'll make the
         //   server-side processing when we save the relation easier, and also
@@ -172,7 +173,7 @@ export namespace RelationFinder {
         window.WALconsole.log("We're adding an additional selector.", newSelector);
         curBestSelector.merge(newSelector);
         let rel = curBestSelector.getMatchingRelation();
-        curBestSelector.relation = relationNodesToMainpanelNodeRepresentation(rel);
+        curBestSelector.relation = MainpanelNode.convertRelation(rel);
         window.WALconsole.log("currBestSelector.relation", curBestSelector.relation);
       }
     }
@@ -232,23 +233,11 @@ export namespace RelationFinder {
       console.error("No selector version!!!");
     }
     let relation = selector.getMatchingRelation();
-    let relationData = relationNodesToMainpanelNodeRepresentation(relation);
+    let relationData = MainpanelNode.convertRelation(relation);
     window.utilities.sendMessage("content", "mainpanel", "relationItems", 
       { relation: relationData });
     return relationData;
   }
-
-  /**
-   * TODO: cjbaik: change to Relation.toMainpanelNodeRep or something like that
-   * @param relation relation
-   */
-  export function relationNodesToMainpanelNodeRepresentation(
-    relation: (HTMLElement | null)[][]) {
-    return relation.map((row) =>
-      row.map((cell) => NodeRep.nodeToMainpanelNodeRepresentation(cell))
-    );
-  }
-
 
 /**********************************************************************
  * Everything we need for editing a relation selector
@@ -372,7 +361,7 @@ export namespace RelationFinder {
   export function sendEditedSelectorToMainpanel(selector: ContentSelector) {
     let mainpanelSelector = {
       ...selector,
-      demonstration_time_relation: relationNodesToMainpanelNodeRepresentation(
+      demonstration_time_relation: MainpanelNode.convertRelation(
         selector.relation),
       relation: null,     // don't send the relation
 
@@ -666,7 +655,7 @@ export namespace RelationFinder {
     [key: string]: boolean;
   } = {};
 
-  function scrollThroughRows(relation: MainpanelNodeRep[][]) {
+  function scrollThroughRows(relation: MainpanelNodeI[][]) {
     //console.log("scrolling through the rows based on crd", crd);
     let knowTheLastElement = false;
     for (let i = 0; i < relation.length; i++){
@@ -684,7 +673,7 @@ export namespace RelationFinder {
     return knowTheLastElement;
   }
 
-  function scrollThroughRowsOrSpace(relation: MainpanelNodeRep[][]) {
+  function scrollThroughRowsOrSpace(relation: MainpanelNodeI[][]) {
     // let's try scrolling to last element if we know it
     // sometimes it's important to scroll through the range of data, not go
     //   directly to the end, so we'll try scrolling to each in turn
@@ -812,15 +801,15 @@ export namespace RelationFinder {
     });
   }
 
-  function extractFromRelationRep(rel: MainpanelNodeRep[][]) {
-    return rel.map((row: MainpanelNodeRep[]) =>
+  function extractFromRelationRep(rel: MainpanelNodeI[][]) {
+    return rel.map((row) =>
       // TODO: cjbaik: is text & frame the correct attributes to use?
-      row.map((cell: MainpanelNodeRep) => [cell.text, cell.frame])
+      row.map((cell) => [cell.text, cell.frame])
     );
   }
 
-  function mainpanelRepresentationOfRelationsEqual(r1: MainpanelNodeRep[][],
-    r2: MainpanelNodeRep[][]): boolean {
+  function mainpanelRepresentationOfRelationsEqual(r1: MainpanelNodeI[][],
+    r2: MainpanelNodeI[][]): boolean {
     let r1Visible = extractFromRelationRep(r1);
     let r2Visible = extractFromRelationRep(r2);
     
@@ -1016,8 +1005,7 @@ export namespace RelationFinder {
       // great, we've waited our time and it's time to go
       waitingOnPriorGetFreshRelationItemsHelper = false;
       console.log("relationNodes", relationNodes);
-      let relationData = relationNodesToMainpanelNodeRepresentation(
-        relationNodes);
+      let relationData = MainpanelNode.convertRelation(relationNodes);
       let crd = currentRelationData[sid];
       // we can also have the problem where everything looks new, because everything technically gets updated, 
       // even though some of it is old data, didn't need to be redrawn. so need to do a text check too

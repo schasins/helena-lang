@@ -1,3 +1,5 @@
+import { MainpanelNode } from "../../common/mainpanel_node";
+
 /**
  * Extend Element to allow tooltips to be attached.
  * TODO: cjbaik: combine with any other Element extensions in codebase.
@@ -21,7 +23,7 @@ export class ScrapingTooltip {
    */
   constructor(element: ElementWithTooltip,
       tooltipColor = ScrapingTooltip.DEFAULT_TOOLTIP_COLOR) {
-    let nodeText = NodeRep.nodeToText(element);
+    let nodeText = MainpanelNode.getNodeText(element);
     if (nodeText) {
       nodeText = nodeText.replace(/\n/g, "<br>");
       if (nodeText.length > 400) {
