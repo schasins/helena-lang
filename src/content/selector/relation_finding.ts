@@ -11,7 +11,9 @@ import { MainpanelNodeRep } from "../handlers/scrape_mode_handlers";
 
 import { XPath } from "../utils/xpath";
 import SuffixXPathList = XPath.SuffixXPathList;
-import { LikelyRelationMessage, FreshRelationItemsMessage } from "../../common/messages";
+
+import { ColumnSelectorMessage, LikelyRelationMessage,
+  FreshRelationItemsMessage } from "../../common/messages";
 
 export interface ScrapedElement extends HTMLElement {
   ___relationFinderId___?: number;
@@ -82,7 +84,7 @@ export namespace RelationFinder {
         }
         let columns = rel.columns;
         let relXpaths = columns.map(
-          (col: ColumnSelector.Interface) => col.xpath);
+          (col: ColumnSelectorMessage) => col.xpath);
         window.WALconsole.log(relXpaths);
 
         let matched = 0;
@@ -400,10 +402,11 @@ export namespace RelationFinder {
     element: HTMLElement) {
     //will return exactly the same node if there's only one item in first_row_items
     window.WALconsole.log("findAncestorLikeSpec", specAncestor, element);
-    let spec_xpath_list = OldXPathList.xPathToXPathList(XPath.fromNode(specAncestor));
-    let xpath_list = OldXPathList.xPathToXPathList(XPath.fromNode(element));
+    let spec_xpath_list = XPath.toXPathNodeList(
+      <string> XPath.fromNode(specAncestor));
+    let xpath_list = XPath.toXPathNodeList(<string> XPath.fromNode(element));
     let ancestor_xpath_list = xpath_list.slice(0,spec_xpath_list.length);
-    let ancestor_xpath_string = OldXPathList.xPathToString(ancestor_xpath_list);
+    let ancestor_xpath_string = XPath.toString(ancestor_xpath_list);
     let ancestor_xpath_nodes = XPath.getNodes(ancestor_xpath_string);
     return <HTMLElement> ancestor_xpath_nodes[0];
   }
@@ -588,14 +591,7 @@ export namespace RelationFinder {
         }
         let currColumnObj = currentSelectorToEdit.columns[
           currentSelectorToEdit.editingClickColumnIndex];
-        let currSuffixes: SuffixXPathList[];
-        if (window.MiscUtilities.depthOf(currColumnObj.suffix) < 3){
-          // when we have only one suffix, we don't store it in a list, but the
-          //   below is cleaner if we just have a list; todo: clean up
-          currSuffixes = [ <SuffixXPathList> currColumnObj.suffix ];
-        } else {
-          currSuffixes = <SuffixXPathList[]> currColumnObj.suffix;
-        }
+        let currSuffixes = currColumnObj.suffix;
 
         // is this suffix already in our suffixes?  if yes, we can just add the
         //   ancestor/row node, don't need to mess with columns

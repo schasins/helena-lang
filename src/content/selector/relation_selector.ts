@@ -2,7 +2,8 @@ import * as stringify from "json-stable-stringify";
 
 import { MainpanelNodeRep } from "../handlers/scrape_mode_handlers";
 
-import { LikelyRelationMessage, SelectorMessage } from "../../common/messages";
+import { FeatureSetMessage, LikelyRelationMessage,
+  SelectorMessage } from "../../common/messages";
 
 import { ColumnSelector } from "./column_selector";
 
@@ -15,6 +16,7 @@ import PulldownFeatureSet = Features.PulldownFeatureSet;
 import TableFeatureSet = Features.TableFeatureSet;
 
 import { XPath } from "../utils/xpath";
+import XPathList = XPath.XPathList;
 import SuffixXPathList = XPath.SuffixXPathList;
 
 /**
@@ -73,24 +75,14 @@ function numMatchedXpaths(xpaths: string[], firstRow: MainpanelNodeRep[]) {
  *   XPath up to the row element
  * @param candidateRowNodes candidate row nodes, or null if none found  
  */
-function getCellsInRowMatchingSuffixes(
-    suffixes: SuffixXPathList | SuffixXPathList[],
+function getCellsInRowMatchingSuffixes(suffixes: SuffixXPathList[][],
     candidateRowNodes: (HTMLElement | null)[]) {
   let candidateSubitems = [];
   let rowNodeXPaths = candidateRowNodes.map((candidateRow) =>
-    OldXPathList.xPathToXPathList(XPath.fromNode(candidateRow))
+    XPath.toXPathNodeList(<string> XPath.fromNode(candidateRow))
   );
   for (let j = 0; j < suffixes.length; j++){
-    // TODO: clean this up
-    // suffixes[j] will be depth 2 if only one suffix available,
-    // depth 3 if list of suffixes available
-    let suffixLs: SuffixXPathList[];
-    // < 3 rather than = 2 because we use empty suffix for single-col datasets
-    if (window.MiscUtilities.depthOf(suffixes[j]) < 3){ 
-      suffixLs = [ <SuffixXPathList> suffixes[j] ];
-    } else {
-      suffixLs = <SuffixXPathList[]> suffixes[j];
-    }
+    let suffixLs = suffixes[j];
 
     let foundSubItem = null;
     for (let k = 0; k < suffixLs.length; k++){
@@ -103,7 +95,7 @@ function getCellsInRowMatchingSuffixes(
         // we know exactly which of the candidate row nodes to use because a
         //   selector index is provided
         rowNodeXPath = rowNodeXPaths[selectorIndex];
-        suffixListRep = suffixLs[k].suffixRepresentation;
+        suffixListRep = <XPathList> suffixLs[k].suffixRepresentation;
       } else {
         // this suffix isn't one of our selectorIndex-labeled objects. it is
         //   the old array representation so we should have only one selector
@@ -116,7 +108,7 @@ function getCellsInRowMatchingSuffixes(
         }
       }
       let xpath = rowNodeXPath.concat(suffixListRep);
-      let xpath_string = OldXPathList.xPathToString(xpath);
+      let xpath_string = XPath.toString(xpath);
       let nodes = <HTMLElement[]> XPath.getNodes(xpath_string);
       if (nodes.length > 0){
         foundSubItem = nodes[0];
@@ -144,12 +136,7 @@ function getCellsInRowMatchingSuffixes(
   
     for (const col of colSelectors) {
       let curSuffixes = col.suffix;
-      if (window.MiscUtilities.depthOf(curSuffixes) < 3) {
-        // when we have only one suffix node, we don't store it in a list, but
-        //   the below is cleaner if we just have a list; todo: clean up
-        curSuffixes = [ <SuffixXPathList> curSuffixes ];
-      }
-      let outputSuffixLs = [];
+      let outputSuffixLs: SuffixXPathList[] = [];
       for (const suffix of curSuffixes) {
         if (suffix.selectorIndex) {
           // it's already an object with a selector index, and we just need to
@@ -159,10 +146,10 @@ function getCellsInRowMatchingSuffixes(
         } else {
           // ah, still just the old list representation of a selector.  need to
           //   make it into a selectorIndex-labeled object
-          outputSuffixLs.push({
-            selectorIndex: selectorIndex,
-            suffixRepresentation: suffix
-          });
+          let newSuffix = new SuffixXPathList();
+          newSuffix.selectorIndex = selectorIndex;
+          newSuffix.suffixRepresentation = suffix;
+          outputSuffixLs.push(newSuffix);
         }
       }
       col.suffix = outputSuffixLs;
@@ -189,7 +176,7 @@ export class RelationSelector {
   page_var_name?: string;
   relation_id?: number | null;
   first_page_relation?: (HTMLElement | MainpanelNodeRep | null)[][];
-  pulldown_relations?: SelectorMessage[];
+  pulldown_relations?: RelationSelector[];
 
   relation_scrape_wait?: number;
 
@@ -323,10 +310,18 @@ export class RelationSelector {
     let newSelector;
     if (msg.selector && 'table' in msg.selector) {
       newSelector = new TableSelector(<TableFeatureSet> msg.selector,
-        msg.exclude_first, msg.columns, msg.selector_version);
+        msg.exclude_first, ColumnSelector.fromMessage(msg.columns),
+        msg.selector_version);
+    } else if (Array.isArray(msg.selector)) {
+      newSelector = new RelationSelector(
+        msg.selector.map((featureSet) => Features.fromMessage(featureSet)),
+        msg.exclude_first, ColumnSelector.fromMessage(msg.columns),
+        msg.selector_version);
     } else {
-      newSelector = new RelationSelector(msg.selector, msg.exclude_first,
-        msg.columns, msg.selector_version);
+      newSelector = new RelationSelector(Features.fromMessage(
+        <FeatureSetMessage> msg.selector),
+        msg.exclude_first, ColumnSelector.fromMessage(msg.columns),
+        msg.selector_version);
     }
     
     newSelector.name = msg.name;
@@ -342,7 +337,10 @@ export class RelationSelector {
     newSelector.page_var_name = msg.page_var_name;
     newSelector.relation_id = msg.relation_id;
     newSelector.first_page_relation = msg.first_page_relation;
-    newSelector.pulldown_relations = msg.pulldown_relations;
+    newSelector.pulldown_relations = msg.pulldown_relations?.map(
+      (pulldownMsg: SelectorMessage) =>
+      RelationSelector.fromMessage(pulldownMsg)
+    );
     newSelector.relation_scrape_wait = msg.relation_scrape_wait;
 
     return newSelector;

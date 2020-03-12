@@ -6,7 +6,7 @@ import { RelationSelector } from "../selector/relation_selector";
  *   Not sure what all parameters mean yet.
  */
 interface KnownRelationMessage {
-  selectorObj: SelectorMessage;
+  selectorObj: RelationSelector;
   nodes: (Element | null)[];
   relationOutput: (Element | null)[][];
   highlighted: boolean;
@@ -78,7 +78,8 @@ export class RelationHighlighter {
             }
           );
         } catch (err) {
-          console.warn(`Known relation ${JSON.stringify(resp[i])} failed.`);
+          console.error(err);
+          // console.warn(`Known relation ${JSON.stringify(resp[i])} failed.`);
           continue;
         }
       }  

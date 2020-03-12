@@ -1,5 +1,6 @@
 import { XPath } from "../utils/xpath";
 import SuffixXPathList = XPath.SuffixXPathList;
+import { ColumnSelectorMessage } from "../../common/messages";
 
 /**
   * A selector describing how to extract a column of a relation with respect to
@@ -8,10 +9,35 @@ import SuffixXPathList = XPath.SuffixXPathList;
 export namespace ColumnSelector {
   export interface Interface {
     xpath: string;
-    suffix: SuffixXPathList | SuffixXPathList[];
+    suffix: SuffixXPathList[]; // not single suffix, but a list of candidates
     name?: string;
     id: number | null;
     index?: number;
+  }
+
+  export function fromMessage(msgCols: ColumnSelectorMessage[]) {
+    let result: Interface[] = [];
+
+    for (const msgCol of msgCols) {
+      if (window.MiscUtilities.depthOf(msgCol.suffix) < 3) {
+        result.push({
+          xpath: msgCol.xpath,
+          suffix: [<SuffixXPathList> msgCol.suffix],
+          name: msgCol.name,
+          id: msgCol.id,
+          index: msgCol.index? parseInt(msgCol.index) : undefined
+        });
+      } else {
+        result.push({
+          xpath: msgCol.xpath,
+          suffix: <SuffixXPathList[]> msgCol.suffix,
+          name: msgCol.name,
+          id: msgCol.id,
+          index: msgCol.index? parseInt(msgCol.index) : undefined
+        });
+      }
+    }
+    return result;
   }
   
   /**
@@ -31,9 +57,9 @@ export namespace ColumnSelector {
       let suffix = XPath.suffixFromAncestor(ancestor, descendant);
       columns.push({
         xpath: xpath,
-        suffix: suffix,
-        id: null}
-      );
+        suffix: [suffix],
+        id: null
+      });
     }
     return columns;
   }

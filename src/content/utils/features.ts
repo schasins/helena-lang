@@ -1,5 +1,8 @@
+import { FeatureSetMessage, XPathNodeMessage } from "../../common/messages";
+
 import { XPath } from "./xpath";
 import XPathNode = XPath.XPathNode;
+import XPathList = XPath.XPathList;
 
 interface IndexableDOMRect extends DOMRect {
   [key: string]: any;
@@ -74,7 +77,7 @@ export namespace Features {
   export function computeFeatureFromElement(element: HTMLElement,
     feature: string) {
     if (feature === "xpath") {
-      return OldXPathList.xPathToXPathList(XPath.fromNode(element));
+      return XPath.toXPathNodeList(<string> XPath.fromNode(element));
     } else if (feature === "preceding-text") {
       return element.previousElementSibling?.textContent;
     } else if (feature === "text") {
@@ -99,21 +102,17 @@ export namespace Features {
    * @param acceptable_values acceptable feature values to match to
    * @returns true if feature value is within acceptable values
    */
-  export function featureMatches(feature: string, value: string | XPathNode[],
-    acceptable_values: (string | XPathNode[])[]) {
+  export function featureMatches(feature: string, value: string | XPathList,
+    acceptable_values: (string | XPathList)[]) {
     if (feature === "xpath") {
-      return acceptable_values.some((av) => OldXPathList.xPathMatch(av, value));
-      // return _.reduce(acceptable_values,
-      //   function(acc, av){ return (acc || (XPathList.xPathMatch(av, value))); },
-      //     false);
+      return acceptable_values.some((av: XPathList) =>
+        XPath.matches(av, <XPathList> value)
+      );
     } else if (feature === "class") {
       // class doesn't have to be same, just has to include the target class
       // TODO: Decide if that's really how we want it
       return acceptable_values.some(
         (av: string) => (<string> value).includes(av));
-      // return _.reduce(acceptable_values,
-      // function(acc, av){ return (acc || (value.indexOf(av) > -1)); },
-      // false);
     } else {
       return acceptable_values.includes(value);
     }
@@ -135,7 +134,8 @@ export namespace Features {
     for (const feature in featureSet) {
       let featureValues = featureSet[feature].values;
       if (feature === "xpath") {
-        featureSet[feature].values = OldXPathList.xPathReduction(featureValues);
+        featureSet[feature].values = XPath.condenseList(
+          <XPathList[]> featureValues);
       } else {
         let origFeatureCount = featureValues.length;
         let mergedVals = [...new Set(featureValues)];   // de-duplicate
@@ -183,5 +183,37 @@ export namespace Features {
       table: true,
       xpath: <string> XPath.fromNode(tableEl)
     };
+  }
+
+  /**
+   * Convert a server-retrieved message of a featureSet to a {@link FeatureSet}.
+   * @param featureSetMsg the message
+   */
+  export function fromMessage(featureSetMsg: FeatureSetMessage) {
+    let featureSet: FeatureSet = {};
+    
+    for (const feature in featureSetMsg) {
+      if (feature === 'xpath') {
+        featureSet.xpath = {
+          pos: featureSetMsg.xpath.pos,
+          values: []
+        };
+        for (const value of featureSetMsg.xpath.values) {
+          let xpathList: XPathList = [];
+          let messageXPathList = <XPathNodeMessage[]> value;
+          for (const msgXPathNode of messageXPathList) {
+            xpathList.push({
+              nodeName: msgXPathNode.nodeName,
+              iterable: msgXPathNode.iterable,
+              index: parseInt(msgXPathNode.index)
+            });
+          };
+          featureSet.xpath.values.push(xpathList);
+        }
+      } else {
+        featureSet[feature] = <FeatureCriteria> featureSetMsg[feature];
+      }
+    }
+    return featureSet;
   }
 }

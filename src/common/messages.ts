@@ -1,11 +1,35 @@
 import { MainpanelNodeRep } from "../content/handlers/scrape_mode_handlers";
 
 import { Features } from "../content/utils/features";
-import GenericFeatureSet = Features.GenericFeatureSet;
+import TableFeatureSet = Features.TableFeatureSet;
 
 import { NextButtonSelector } from "../content/selector/next_button_selector";
 
-import { ColumnSelector } from "../content/selector/column_selector";
+import { XPath } from "../content/utils/xpath";
+import SuffixXPathList = XPath.SuffixXPathList;
+
+export interface ColumnSelectorMessage {
+    xpath: string;
+    suffix: SuffixXPathList | SuffixXPathList[];
+    name?: string;
+    id: number | null;
+    index?: string;
+}
+
+export interface XPathNodeMessage {
+    nodeName: string;
+    index: string;
+    iterable: boolean;
+  }
+
+export interface FeatureCriteriaMessage {
+    pos: boolean;
+    values: (string | XPathNodeMessage[])[];
+}
+
+export interface FeatureSetMessage {
+    [key: string]: FeatureCriteriaMessage;
+}
 
 /**
  * A generic selector describing how to extract a relation from a page.
@@ -13,11 +37,11 @@ import { ColumnSelector } from "../content/selector/column_selector";
  */
 export interface SelectorMessage {
     selector_version: number;
-    selector: GenericFeatureSet | GenericFeatureSet[];
+    selector: FeatureSetMessage | FeatureSetMessage[] | TableFeatureSet;
     name?: string | null;
     exclude_first: number;
     id?: number;
-    columns: ColumnSelector.Interface[];
+    columns: ColumnSelectorMessage[];
     num_rows_in_demonstration?: number;
     next_type?: number;
     prior_next_button_text?: string;
