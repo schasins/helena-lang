@@ -23,7 +23,7 @@ export class ClickStatement extends PageActionStatement {
   constructor(trace: EventMessage[]) {
     super();
     window.Revival.addRevivalLabel(this);
-    HelenaMainpanel.setBlocklyLabel(this, "click");
+    this.setBlocklyLabel("click");
 
     this.trace = trace;
 
@@ -59,18 +59,28 @@ export class ClickStatement extends PageActionStatement {
     this.currentNode = HelenaMainpanel.makeNodeVariableForTrace(trace);
   }
 
+  public getOutputPagesRepresentation() {
+    let prefix = "";
+    if (this.hasOutputPageVars()) {
+      prefix = this.outputPageVars.map(
+        (pv) => pv.toString()
+      ).join(", ") + " = ";
+    }
+    return prefix;
+  }
+
   public prepareToRun() {
     // TODO: cjbaik: is there a case where this is not NodeVariable type?
     if (this.currentNode instanceof NodeVariable) {
       const feats = this.currentNode.getRequiredFeatures();
-      HelenaMainpanel.requireFeatures(this, feats);
+      this.requireFeatures(feats);
     }
   }
 
   public toStringLines(): string[] {
-    const nodeRep = HelenaMainpanel.nodeRepresentation(this);
+    const nodeRep = this.getNodeRepresentation();
     return [
-      HelenaMainpanel.outputPagesRepresentation(this) + `click(${nodeRep})`
+      `${this.getOutputPagesRepresentation()}click(${nodeRep})`
     ];
   }
 
@@ -115,7 +125,7 @@ export class ClickStatement extends PageActionStatement {
         },
         onchange: function(ev: Blockly.Events.Abstract) {
           const newName = this.getFieldValue("node");
-          const clickStmt = <ClickStatement> HelenaMainpanel.getWAL(this);
+          const clickStmt = <ClickStatement> HelenaMainpanel.getHelenaStatement(this);
           const currentName = clickStmt.currentNode.getName();
           if (newName !== currentName) {
             // new name so update all our program display stuff
@@ -158,11 +168,9 @@ export class ClickStatement extends PageActionStatement {
     this.block = workspace.newBlock(label);
 
     if (this.currentNode.getSource() === NodeSources.RINGER) {
-      this.block.setFieldValue(HelenaMainpanel.nodeRepresentation(this),
-        "node");
+      this.block.setFieldValue(this.getNodeRepresentation(), "node");
     } else {
-      this.block.setFieldValue(HelenaMainpanel.nodeRepresentation(this),
-        "node");
+      this.block.setFieldValue(this.getNodeRepresentation(), "node");
     }
 
     if (this.outputPageVars && this.outputPageVars.length > 0) {
@@ -172,18 +180,18 @@ export class ClickStatement extends PageActionStatement {
     this.block.setFieldValue(this.pageVar.toString(), "page");
 
     HelenaMainpanel.attachToPrevBlock(this.block, prevBlock);
-    HelenaMainpanel.setWAL(this.block, this);
+    HelenaMainpanel.setHelenaStatement(this.block, this);
     return this.block;
   }
 
   public pbvs() {
     const pbvs = [];
-    if (HelenaMainpanel.currentTab(this)) {
+    if (this.currentTab()) {
       // do we actually know the target tab already?  if yes, go ahead and
       //   paremterize that
       pbvs.push({
         type: "tab",
-        value: HelenaMainpanel.originalTab(this)
+        value: this.originalTab()
       });
     }
 
@@ -202,19 +210,19 @@ export class ClickStatement extends PageActionStatement {
   public parameterizeForRelation(relation: GenericRelation):
       (ColumnSelector.Interface | null)[] {
     return [
-      HelenaMainpanel.parameterizeNodeWithRelation(this, relation, this.pageVar)
+      this.parameterizeNodeWithRelation(relation, this.pageVar)
     ];
   };
 
   public unParameterizeForRelation(relation: GenericRelation) {
-    HelenaMainpanel.unParameterizeNodeWithRelation(this, relation);
+    this.unParameterizeNodeWithRelation(relation);
   }
 
   public args(environment: EnvironmentPlaceholder) {
     const args = [];
     args.push({
       type: "tab",
-      value: HelenaMainpanel.currentTab(this)
+      value: this.currentTab()
     });
     
     // we only want to pbv for things that must already have been extracted by
@@ -223,7 +231,7 @@ export class ClickStatement extends PageActionStatement {
         this.currentNode.getSource() === NodeSources.RELATIONEXTRACTOR) {
       args.push({
         type: "node",
-        value: HelenaMainpanel.currentNodeXpath(this, environment)
+        value: this.currentNodeXpath(environment)
       });
     }
     return args;

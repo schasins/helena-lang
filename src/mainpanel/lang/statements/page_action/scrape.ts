@@ -22,18 +22,16 @@ export class ScrapeStatement extends PageActionStatement {
 
   public alternativeBlocklyLabel: string;
   public associatedOutputStatements: OutputRowStatement[];
-  public columnObj?: ColumnSelector.Interface;
   public currentNodeCurrentValue?: MainpanelNode.Interface;
   public pageUrl?: string;
   public preferredXpath?: string;
-  public relation?: GenericRelation;
   public scrapeLink?: boolean;    // true if scraping link, not just text
   public xpaths: string[];
 
   constructor(trace: EventMessage[]) {
     super();
     window.Revival.addRevivalLabel(this);
-    HelenaMainpanel.setBlocklyLabel(this, "scrape");
+    this.setBlocklyLabel("scrape");
 
     this.alternativeBlocklyLabel = "scrape_ringer";
     this.associatedOutputStatements = [];
@@ -80,7 +78,7 @@ export class ScrapeStatement extends PageActionStatement {
   public prepareToRun() {
     if (this.currentNode instanceof NodeVariable) {
       var feats = this.currentNode.getRequiredFeatures();
-      HelenaMainpanel.requireFeatures(this, feats);
+      this.requireFeatures(feats);
     }
   }
 
@@ -97,7 +95,7 @@ export class ScrapeStatement extends PageActionStatement {
     if (alreadyBound) {
       return [ `scrape(${this.currentNode.getName()})` ];
     }
-    const nodeRep = HelenaMainpanel.nodeRepresentation(this, this.scrapeLink);
+    const nodeRep = this.getNodeRepresentation(this.scrapeLink);
     return [ `scrape(${nodeRep}, ${this.currentNode.getName()})` ];
   }
 
@@ -124,7 +122,7 @@ export class ScrapeStatement extends PageActionStatement {
       },
       onchange: function(ev: Blockly.Events.Abstract) {
         const newName = this.getFieldValue("node");
-        const scrapeStmt = <ScrapeStatement> HelenaMainpanel.getWAL(this);
+        const scrapeStmt = <ScrapeStatement> HelenaMainpanel.getHelenaStatement(this);
         const currentName = scrapeStmt.currentNode.getName();
         if (newName !== currentName) {
           // new name so update all our program display stuff
@@ -182,7 +180,7 @@ export class ScrapeStatement extends PageActionStatement {
       },
       onchange: function(ev: Blockly.Events.Abstract) {
         const newName = this.getFieldValue("name");
-        const scrapeStmt = <ScrapeStatement> HelenaMainpanel.getWAL(this);
+        const scrapeStmt = <ScrapeStatement> HelenaMainpanel.getHelenaStatement(this);
         const currentName = scrapeStmt.currentNode.getName();
         if (newName !== defaultName && (newName !== currentName)) {
           // new name so update all our program display stuff
@@ -208,21 +206,19 @@ export class ScrapeStatement extends PageActionStatement {
     if (this.relation) {
       // scrapes a relation node
       this.block = workspace.newBlock(this.blocklyLabel);
-      this.block.setFieldValue(HelenaMainpanel.nodeRepresentation(this),
-        "node");
+      this.block.setFieldValue(this.getNodeRepresentation(), "node");
     } else {
       // ah, a ringer-scraped node
       this.block = workspace.newBlock(this.alternativeBlocklyLabel);
       this.block.setFieldValue(this.currentNode.getName(), "name");
-      this.block.setFieldValue(HelenaMainpanel.nodeRepresentation(this),
-        "node");
+      this.block.setFieldValue(this.getNodeRepresentation(), "node");
     }
     if (!this.pageVar) {
       throw new ReferenceError("Page variable not set.");
     }
     this.block.setFieldValue(this.pageVar.toString(), "page");
     HelenaMainpanel.attachToPrevBlock(this.block, prevBlock);
-    HelenaMainpanel.setWAL(this.block, this);
+    HelenaMainpanel.setHelenaStatement(this.block, this);
     return this.block;
   }
 
@@ -235,12 +231,12 @@ export class ScrapeStatement extends PageActionStatement {
     // no need to make pbvs based on this statement's parameterization if it
     //   doesn't have any events to parameterize anyway...
     if (this.trace.length > 0) {
-      if (HelenaMainpanel.currentTab(this)) {
+      if (this.currentTab()) {
         // do we actually know the target tab already?  if yes, go ahead and
         //   parameterize that
         pbvs.push({
           type: "tab",
-          value: HelenaMainpanel.originalTab(this)
+          value: this.originalTab()
         });
       }
       if (this.scrapingRelationItem()) {
@@ -275,15 +271,14 @@ export class ScrapeStatement extends PageActionStatement {
     }
 
     // this sets the currentNode
-    const relationColumnUsed = HelenaMainpanel.parameterizeNodeWithRelation(
-      this, relation, this.pageVar);
+    const relationColumnUsed = this.parameterizeNodeWithRelation(relation,
+      this.pageVar);
     
     return [relationColumnUsed];
   }
 
   public unParameterizeForRelation(relation: GenericRelation) {
-    const columnObject = HelenaMainpanel.unParameterizeNodeWithRelation(this,
-      relation);
+    const columnObject = this.unParameterizeNodeWithRelation(relation);
     // todo: right now we're assuming we only scrape a given column once in a
     //   given script, so if we unparameterize here we assume no where else is
     //   scraping this column, and we reset the column object's scraped value
@@ -311,13 +306,13 @@ export class ScrapeStatement extends PageActionStatement {
       if (this.scrapingRelationItem()) {
         args.push({
           type: "node",
-          value: HelenaMainpanel.currentNodeXpath(this, environment)
+          value: this.currentNodeXpath(environment)
         });
       }
 
       args.push({
         type: "tab",
-        value: HelenaMainpanel.currentTab(this)
+        value: this.currentTab()
       });
 
       if (this.preferredXpath) {

@@ -123,7 +123,7 @@ export interface EventMessage {
     deltas: Delta[];
   };
   target: {
-    snapshot: MainpanelNode.Interface[];
+    snapshot: MainpanelNode.Interface;
     xpath: string;
   };
   targetTimeout: number;

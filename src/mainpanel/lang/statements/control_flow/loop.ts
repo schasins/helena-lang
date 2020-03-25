@@ -41,7 +41,7 @@ export class LoopStatement extends StatementContainer {
     super();
 
     window.Revival.addRevivalLabel(this);
-    HelenaMainpanel.setBlocklyLabel(this, "loop");
+    this.setBlocklyLabel("loop");
 
     this.relation = relation;
     this.relationColumnsUsed = relationColumnsUsed;
@@ -100,8 +100,8 @@ export class LoopStatement extends StatementContainer {
     const self = this;
 
     const handleMaxRowsChange = (newMaxRows: number) => {
-      if (self.sourceBlock_ && HelenaMainpanel.getWAL(self.sourceBlock_)) {
-        const stmt = <LoopStatement> HelenaMainpanel.getWAL(self.sourceBlock_);
+      if (self.sourceBlock_ && HelenaMainpanel.getHelenaStatement(self.sourceBlock_)) {
+        const stmt = <LoopStatement> HelenaMainpanel.getHelenaStatement(self.sourceBlock_);
         stmt.maxRows = newMaxRows;
         // if you changed the maxRows and it's actually defined, should make
         //   sure the max rows actually used...
@@ -117,7 +117,7 @@ export class LoopStatement extends StatementContainer {
         block.setFieldValue("TRUE", "infiniteRowsCheckbox");
         block.setFieldValue("FALSE", "limitedRowsCheckbox");
       }, 0);
-      const stmt = <LoopStatement> HelenaMainpanel.getWAL(block);
+      const stmt = <LoopStatement> HelenaMainpanel.getHelenaStatement(block);
       stmt.maxRows = null;
     };
 
@@ -127,7 +127,7 @@ export class LoopStatement extends StatementContainer {
         block.setFieldValue("FALSE", "infiniteRowsCheckbox");
         block.setFieldValue("TRUE", "limitedRowsCheckbox");
       }, 0);
-      const stmt = <LoopStatement> HelenaMainpanel.getWAL(block);
+      const stmt = <LoopStatement> HelenaMainpanel.getHelenaStatement(block);
       stmt.maxRows =
         this.sourceBlock_.getFieldValue(LoopStatement.maxRowsFieldName);
     }
@@ -136,7 +136,7 @@ export class LoopStatement extends StatementContainer {
       const block = this.sourceBlock_;
       // getWAL(block).maxRows = this.sourceBlock_.getFieldValue(maxRowsFieldName);
       const newName = this.sourceBlock_.getFieldValue("relationName");
-      const loopStmt = <LoopStatement> HelenaMainpanel.getWAL(block);
+      const loopStmt = <LoopStatement> HelenaMainpanel.getHelenaStatement(block);
       if (loopStmt) {
         setTimeout(() => {
           const relObj = loopStmt.relation;
@@ -237,7 +237,7 @@ export class LoopStatement extends StatementContainer {
       this.bodyStatements, workspace);
     HelenaMainpanel.attachNestedBlocksToWrapper(this.block, firstNestedBlock);
 
-    HelenaMainpanel.setWAL(this.block, this);
+    HelenaMainpanel.setHelenaStatement(this.block, this);
     return this.block;
   }
 

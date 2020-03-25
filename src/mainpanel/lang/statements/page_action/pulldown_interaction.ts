@@ -54,7 +54,7 @@ export class PulldownInteractionStatement extends PageActionStatement {
   constructor(trace: EventMessage[]) {
     super();
     window.Revival.addRevivalLabel(this);
-    HelenaMainpanel.setBlocklyLabel(this, "pulldownInteraction");
+    this.setBlocklyLabel("pulldownInteraction");
     this.trace = trace;
     
     // find the record-time constants that we'll turn into parameters
@@ -90,8 +90,8 @@ export class PulldownInteractionStatement extends PageActionStatement {
   }
 
   public parameterizeForRelation(relation: GenericRelation) {
-    const col = HelenaMainpanel.parameterizeNodeWithRelation(this, relation,
-      this.pageVar);
+    const col = this.parameterizeNodeWithRelation(relation, this.pageVar);
+
     // if we did actually parameterize, we need to do something kind of weird.
     //   need to replace the trace with something that just sets 'selected' to
     //   true for the target node
@@ -117,7 +117,7 @@ export class PulldownInteractionStatement extends PageActionStatement {
   }
 
   public unParameterizeForRelation(relation: GenericRelation) {
-    const col = HelenaMainpanel.unParameterizeNodeWithRelation(this, relation);
+    const col = this.unParameterizeNodeWithRelation(relation);
     // if we did find a col, need to undo the thing where we replaced the trace
     //   with the 'selected' update, put the old trace back in
     if (col) {
@@ -134,12 +134,12 @@ export class PulldownInteractionStatement extends PageActionStatement {
 
   public pbvs() {
     var pbvs = [];
-    if (HelenaMainpanel.currentTab(this)) {
+    if (this.currentTab()) {
       // do we actually know the target tab already?  if yes, go ahead and
       //   paremterize that
       pbvs.push({
         type: "tab",
-        value: HelenaMainpanel.originalTab(this)
+        value: this.originalTab()
       });
     }
 
@@ -170,7 +170,7 @@ export class PulldownInteractionStatement extends PageActionStatement {
     const args = [];
     args.push({
       type: "tab",
-      value: HelenaMainpanel.currentTab(this)
+      value: this.currentTab()
     });
     // we only want to pbv for things that must already have been extracted by
     //   relation extractor
@@ -183,11 +183,11 @@ export class PulldownInteractionStatement extends PageActionStatement {
 
       // extract the correct selectedIndex from the xpath of the current option
       //   node
-      const xpath = HelenaMainpanel.currentNodeXpath(this, environment);
+      const xpath = <string> this.currentNodeXpath(environment);
       window.WALconsole.log("currentNodeXpath", xpath);
       const segments = xpath.split("[")
-      let indexOfNextOption = segments[segments.length - 1].split("]")[0]; 
-      indexOfNextOption = parseInt(indexOfNextOption);
+      let indexStr = segments[segments.length - 1].split("]")[0]; 
+      let indexOfNextOption = parseInt(indexStr);
       // our node-to-xpath converter starts counting at 1, but selectedIndex
       //   property starts counting at 0, so subtract one
       indexOfNextOption = indexOfNextOption - 1;
@@ -208,7 +208,7 @@ export class PulldownInteractionStatement extends PageActionStatement {
     workspace: Blockly.WorkspaceSvg) {
     this.block = workspace.newBlock(this.blocklyLabel);
     HelenaMainpanel.attachToPrevBlock(this.block, prevBlock);
-    HelenaMainpanel.setWAL(this.block, this);
+    HelenaMainpanel.setHelenaStatement(this.block, this);
     return this.block;
   };
 }

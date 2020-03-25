@@ -5,17 +5,14 @@ import { EventMessage } from "../common/messages";
 
 import { NodeVariable } from "./variables/node_variable";
 
-import { GenericRelation } from "./relation/generic";
-import { TextRelation } from "./relation/text_relation";
-
 import { HelenaLangObject } from "./lang/helena_lang";
 
 import { StatementTypes } from "./lang/statements/statement_types";
 import { LoadStatement } from "./lang/statements/browser/load";
 import { LoopStatement } from "./lang/statements/control_flow/loop";
 import { WaitStatement } from "./lang/statements/control_flow/wait";
-import { PulldownInteractionStatement } from "./lang/statements/page_action/pulldown_interaction";
 import { TypeStatement } from "./lang/statements/page_action/type";
+import { NodeVariableUse } from "./lang/values/node_variable_use";
 
 import { RecorderUI } from "./ui/recorder_ui";
 import { PageVariable } from "./variables/page_variable";
@@ -172,30 +169,6 @@ export class HelenaMainpanel {
     return opsDropdown;
   }
 
-  public static nodeRepresentation(stmt: HelenaLangObject,
-    linkScraping = false) {
-    if (stmt.currentNode instanceof NodeVariable) {
-      // todo: this isn't really correct.  we could reuse a node scraped or
-      //   clicked before, and then it would be bound already.  fix this.
-      const alreadyBound =
-        stmt.currentNode.getSource() === NodeSources.RELATIONEXTRACTOR;
-      let nodeRep = stmt.currentNode.toString(alreadyBound, stmt.pageVar);
-      if (linkScraping) {
-        nodeRep += ".link";
-      }
-      return nodeRep;
-    }
-    if (stmt.trace[0].additional.visualization === "whole page") {
-      return "whole page";
-    }
-    if (linkScraping) {
-      // we don't have a better way to visualize links than just giving text
-      return stmt.trace[0].additional.scrape.link;
-    }
-    return `<img src='${stmt.trace[0].additional.visualization}'` +
-      " style='max-height: 150px; max-width: 350px;'>";
-  }
-
   public static makeNodeVariableForTrace(trace: EventMessage[]) {
     let recordTimeNodeSnapshot = null;
     let imgData = null;
@@ -213,155 +186,12 @@ export class HelenaMainpanel {
            urlMatchSymmetryHelper(currentUrl, text);
   }
 
-  public static outputPagesRepresentation(statement: HelenaLangObject) {
-    let prefix = "";
-    if (statement.outputPageVars.length > 0) {
-      prefix = statement.outputPageVars.map(
-        (pv) => pv.toString()
-      ).join(", ") + " = ";
-    }
-    return prefix;
-  }
-
-  // returns true if we successfully parameterize this node with this relation,
-  //   false if we can't
-  public static parameterizeNodeWithRelation(statement: HelenaLangObject,
-      relation: GenericRelation, pageVar: PageVariable) {
-    // note: may be tempting to use the columns' xpath attributes to decide
-    //   this, but this is not ok!  now that we can have mutliple suffixes
-    //   associated with a column, that xpath is not always correct but we're
-    //   in luck because we know the selector has just been applied to the
-    //   relevant page (to produce relation.demonstrationTimeRelation and from
-    //   that relation.firstRowXpaths) so we can learn from those attributes
-    //   which xpaths are relevant right now, and thus which ones the user would
-    //   have produced in the current demo
-    
-    // if the relation is a text relation, we actually don't want to do the
-    //   below, because it doesn't represent nodes, only texts
-    if (relation instanceof TextRelation) {
-      return null;
-    }
-
-    // hey, this better be in the same order as relation.columns and
-    //   relation.firstRowXpaths!
-    // todo: maybe add some helper functions to get rid of this necessity? since
-    //   it may not be clear in there...
-    const nodeRepresentations = relation.firstRowNodeRepresentations();
-
-    for (let i = 0; i < relation.firstRowXPaths.length; i++) {
-      const firstRowXpath = relation.firstRowXPaths[i];
-      if (firstRowXpath === statement.origNode || 
-          (statement instanceof PulldownInteractionStatement &&
-            firstRowXpath.indexOf(statement.origNode) > -1)) {
-        statement.relation = relation;
-        const name = relation.columns[i].name;
-        var nodeRep = nodeRepresentations[i];
-
-        // not ok to just overwrite currentNode, because there may be multiple
-        //   statements using the old currentNode, and becuase we're interested
-        //   in keeping naming consistent, they should keep using it so...just
-        //   overwrite some things
-        if (!statement.currentNode) {
-          // have to check if there's a current node because if we're dealing
-          //   with pulldown menu there won't be
-          statement.currentNode = new NodeVariable();
-        }
-        statement.currentNode.setName(name? name : null);
-        statement.currentNode.nodeRep = nodeRep;
-        statement.currentNode.setSource(NodeSources.RELATIONEXTRACTOR);
-        // statement.currentNode = new NodeVariable(name, nodeRep, null, null,
-        //   NodeSources.RELATIONEXTRACTOR); // note that this means the
-        //   elements in the firstRowXPaths and the elements in columns must be
-        //   aligned!
-        // ps. in theory the above commented out line should have just worked
-        //   because we could search all prior nodes to see if any is the same
-        //   but we just extracted the relation from a fresh run of the script,
-        //   so any of the attributes we use (xpath, text, or even in some cases
-        //   url) could have changed, and we'd try to make a new node, and mess
-        //   it up since we know we want to treat this as the same as a prior
-        //   one, better to just do this
-
-        // the statement should track whether it's currently parameterized for a
-        //   given relation and column obj
-        statement.relation = relation;
-        statement.columnObj = relation.columns[i];
-
-        return relation.columns[i]; 
-      }
-    }
-    return null;
-  }
-
-  public static unParameterizeNodeWithRelation(statement: HelenaLangObject,
-    relation: GenericRelation) {
-    if (statement.relation === relation) {
-      statement.relation = null;
-      statement.columnObj = null;
-      const columnObject = statement.columnObj;
-      statement.columnObj = null;
-      statement.currentNode = HelenaMainpanel.makeNodeVariableForTrace(
-        statement.trace);
-      return columnObject;
-    }
-    return null;
-  }
-
-  public static currentNodeXpath(statement: HelenaLangObject,
-      environment: EnvironmentPlaceholder) {
-    if (statement.currentNode instanceof NodeVariable) {
-      return statement.currentNode.currentXPath(environment);
-    }
-    // this means currentNode better be an xpath if it's not a variable use!
-    return statement.currentNode;
-  }
-
-  public static currentTab(statement: HelenaLangObject) {
-    return statement.pageVar.currentTabId();
-  }
-
-  public static originalTab(statement: HelenaLangObject) {
-    return statement.pageVar.originalTabId();
-  }
-
   public static cleanTrace(trace: EventMessage[]) {
     const cleanTrace = [];
     for (const event of trace) {
       cleanTrace.push(cleanEvent(event));
     }
     return cleanTrace;
-  }
-
-  public static requireFeatures(statement: HelenaLangObject,
-      featureNames: string[]) {
-    if (featureNames.length > 0) { 
-      if (!statement.node) {
-        // sometimes statement.node will be empty, as when we add a scrape
-        //   statement for known relation item, with no trace associated 
-        window.WALconsole.warn("Hey, you tried to require some features, but " +
-          "there was no Ringer trace associated with the statement.", statement,
-          featureNames);
-      }
-      // note that statement.node stores the xpath of the original node
-      window.ReplayTraceManipulation.requireFeatures(statement.trace,
-        statement.node, featureNames);
-      window.ReplayTraceManipulation.requireFeatures(statement.cleanTrace,
-        statement.node, featureNames);
-    }
-  }
-
-  public static setBlocklyLabel(obj: HelenaLangObject, label: string) {
-    //console.log("setBlocklyLabel", obj, label, obj.___revivalLabel___);
-    obj.blocklyLabel = label;
-
-    // it's important that we keep track of what things within the
-    //   HelenaMainpanel object are blocks and which aren't
-    // this may be a convenient way to do it, since it's going to be obvious if
-    //   you introduce a new block but forget to call this whereas if you
-    //   introduce a new function and forget to add it to a blacklist, it'll get
-    //   called randomly, will be hard to debug
-    const name = obj.___revivalLabel___;
-    HelenaMainpanel.blocklyNames.push(name);
-    HelenaMainpanel.blocklyNames = [...new Set(HelenaMainpanel.blocklyNames)];
   }
 
   public static addToolboxLabel(label: string, category = "other") {
@@ -418,8 +248,8 @@ export class HelenaMainpanel {
     outputBlockConnection.connect(inputBlockConnection);
   }
 
-  public static helenaSeqToBlocklySeq(statementsLs: HelenaLangObject[],
-    workspace: Blockly.Workspace) {
+  public static helenaSeqToBlocklySeq(stmts: HelenaLangObject[],
+    workspace: Blockly.WorkspaceSvg) {
     // get the individual statements to produce their corresponding blockly
     //   blocks
 
@@ -433,9 +263,8 @@ export class HelenaMainpanel {
     let invisibleHead = [];
 
     // for (var i = 0; i < statementsLs.length; i++) {
-    for (const statement of statementsLs) {
-      const newBlock: Blockly.Block = statement.genBlocklyNode(lastBlock,
-        workspace);
+    for (const stmt of stmts) {
+      const newBlock = stmt.genBlocklyNode(lastBlock, workspace);
       // within each statement, there can be other program components that will
       //   need blockly representations but the individual statements are
       //   responsible for traversing those
@@ -443,7 +272,7 @@ export class HelenaMainpanel {
         // handle the fact that there could be null-producing nodes in the
         //   middle, and need to connect around those
         lastBlock = newBlock;
-        lastStatement = statement;
+        lastStatement = stmt;
         lastStatement.invisibleHead = [];
         lastStatement.invisibleTail = [];
         // also, if this is our first non-null block it's the one we'll want to
@@ -451,7 +280,7 @@ export class HelenaMainpanel {
         if (!firstNonNull) {
           firstNonNull = newBlock;
           // oh, and let's go ahead and set that invisible head now
-          statement.invisibleHead = invisibleHead;
+          stmt.invisibleHead = invisibleHead;
         }
       } else {
         // ok, a little bit of special stuff when we do have null nodes
@@ -462,16 +291,16 @@ export class HelenaMainpanel {
         //   (blockly->helena)
         // we'll have to do some special processing to put them back in the
         //   normal structure
-        statement.nullBlockly = true;
+        stmt.nullBlockly = true;
 
         // one special case.  if we don't have a non-null lastblock, we'll have
         //   to keep this for later
         // we prefer to make things tails of earlier statements, but we can make
         //   some heads if necessary
         if (!lastBlock || !lastStatement) {
-          invisibleHead.push(statement);
+          invisibleHead.push(stmt);
         } else {
-          lastStatement.invisibleTail.push(statement);
+          lastStatement.invisibleTail?.push(stmt);
         }
       }
     }
@@ -498,7 +327,7 @@ export class HelenaMainpanel {
     }
     
     // grab the associated helena component and call the getHelena method
-    const thisNodeHelena = HelenaMainpanel.getWAL(blocklyBlock).getHelena();
+    const thisNodeHelena = HelenaMainpanel.getHelenaStatement(blocklyBlock).getHelena();
     let invisibleHead = thisNodeHelena.invisibleHead;
     if (!invisibleHead) {invisibleHead = [];}
     let invisibleTail = thisNodeHelena.invisibleTail;
@@ -523,17 +352,17 @@ export class HelenaMainpanel {
     if (!nextBlock) {
       return [];
     }
-    return HelenaMainpanel.getWAL(nextBlock).getHelenaSeq();
+    return (<NodeVariableUse> HelenaMainpanel.getHelenaStatement(nextBlock)).getHelenaSeq();
   }
 
-  public static setWAL(block: Blockly.Block, WALEquiv: HelenaLangObject) {
+  public static setHelenaStatement(block: Blockly.Block, WALEquiv: HelenaLangObject) {
     let helenaBlock = <HelenaBlock> block;
     helenaBlock.helena = WALEquiv;
     WALEquiv.block = helenaBlock;
     HelenaMainpanel.blocklyToHelenaDict[block.id] = WALEquiv;
   }
 
-  public static getWAL(block: Blockly.Block): HelenaLangObject {
+  public static getHelenaStatement(block: Blockly.Block): HelenaLangObject {
     let helenaBlock = <HelenaBlock> block;
     if (!helenaBlock.helena) {
       helenaBlock.helena = HelenaMainpanel.blocklyToHelenaDict[helenaBlock.id];
@@ -559,14 +388,14 @@ export class HelenaMainpanel {
     return null;
   }
 
-  public static usedByTextStatement(statement: HelenaLangObject,
+  public static usedByTextStatement(stmt: HelenaLangObject,
       parameterizeableStrings: (string | null)[]) {
     if (!parameterizeableStrings) {
       return false;
     }
 
-    if (!(statement instanceof TypeStatement ||
-          statement instanceof LoadStatement)) {
+    if (!(stmt instanceof TypeStatement ||
+          stmt instanceof LoadStatement)) {
       return false;
     }
 
@@ -574,13 +403,14 @@ export class HelenaMainpanel {
       if (!curString) continue;
 
       const lowerString = curString.toLowerCase();
-      if (statement.typedStringLower?.includes(lowerString)) {
+      if (stmt instanceof TypeStatement &&
+          stmt.typedStringLower?.includes(lowerString)) {
         // for typestatement
         return true;
       }
 
-      if (statement.cUrl) {
-        const currURL = statement.cUrl();
+      if (stmt instanceof LoadStatement) {
+        const currURL = stmt.cUrl();
         if (currURL &&
             HelenaMainpanel.urlMatch(currURL.toLowerCase(), lowerString)) {
           // for loadstatement

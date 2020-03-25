@@ -30,7 +30,7 @@ export class LoadStatement extends HelenaLangObject {
   constructor(trace: EventMessage[]) {
     super();
     window.Revival.addRevivalLabel(this);
-    HelenaMainpanel.setBlocklyLabel(this, "load");
+    this.setBlocklyLabel("load");
 
     this.trace = trace;
 
@@ -159,7 +159,7 @@ export class LoadStatement extends HelenaLangObject {
     }
     this.block.setFieldValue(this.outputPageVar.toString(), "page");
     HelenaMainpanel.attachToPrevBlock(this.block, prevBlock);
-    HelenaMainpanel.setWAL(this.block, this);
+    HelenaMainpanel.setHelenaStatement(this.block, this);
     return this.block;
   }
 
@@ -168,7 +168,7 @@ export class LoadStatement extends HelenaLangObject {
     const url = this.block.getInput('url').connection.targetBlock();
     if (url) {
       this.currentUrl = <String | Concatenate | NodeVariableUse>
-        HelenaMainpanel.getWAL(url).getHelena();
+        HelenaMainpanel.getHelenaStatement(url).getHelena();
     } else {
       this.currentUrl = null;
     }

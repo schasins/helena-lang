@@ -11,6 +11,7 @@ import { LoadStatement } from "./statements/browser/load";
 import { RunObject, RunOptions, HelenaProgram } from "./program";
 import { ClickStatement } from "./statements/page_action/click";
 import { TypeStatement } from "./statements/page_action/type";
+import { HelenaMainpanel } from "../helena_mainpanel";
 
 export type RingerStatement = (PageActionStatement | LoadStatement);
 export type OutputPageVarStatement = (LoadStatement | ClickStatement |
@@ -26,6 +27,8 @@ export class HelenaLangObject implements Revivable {
 
   public block: Blockly.Block;
   public blocklyLabel: string;
+  public invisibleHead?: HelenaLangObject[];
+  public invisibleTail?: HelenaLangObject[];
   public nullBlockly?: boolean;
 
   public parent: StatementContainer;
@@ -34,7 +37,7 @@ export class HelenaLangObject implements Revivable {
     return;
   }
 
-  public genBlocklyNode(prevBlock: Blockly.Block,
+  public genBlocklyNode(prevBlock: Blockly.Block | null,
     workspace: Blockly.WorkspaceSvg): Blockly.Block | null {
       return null;
   }
@@ -54,7 +57,6 @@ export class HelenaLangObject implements Revivable {
     return false;
   }
 
-
   public prepareToRun() {
     return;
   }
@@ -72,6 +74,21 @@ export class HelenaLangObject implements Revivable {
   public run(runObject: RunObject, rbbcontinuation: Function,
     rbboptions: RunOptions) {
       return;
+  }
+
+  public setBlocklyLabel(label: string) {
+    //console.log("setBlocklyLabel", obj, label, obj.___revivalLabel___);
+    this.blocklyLabel = label;
+
+    // it's important that we keep track of what things within the
+    //   HelenaMainpanel object are blocks and which aren't
+    // this may be a convenient way to do it, since it's going to be obvious if
+    //   you introduce a new block but forget to call this whereas if you
+    //   introduce a new function and forget to add it to a blacklist, it'll get
+    //   called randomly, will be hard to debug
+    const name = this.___revivalLabel___;
+    HelenaMainpanel.blocklyNames.push(name);
+    HelenaMainpanel.blocklyNames = [...new Set(HelenaMainpanel.blocklyNames)];
   }
 
   public toStringLines() {

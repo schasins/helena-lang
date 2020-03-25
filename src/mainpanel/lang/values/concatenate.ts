@@ -20,7 +20,7 @@ export class Concatenate extends Value {
     super();
 
     window.Revival.addRevivalLabel(this);
-    HelenaMainpanel.setBlocklyLabel(this, "concatenate");
+    this.setBlocklyLabel("concatenate");
   
     this.left = left;
     this.right = right;
@@ -49,9 +49,9 @@ export class Concatenate extends Value {
         this.setOutput(true, 'Bool');
         this.setColour(25);
 
-        const helena = HelenaMainpanel.getWAL(this);
+        const helena = HelenaMainpanel.getHelenaStatement(this);
         if (!helena) {
-          HelenaMainpanel.setWAL(this, new Concatenate());
+          HelenaMainpanel.setHelenaStatement(this, new Concatenate());
         }
       }
     };
@@ -60,7 +60,7 @@ export class Concatenate extends Value {
   public genBlocklyNode(prevBlock: Blockly.Block,
       workspace: Blockly.WorkspaceSvg) {
     this.block = workspace.newBlock(this.blocklyLabel);
-    HelenaMainpanel.setWAL(this.block, this);
+    HelenaMainpanel.setHelenaStatement(this.block, this);
 
     if (this.left) {
       const leftBlock = this.left.genBlocklyNode(this.block, workspace);
@@ -84,13 +84,13 @@ export class Concatenate extends Value {
     const leftBlock = this.block.getInput('left').connection.targetBlock();
     const rightBlock = this.block.getInput('right').connection.targetBlock();
     if (leftBlock) {
-      this.left = <String> HelenaMainpanel.getWAL(leftBlock).getHelena();
+      this.left = <String> HelenaMainpanel.getHelenaStatement(leftBlock).getHelena();
     } else {
       this.left = undefined;
     }
 
     if (rightBlock) {
-      this.right = <String> HelenaMainpanel.getWAL(rightBlock).getHelena();
+      this.right = <String> HelenaMainpanel.getHelenaStatement(rightBlock).getHelena();
     } else {
       this.right = undefined;
     }

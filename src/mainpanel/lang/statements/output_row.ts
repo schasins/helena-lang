@@ -24,7 +24,7 @@ export class OutputRowStatement extends HelenaLangObject {
   constructor(scrapeStatements: ScrapeStatement[]) {
     super();
     window.Revival.addRevivalLabel(this);
-    HelenaMainpanel.setBlocklyLabel(this, "output");
+    this.setBlocklyLabel("output");
     this.trace = []; // no extra work to do in r+r layer for this
     this.cleanTrace = [];
     this.scrapeStatements = [];
@@ -84,7 +84,7 @@ export class OutputRowStatement extends HelenaLangObject {
       workspace: Blockly.WorkspaceSvg) {
     this.block = workspace.newBlock(this.blocklyLabel);
     HelenaMainpanel.attachToPrevBlock(this.block, prevBlock);
-    HelenaMainpanel.setWAL(this.block, this);
+    HelenaMainpanel.setHelenaStatement(this.block, this);
     let priorBlock = this.block;
     for (const vun of this.nodeUseVariables) {
       const block = vun.genBlocklyNode(this.block, workspace);
@@ -98,7 +98,7 @@ export class OutputRowStatement extends HelenaLangObject {
     // update our list of variable nodes based on the current blockly situation
     const firstInput = this.block.getInput('NodeVariableUse');
     if (firstInput && firstInput.connection.targetBlock()) {
-      const helena = HelenaMainpanel.getWAL(firstInput.connection.targetBlock());
+      const helena = HelenaMainpanel.getHelenaStatement(firstInput.connection.targetBlock());
       if (helena instanceof NodeVariableUse) {
         const inputSeq = helena.getHelenaSeq();
         this.nodeUseVariables = inputSeq;

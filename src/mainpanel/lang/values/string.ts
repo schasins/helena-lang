@@ -16,7 +16,7 @@ export class String extends Value {
   constructor(currString?: string) {
     super();
     window.Revival.addRevivalLabel(this);
-    HelenaMainpanel.setBlocklyLabel(this, "string");
+    this.setBlocklyLabel("string");
 
     if (currString || currString === "") {
       this.currentVal = currString;
@@ -42,22 +42,22 @@ export class String extends Value {
     const text = this.currentVal;
     Blockly.Blocks[this.blocklyLabel] = {
       init: function(this: Blockly.Block) {
-        const helena = HelenaMainpanel.getWAL(this);
+        const helena = HelenaMainpanel.getHelenaStatement(this);
         if (!helena) {
-          HelenaMainpanel.setWAL(this, new String());
+          HelenaMainpanel.setHelenaStatement(this, new String());
         }
 
         this.appendDummyInput()
             .appendField(new Blockly.FieldTextInput(text,
               function (newStr: string) {
                 const helenaStr =
-                  <String> HelenaMainpanel.getWAL(this.sourceBlock_);
+                  <String> HelenaMainpanel.getHelenaStatement(this.sourceBlock_);
                 helenaStr.currentVal = newStr;
               }), String.fieldName);
 
         this.setOutput(true, 'string');
         this.setColour(25);
-        const helenaStr = <String> HelenaMainpanel.getWAL(this);
+        const helenaStr = <String> HelenaMainpanel.getHelenaStatement(this);
         helenaStr.currentVal = text;
       }
     };
@@ -66,7 +66,7 @@ export class String extends Value {
   public genBlocklyNode(prevBlock: Blockly.Block,
       workspace: Blockly.WorkspaceSvg) {
     this.block = workspace.newBlock(this.blocklyLabel);
-    HelenaMainpanel.setWAL(this.block, this);
+    HelenaMainpanel.setHelenaStatement(this.block, this);
     if (this.currentVal) {
       this.block.setFieldValue(this.currentVal, String.fieldName);
     }

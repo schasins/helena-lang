@@ -228,7 +228,7 @@ export class HelenaProgram extends StatementContainer {
     //   program
     this.altRootBodyStatements = [];
     for (const block of rootBlocklyBlocks) {
-      const rootHelena = HelenaMainpanel.getWAL(block);
+      const rootHelena = HelenaMainpanel.getHelenaStatement(block);
       if (!rootHelena) {
         // no helena associated with this one. guess we'll just throw it out
         continue;

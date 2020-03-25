@@ -20,7 +20,7 @@ export class WaitStatement extends HelenaLangObject {
   constructor() {
     super();
     window.Revival.addRevivalLabel(this);
-    HelenaMainpanel.setBlocklyLabel(this, "wait");
+    this.setBlocklyLabel("wait");
     this.wait = 0;
   }  
 
@@ -34,7 +34,7 @@ export class WaitStatement extends HelenaLangObject {
 
     const handleWaitChange = function(newWait: number) {
       if (this.sourceBlock_) {
-        (<WaitStatement> HelenaMainpanel.getWAL(this.sourceBlock_)).wait =
+        (<WaitStatement> HelenaMainpanel.getHelenaStatement(this.sourceBlock_)).wait =
           newWait;
       }
     }
@@ -49,9 +49,9 @@ export class WaitStatement extends HelenaLangObject {
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);
         this.setColour(25);
-        const wal = HelenaMainpanel.getWAL(this);
+        const wal = HelenaMainpanel.getHelenaStatement(this);
         if (!wal) {
-          HelenaMainpanel.setWAL(this, new WaitStatement());
+          HelenaMainpanel.setHelenaStatement(this, new WaitStatement());
         }
       }
     };
@@ -61,7 +61,7 @@ export class WaitStatement extends HelenaLangObject {
       workspace: Blockly.WorkspaceSvg) {
     this.block = workspace.newBlock(this.blocklyLabel);
     HelenaMainpanel.attachToPrevBlock(this.block, prevBlock);
-    HelenaMainpanel.setWAL(this.block, this);
+    HelenaMainpanel.setHelenaStatement(this.block, this);
     this.block.setFieldValue(this.wait.toString(), WaitStatement.waitFieldName);
     return this.block;
   }

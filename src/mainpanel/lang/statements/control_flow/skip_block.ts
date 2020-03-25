@@ -89,7 +89,7 @@ export class SkipBlock extends StatementContainer {
       bodyStatements: HelenaLangObject[]) {
     super();
     window.Revival.addRevivalLabel(this);
-    HelenaMainpanel.setBlocklyLabel(this, "duplicate_annotation");
+    this.setBlocklyLabel("duplicate_annotation");
     
     this.annotationItems = annotationItems;
     this.availableAnnotationItems = availableAnnotationItems;
@@ -335,7 +335,7 @@ export class SkipBlock extends StatementContainer {
       },
       onchange: function(this: Blockly.Block, ev: Blockly.Events.Abstract) {
         const newName = this.getFieldValue("name");
-        const skipBlock = <SkipBlock> HelenaMainpanel.getWAL(this);
+        const skipBlock = <SkipBlock> HelenaMainpanel.getHelenaStatement(this);
         if (newName !== skipBlock.name) {
           skipBlock.name = newName;
         }
@@ -349,7 +349,7 @@ export class SkipBlock extends StatementContainer {
       this.bodyStatements, workspace);
     HelenaMainpanel.attachNestedBlocksToWrapper(this.block, firstNestedBlock);
 
-    HelenaMainpanel.setWAL(this.block, this);
+    HelenaMainpanel.setHelenaStatement(this.block, this);
     return this.block;
   }
 
@@ -460,7 +460,7 @@ export class SkipBlock extends StatementContainer {
   };
 
   private commit(runObject: RunObject, rbbcontinuation: Function,
-      rbboptions: RunOptionss) {
+      rbboptions: RunOptions) {
     // it could be that something has happened that will cause us to skip any
     //  commits that happen in a particular loop iteration (no node that has all
     //  required features, for example)

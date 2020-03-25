@@ -15,13 +15,12 @@ import { ColumnSelector } from "../../../../content/selector/column_selector";
 import { MainpanelNode } from "../../../../common/mainpanel_node";
 import { GenericRelation } from "../../../relation/generic";
 import { PageVariable } from "../../../variables/page_variable";
-import { RunObject, RunOptions } from "../../program";
+import { RunObject, RunOptions, HelenaProgram } from "../../program";
 
 /**
  * Statement representing a user taking the action of typing something.
  */
 export class TypeStatement extends PageActionStatement {
-  public columnObj?: ColumnSelector.Interface;
   public currentTypedString: String | Concatenate | NodeVariableUse | null;
   public keyCodes: number[];
   public keyEvents: EventMessage[];
@@ -29,7 +28,6 @@ export class TypeStatement extends PageActionStatement {
   public onlyKeyups: boolean;
   public outputPageVars?: PageVariable[];
   public pageUrl?: string;
-  public relation?: GenericRelation;
   public typedString?: string;
   public typedStringLower?: string;
   public typedStringParameterizationRelation?: GenericRelation;
@@ -37,7 +35,7 @@ export class TypeStatement extends PageActionStatement {
   constructor(trace: EventMessage[]) {
     super();
     window.Revival.addRevivalLabel(this);
-    HelenaMainpanel.setBlocklyLabel(this, "type");
+    this.setBlocklyLabel("type");
     this.trace = trace;
     this.cleanTrace = HelenaMainpanel.cleanTrace(trace);
 
@@ -98,11 +96,21 @@ export class TypeStatement extends PageActionStatement {
     }
   }
 
+  public getOutputPagesRepresentation() {
+    let prefix = "";
+    if (this.hasOutputPageVars()) {
+      prefix = this.outputPageVars?.map(
+        (pv) => pv.toString()
+      ).join(", ") + " = ";
+    }
+    return prefix;
+  }
+
   public prepareToRun() {
     // TODO: cjbaik: is there a case where currentNode is not NodeVariable?
     if (this.currentNode instanceof NodeVariable) {
       const feats = this.currentNode.getRequiredFeatures();
-      HelenaMainpanel.requireFeatures(this, feats);
+      this.requireFeatures(feats);
     }
   }
 
@@ -122,8 +130,7 @@ export class TypeStatement extends PageActionStatement {
       const stringRep = this.stringRep();
       const pageVarStr = this.pageVar? this.pageVar.toString() : "undefined";
       return [
-        HelenaMainpanel.outputPagesRepresentation(this) +
-        `type(${pageVarStr}, ${stringRep})`
+        `${this.getOutputPagesRepresentation()}type(${pageVarStr}, ${stringRep})`
       ];
     } else {
       return [];
@@ -183,7 +190,7 @@ export class TypeStatement extends PageActionStatement {
       const pageVarStr = this.pageVar? this.pageVar.toString() : "undefined";
       this.block.setFieldValue(pageVarStr, "page");
       HelenaMainpanel.attachToPrevBlock(this.block, prevBlock);
-      HelenaMainpanel.setWAL(this.block, this);
+      HelenaMainpanel.setHelenaStatement(this.block, this);
 
       if (this.currentTypedString) {
         HelenaMainpanel.attachToInput(this.block,
@@ -200,7 +207,7 @@ export class TypeStatement extends PageActionStatement {
       .connection.targetBlock();
     if (currentTypedString) {
       this.currentTypedString =
-        <String | Concatenate> HelenaMainpanel.getWAL(currentTypedString).
+        <String | Concatenate> HelenaMainpanel.getHelenaStatement(currentTypedString).
           getHelena();
     } else {
       this.currentTypedString = null;
@@ -218,12 +225,12 @@ export class TypeStatement extends PageActionStatement {
 
   public pbvs() {
     const pbvs = [];
-    if (HelenaMainpanel.currentTab(this)) {
+    if (this.currentTab()) {
       // do we actually know the target tab already?  if yes, go ahead and
       //   paremterize that
       pbvs.push({
         type: "tab",
-        value: HelenaMainpanel.originalTab(this)
+        value: this.originalTab()
       });
     }
     
@@ -305,8 +312,8 @@ export class TypeStatement extends PageActionStatement {
       throw new ReferenceError("Page variable not set.");
     }
   
-    const relationColumnUsed = HelenaMainpanel.parameterizeNodeWithRelation(
-      this, relation, this.pageVar);
+    const relationColumnUsed = this.parameterizeNodeWithRelation(relation,
+      this.pageVar);
 
     if (!this.onlyKeydowns && !this.onlyKeyups) {
       // now let's also parameterize the text
@@ -326,7 +333,7 @@ export class TypeStatement extends PageActionStatement {
   }
   
   public unParameterizeForRelation(relation: GenericRelation) {
-    HelenaMainpanel.unParameterizeNodeWithRelation(this, relation);
+    this.unParameterizeNodeWithRelation(relation);
     if (this.typedStringParameterizationRelation === relation) {
       this.currentTypedString = new String(this.typedString);
     }
@@ -348,7 +355,7 @@ export class TypeStatement extends PageActionStatement {
         this.currentNode.getSource() === NodeSources.RELATIONEXTRACTOR) {
       args.push({
         type:"node",
-        value: HelenaMainpanel.currentNodeXpath(this, environment)
+        value: this.currentNodeXpath(environment)
       });
     }
     args.push({
@@ -357,7 +364,7 @@ export class TypeStatement extends PageActionStatement {
     });
     args.push({
       type: "tab",
-      value: HelenaMainpanel.currentTab(this)
+      value: this.currentTab()
     });
     return args;
   };
