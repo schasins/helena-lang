@@ -1,4 +1,3 @@
-import { SelectorMessage } from "../../common/messages";
 import { RelationSelector } from "../selector/relation_selector";
 
 /**
@@ -31,7 +30,7 @@ export class RelationHighlighter {
    * Retrieve known relations from the server.
    */
   public getKnownRelations() {
-    let self = this;
+    const self = this;
     // TODO: cjbaik: switch this to a port rather than a one time msg
 
     // have to use postForMe right now to make the extension make a POST
@@ -42,7 +41,7 @@ export class RelationHighlighter {
       params: {url: window.location.href }
     });
     window.utilities.listenForMessageOnce("background", "content", "postForMe",
-      function (resp: { relations: SelectorMessage[] }) {
+      function (resp: { relations: string[] }) {
         window.WALconsole.log(resp);
         self.preprocessKnownRelations(resp.relations);
       }
@@ -53,13 +52,13 @@ export class RelationHighlighter {
    * Massage and reformat server response about known relations.
    * @param resp server response
    */
-  private preprocessKnownRelations(resp: SelectorMessage[]) {
+  private preprocessKnownRelations(resp: string[]) {
     for (let i = 0; i < resp.length; i++) {
-      let selectorMsg = window.ServerTranslationUtilities.unJSONifyRelation(resp[i]);
+      let selector = <RelationSelector> window.ServerTranslationUtilities.unJSONifyRelation(resp[i]);
       // first let's apply each of our possible relations to see which nodes
       //   appear in them
       try {
-        let selector = RelationSelector.fromMessage(selectorMsg);
+        // let selector = RelationSelector.fromMessage(selectorMsg);
         let relationOutput = selector.getMatchingRelation();
         let nodes = relationOutput.reduce((memo, row) => memo.concat(row),
           []);

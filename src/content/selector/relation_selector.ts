@@ -3,8 +3,7 @@ import * as stringify from "json-stable-stringify";
 import { MainpanelNode } from "../../common/mainpanel_node";
 import MainpanelNodeI = MainpanelNode.Interface;
 
-import { FeatureSetMessage, LikelyRelationMessage,
-  SelectorMessage } from "../../common/messages";
+import { LikelyRelationMessage } from "../../common/messages";
 
 import { ColumnSelector } from "./column_selector";
 
@@ -307,7 +306,8 @@ export class RelationSelector {
    * Create a selector object from a message representing it.
    * @param msg the message
    */
-  public static fromMessage(msg: SelectorMessage) {
+  /*
+  public static fromMessage(msg: RelationSelector) {
     let newSelector;
     if (msg.selector && 'table' in msg.selector) {
       newSelector = new TableSelector(<TableFeatureSet> msg.selector,
@@ -345,7 +345,7 @@ export class RelationSelector {
     newSelector.relation_scrape_wait = msg.relation_scrape_wait;
 
     return newSelector;
-  }
+  }*/
 
   /**
    * Create a {@link RelationSelector} given positive and negative elements.

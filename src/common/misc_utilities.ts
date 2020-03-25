@@ -1,3 +1,5 @@
+import { Relation } from "../mainpanel/relation/relation";
+
 var WALconsole = (function _WALconsole() { var pub = {};
 
   pub.debugging = false;
@@ -379,7 +381,7 @@ var ServerTranslationUtilities = (function _ServerTranslationUtilities() { var p
 
   // for when we want to send a relation object to the server
   pub.JSONifyRelation = function _JSONifyRelation(origRelation){
-    if (origRelation instanceof WebAutomationLanguage.Relation){
+    if (origRelation instanceof Relation){
       // ok, first let's get the nice dictionary-looking version that we use for passing relations around, instead of our internal object representation that we use in the mainpanel/program
       var relationDict = origRelation.messageRelationRepresentation();
       // let's start by deep copying so that we can JSONify the selector, next_button_selector, and column suffixes without messing up the real object
@@ -395,7 +397,7 @@ var ServerTranslationUtilities = (function _ServerTranslationUtilities() { var p
       WALconsole.log("relation after jsonification", relation);
       return relation;
     }
-    else if (origRelation instanceof WebAutomationLanguage.TextRelation){
+    else if (origRelation instanceof TextRelation){
       var stringifiedTextRelation = JSON.stringify(origRelation.relation);
       return stringifiedTextRelation;
     }
@@ -430,7 +432,7 @@ var ServerTranslationUtilities = (function _ServerTranslationUtilities() { var p
     // can later allow them to update from server if it's failing...
     /*
     program.traverse(function(statement){
-      if (statement instanceof WebAutomationLanguage.LoopStatement){
+      if (statement instanceof LoopStatement){
         WALconsole.log(program.relations.indexOf(statement.relation));
         statement.relation = program.relations.indexOf(statement.relation); // note this means we must have the relations in same order from server that we have them here
       }
@@ -858,88 +860,6 @@ var TraceManipulationUtilities = (function _TraceManipulationUtilities() { var p
   }
 
 return pub; }());
-
-/* https://github.com/javascript/sorted-array/blob/master/sorted-array.js */
-var SortedArray = (function () {
-    var SortedArray = defclass({
-        constructor: function (array, compare) {
-            this.array   = [];
-            this.compare = compare || compareDefault;
-            var length   = array.length;
-            var index    = 0;
-
-            while (index < length) this.insert(array[index++]);
-        },
-        insert: function (element) {
-            var array   = this.array;
-            var compare = this.compare;
-            var index   = array.length;
-
-            array.push(element);
-
-            while (index > 0) {
-                var i = index, j = --index;
-
-                if (compare(array[i], array[j]) < 0) {
-                    var temp = array[i];
-                    array[i] = array[j];
-                    array[j] = temp;
-                }
-            }
-
-            return this;
-        },
-        search: function (element) {
-            var array   = this.array;
-            var compare = this.compare;
-            var high    = array.length;
-            var low     = 0;
-
-            while (high > low) {
-                var index    = (high + low) / 2 >>> 0;
-                var ordering = compare(array[index], element);
-
-                     if (ordering < 0) low  = index + 1;
-                else if (ordering > 0) high = index;
-                else return index;
-            }
-
-            return -1;
-        },
-        remove: function (element) {
-            var index = this.search(element);
-            if (index >= 0) this.array.splice(index, 1);
-            return this;
-        },
-        get: function(i) {
-          WALconsole.log("index:", i);
-          return this.array[i];
-        },
-        length: function() {
-          return this.array.length;
-        }
-    });
-
-    SortedArray.comparing = function (property, array) {
-        return new SortedArray(array, function (a, b) {
-            return compareDefault(property(a), property(b));
-        });
-    };
-
-    return SortedArray;
-
-    function defclass(prototype) {
-        var constructor = prototype.constructor;
-        constructor.prototype = prototype;
-        return constructor;
-    }
-
-    function compareDefault(a, b) {
-        if (a === b) return 0;
-        return a < b ? -1 : 1;
-    }
-}());
-
 
 var XMLBuilder = (function _XMLBuilder() { var pub = {};
 

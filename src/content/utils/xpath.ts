@@ -1,7 +1,7 @@
 export namespace XPath {
   export interface XPathNode {
     nodeName: string;
-    index: number;
+    index: number | string;
     iterable: boolean;
   }
 
@@ -75,6 +75,9 @@ export namespace XPath {
     // start at the end of the xpath, move back towards root
     for (let i = (elXPath.length - 1); i >= 0; i--) {
       let index = elXPath[i].index;
+      if (typeof index === "string") {
+        index = parseInt(index);
+      }
       
       elXPath[i].index = index + 1; // modify XPath, try next sibling
       let siblingNodes = getNodes(XPath.toString(elXPath));

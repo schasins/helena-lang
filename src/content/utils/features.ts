@@ -1,5 +1,3 @@
-import { FeatureSetMessage, XPathNodeMessage } from "../../common/messages";
-
 import { XPath } from "./xpath";
 import XPathNode = XPath.XPathNode;
 import XPathList = XPath.XPathList;
@@ -189,6 +187,7 @@ export namespace Features {
    * Convert a server-retrieved message of a featureSet to a {@link FeatureSet}.
    * @param featureSetMsg the message
    */
+  /*
   export function fromMessage(featureSetMsg: FeatureSetMessage) {
     let featureSet: FeatureSet = {};
     
@@ -215,5 +214,5 @@ export namespace Features {
       }
     }
     return featureSet;
-  }
+  }*/
 }

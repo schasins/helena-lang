@@ -9,7 +9,7 @@ var HelenaServerInteractions = (function () {
 
   pub.loadSavedPrograms = function _loadSavedPrograms(handler){
     WALconsole.log("loading programs");
-    var toolId = WebAutomationLanguage.getHelenaToolId();
+    var toolId = HelenaMainpanel.toolId();
     console.log("toolId", toolId);
     MiscUtilities.getAndReGetOnFailure(helenaServerUrl+'/programs/', {tool_id: toolId}, function(response){
       handler(response);

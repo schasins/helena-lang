@@ -1,5 +1,6 @@
 import { RelationFinder } from "./relation_finding";
 import { XPath } from "../utils/xpath";
+import { NextButtonSelectorMessage } from "../../common/messages";
 
 /**
  * Methods for selecting a next/pagination button on a page.
@@ -54,9 +55,9 @@ export namespace NextButtonSelector {
       frame_id: SimpleRecord.getFrameId()
     }
     
+    const msg: NextButtonSelectorMessage = { selector: data };
     window.utilities.sendMessage("content", "mainpanel", "nextButtonSelector",
-      { selector: data }
-    );
+      msg);
     highlightNextButton(data);
 
     RelationFinder.highlightCurrentSelector(); // rehighlight the relaiton items

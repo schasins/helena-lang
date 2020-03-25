@@ -124,7 +124,7 @@ export class HelenaContent {
    *   directly access this information in content scripts.
    */
   private pollForState() {
-    let self = this;
+    const self = this;
 
     /*
      * 1. Set up listeners.

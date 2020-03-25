@@ -3,15 +3,16 @@ import { XPath } from "../content/utils/xpath";
 export namespace MainpanelNode {
   export interface Interface {
     text: string;
-    textContent: string | null;
-    link: string;
-    xpath: string;
+    textContent?: string;
+    link?: string;
+    xpath?: string;
     value?: string;
-    frame: string | null;
-    source_url: string;
+    frame?: string;
+    source_url?: string;
     top_frame_source_url?: string;
-    date: number;
+    date?: number;
     linkScraping?: boolean;
+    scraped_attribute?: string;
   }
 
   /**
@@ -19,6 +20,7 @@ export namespace MainpanelNode {
    * @param node DOM node
    */
   export function fromDOMNode(node: Node | null): Interface {
+    const frameId = SimpleRecord.getFrameId();
     if (node === null) {
 	    return {
 	    	text: "", 
@@ -26,7 +28,7 @@ export namespace MainpanelNode {
 	    	link: "", 
 	    	xpath: "", 
 	    	value: "",
-	    	frame: SimpleRecord.getFrameId(), 
+	    	frame: frameId? frameId : undefined, 
 			  source_url: window.location.href,
 	    	top_frame_source_url: window.helenaContent.tabTopUrl,
 	    	date: (new Date()).getTime()
@@ -38,12 +40,12 @@ export namespace MainpanelNode {
       // it's ok if this is null or whatever.
       //   we won't show this to the user.
       //   just need it for aligning with ringer-scraped nodes
-      textContent: node.textContent,
+      textContent: node.textContent? node.textContent : undefined,
       
 	  	link: getNodeLink(node), 
 	  	xpath: XPath.fromNode(node), 
 	  	value: 'value' in node? node['value'] : undefined,
-	  	frame: SimpleRecord.getFrameId(),
+	  	frame: frameId? frameId : undefined,
     	source_url: window.location.href,
     	top_frame_source_url: window.helenaContent.tabTopUrl,
 		  date: (new Date()).getTime()

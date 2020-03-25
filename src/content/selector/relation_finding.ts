@@ -4,6 +4,7 @@ import { PulldownSelector, ContentSelector, ComparisonSelector,
   RelationSelector, TableSelector } from "./relation_selector";
 
 import { ColumnSelector } from "./column_selector";
+import ColumnSelectorI = ColumnSelector.Interface;
 
 import { NextButtonSelector } from "./next_button_selector";
 
@@ -13,7 +14,7 @@ import MainpanelNodeI = MainpanelNode.Interface;
 import { XPath } from "../utils/xpath";
 import SuffixXPathList = XPath.SuffixXPathList;
 
-import { ColumnSelectorMessage, LikelyRelationMessage,
+import { EditRelationMessage, LikelyRelationMessage,
   FreshRelationItemsMessage } from "../../common/messages";
 
 export interface ScrapedElement extends HTMLElement {
@@ -84,8 +85,7 @@ export namespace RelationFinder {
           continue;
         }
         let columns = rel.columns;
-        let relXpaths = columns.map(
-          (col: ColumnSelectorMessage) => col.xpath);
+        let relXpaths = columns.map((col: ColumnSelectorI) => col.xpath);
         window.WALconsole.log(relXpaths);
 
         let matched = 0;
@@ -128,11 +128,11 @@ export namespace RelationFinder {
       xpaths);
 
     if (serverSuggestedRelations) {
-      for (const serverRel of serverSuggestedRelations) {
-        if (serverRel === null) {
+      for (const serverSelector of serverSuggestedRelations) {
+        if (serverSelector === null) {
           continue;
         }
-        let serverSelector = RelationSelector.fromMessage(serverRel);
+        // let serverSelector = RelationSelector.fromMessage(serverRel);
         let relationNodes = serverSelector.getMatchingRelation();
         if (relationNodes.length === 0){
           // no need to consider empty one
@@ -358,20 +358,24 @@ export namespace RelationFinder {
    * Send edited selector to the mainpanel.
    * @param selector selector
    */
-  export function sendEditedSelectorToMainpanel(selector: ContentSelector) {
-    let mainpanelSelector = {
-      ...selector,
-      demonstration_time_relation: MainpanelNode.convertRelation(
-        selector.relation),
-      relation: null,     // don't send the relation
+  export function sendEditedSelectorToMainpanel(selector: RelationSelector) {
+    if (!selector.relation) {
+      throw new ReferenceError("Relation not set on selector.");
+    }
 
-      // TODO: cjbaik: this seems like a bad idea
-      colors: window.helenaContent.relationHighlighter.highlightColors
-    };
+    let mainpanelSelector = <RelationSelector & EditRelationMessage> selector;
+
+    mainpanelSelector.demonstration_time_relation =
+      MainpanelNode.convertRelation(
+        <(HTMLElement | null)[][]> selector.relation
+    );
+    mainpanelSelector.relation = null;
+    mainpanelSelector.colors =
+      window.helenaContent.relationHighlighter.highlightColors;
 
     window.utilities.sendMessage("content", "mainpanel", "editRelation",
       mainpanelSelector);
-  };
+  }
 
   export function clearCurrentSelectorHighlight(){
     for (var i = 0; i < currentSelectorHighlightNodes.length; i++) {
@@ -580,7 +584,7 @@ export namespace RelationFinder {
         }
         let currColumnObj = currentSelectorToEdit.columns[
           currentSelectorToEdit.editingClickColumnIndex];
-        let currSuffixes = currColumnObj.suffix;
+        let currSuffixes = <XPath.SuffixXPathList[]> currColumnObj.suffix;
 
         // is this suffix already in our suffixes?  if yes, we can just add the
         //   ancestor/row node, don't need to mess with columns

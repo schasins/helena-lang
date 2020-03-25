@@ -1,4 +1,6 @@
-'use strict'
+import { PageVariable } from "../mainpanel/variables/page_variable";
+
+import { StatementTypes } from "../mainpanel/statements/statement_types";
 
 /**********************************************************************
  * Hiding the modifications to the internals of Ringer event objects
@@ -280,7 +282,7 @@ var ReplayScript = (function _ReplayScript() {
           trace[i].mayBeSkippable = true;
           continue;
         }
-        var p = new WebAutomationLanguage.PageVariable("page"+idCounter, url);
+        var p = new PageVariable("page"+idCounter, url);
         EventM.setLoadOutputPageVar(ev, p);
         urlsToMostRecentPageVar[url] = p;
         idCounter += 1;
@@ -368,8 +370,8 @@ var ReplayScript = (function _ReplayScript() {
     if (e1 === null || e2 === null){
       return true;
     }
-    var e1type = WebAutomationLanguage.statementType(e1);
-    var e2type = WebAutomationLanguage.statementType(e2);
+    var e1type = HelenaMainpanel.statementType(e1);
+    var e2type = HelenaMainpanel.statementType(e2);
     WALconsole.log("allowedInSameSegment?", e1type, e2type, e1, e2);
     // if either is invisible, can be together, because an invisible event allowed anywhere
     if (e1type === null || e2type === null){
@@ -408,7 +410,7 @@ var ReplayScript = (function _ReplayScript() {
     for (var i = 0; i < segments.length; i++){
       var segment = segments[i];
       var merge = false;
-      if (WebAutomationLanguage.statementType(segment[0]) === StatementTypes.KEYBOARD){
+      if (HelenaMainpanel.statementType(segment[0]) === StatementTypes.KEYBOARD){
         // ok, it's keyboard events
         WALconsole.log(segment[0].target);
         if (segment[0].target.snapshot.value === undefined && segment.length < 20){
@@ -433,11 +435,11 @@ var ReplayScript = (function _ReplayScript() {
     var currentSegmentVisibleEvent = null; // an event that should be shown to the user and thus determines the type of the statement
     _.each(trace, function(ev){
       if (allowedInSameSegment(currentSegmentVisibleEvent, ev)){
-        if (WebAutomationLanguage.statementType(ev) !== null){
-          WALconsole.log("stype(ev)", ev, WebAutomationLanguage.statementType(ev), currentSegmentVisibleEvent);
+        if (HelenaMainpanel.statementType(ev) !== null){
+          WALconsole.log("stype(ev)", ev, HelenaMainpanel.statementType(ev), currentSegmentVisibleEvent);
         }
         currentSegment.push(ev);
-        if (currentSegmentVisibleEvent === null && WebAutomationLanguage.statementType(ev) !== null ){ // only relevant to first segment
+        if (currentSegmentVisibleEvent === null && HelenaMainpanel.statementType(ev) !== null ){ // only relevant to first segment
           currentSegmentVisibleEvent = ev;
         }
       }
@@ -460,29 +462,29 @@ var ReplayScript = (function _ReplayScript() {
       var sType = null;
       for (var i = 0; i < seg.length; i++){
         var ev = seg[i];
-        var st = WebAutomationLanguage.statementType(ev);
+        var st = HelenaMainpanel.statementType(ev);
         if (st !== null){
           sType = st;
           if (sType === StatementTypes.LOAD){
-            statements.push(new WebAutomationLanguage.LoadStatement(seg));
+            statements.push(new HelenaMainpanel.LoadStatement(seg));
           }
           else if (sType === StatementTypes.MOUSE){
-            statements.push(new WebAutomationLanguage.ClickStatement(seg));
+            statements.push(new HelenaMainpanel.ClickStatement(seg));
           }
           else if (sType === StatementTypes.SCRAPE || sType === StatementTypes.SCRAPELINK){
-            statements.push(new WebAutomationLanguage.ScrapeStatement(seg));
+            statements.push(new HelenaMainpanel.ScrapeStatement(seg));
           }
           else if (sType === StatementTypes.KEYBOARD || sType === StatementTypes.KEYUP){
-            statements.push(new WebAutomationLanguage.TypeStatement(seg));
+            statements.push(new HelenaMainpanel.TypeStatement(seg));
           }
           else if (sType === StatementTypes.PULLDOWNINTERACTION){
-            statements.push(new WebAutomationLanguage.PulldownInteractionStatement(seg));
+            statements.push(new HelenaMainpanel.PulldownInteractionStatement(seg));
           }
           break;
         }
       }
     });
-    return new WebAutomationLanguage.Program(statements, addOutputStatement);
+    return new HelenaMainpanel.Program(statements, addOutputStatement);
   }
 
   return pub;

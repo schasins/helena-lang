@@ -1,5 +1,4 @@
 import { ColumnIndexMessage, LikelyRelationMessage,
-	SelectorMessage, 
 	FreshRelationItemsMessage} from "../common/messages";
 import { RelationFinder } from "./selector/relation_finding";
 import { RelationSelector } from "./selector/relation_selector";
@@ -42,21 +41,21 @@ declare global {
 
 // TODO: cjbaik: move all this stuff after we update `relation_finding.js`
 window.utilities.listenForMessage("mainpanel", "content", "getRelationItems",
-	(msg: SelectorMessage) => {
-		let selector = RelationSelector.fromMessage(msg);
+	(selector: RelationSelector) => {
+		// let selector = RelationSelector.fromMessage(msg);
 		RelationFinder.sendMatchingRelationToMainpanel(selector);
 	}
 );
 
 window.utilities.listenForMessage("mainpanel", "content",
-	"getFreshRelationItems", (msg: SelectorMessage) => {
-	let selector = RelationSelector.fromMessage(msg);
+	"getFreshRelationItems", (selector: RelationSelector) => {
+	// let selector = RelationSelector.fromMessage(msg);
 	RelationFinder.getFreshRelationItems(selector);
 });
 
 window.utilities.listenForMessage("mainpanel", "content", "editRelation",
-	(msg: SelectorMessage) => {
-		let selector = RelationSelector.fromMessage(msg);
+	(selector: RelationSelector) => {
+		// let selector = RelationSelector.fromMessage(msg);
 		RelationFinder.editRelation(selector);
 	}
 );
@@ -84,8 +83,8 @@ window.utilities.listenForMessage("mainpanel", "content", "pageStats", () => {
 });
 
 window.utilities.listenForMessage("mainpanel", "content", "runNextInteraction",
-	(msg: SelectorMessage) => {
-		let selector = RelationSelector.fromMessage(msg);
+	(selector: RelationSelector) => {
+		// let selector = RelationSelector.fromMessage(msg);
 		RelationFinder.getNextPage(selector);
 	}
 );
@@ -97,8 +96,8 @@ window.utilities.listenForMessage("mainpanel", "content", "currentColumnIndex",
 );
 
 window.utilities.listenForMessage("mainpanel", "content", "clearRelationInfo",
-	(msg: SelectorMessage) => {
-		let selector = RelationSelector.fromMessage(msg);
+	(selector: RelationSelector) => {
+		// let selector = RelationSelector.fromMessage(msg);
 		RelationFinder.clearRelationInfo(selector);
 	}
 );
@@ -120,8 +119,8 @@ window.utilities.listenForFrameSpecificMessage("mainpanel", "content",
 window.utilities.listenForFrameSpecificMessage("mainpanel", "content",
 	"getFreshRelationItems", (msg: object, sendResponse: Function) => {
 		window.MiscUtilities.registerCurrentResponseRequested(msg, 
-			(m: SelectorMessage) => {
-				let selector = RelationSelector.fromMessage(m);
+			(selector: RelationSelector) => {
+				// let selector = RelationSelector.fromMessage(m);
 				RelationFinder.getFreshRelationItemsHelper(selector,
 					(freshRelationItems: FreshRelationItemsMessage) => {
 						window.WALconsole.namedLog("getRelationItems", 'freshRelationItems, about to send', freshRelationItems.type, freshRelationItems);

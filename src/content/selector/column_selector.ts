@@ -8,11 +8,16 @@ import { ColumnSelectorMessage } from "../../common/messages";
   */
 export namespace ColumnSelector {
   export interface Interface {
-    xpath: string;
-    suffix: SuffixXPathList[]; // not single suffix, but a list of candidates
+    xpath?: string;
+    suffix?: SuffixXPathList[]; // not single suffix, but a list of candidates
     name?: string;
-    id: number | null;
+    id?: number | null;
     index?: number;
+    scraped?: boolean;
+
+    firstRowXpath?: string;
+    firstRowText?: string;
+    firstRowValue?: string;
   }
 
   export function fromMessage(msgCols: ColumnSelectorMessage[]) {
