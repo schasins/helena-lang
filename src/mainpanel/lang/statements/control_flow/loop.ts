@@ -1,6 +1,7 @@
 import * as Blockly from "blockly";
-
 import * as _ from "underscore";
+
+import { HelenaConsole } from "../../../../common/utils/helena_console";
 
 import { HelenaMainpanel } from "../../../helena_mainpanel";
 
@@ -18,6 +19,7 @@ import { TextRelation } from "../../../relation/text_relation";
 import { PageVariable } from "../../../variables/page_variable";
 import { StatementContainer } from "../container";
 import { HelenaProgram } from "../../program";
+import { Revival } from "../../../revival";
 
 /**
  * Loop statements not executed by run method, although may ultimately want to refactor to that
@@ -40,7 +42,7 @@ export class LoopStatement extends StatementContainer {
       pageVar: PageVariable) {
     super();
 
-    window.Revival.addRevivalLabel(this);
+    Revival.addRevivalLabel(this);
     this.setBlocklyLabel("loop");
 
     this.relation = relation;
@@ -71,7 +73,7 @@ export class LoopStatement extends StatementContainer {
     const addlVarNames = this.relation.columnName(this.relationColumnsUsed);
     varNames = [...new Set(varNames.concat(addlVarNames))];
 
-    window.WALconsole.log("loopstatement", varNames, addlVarNames);
+    HelenaConsole.log("loopstatement", varNames, addlVarNames);
     let prefix = "";
     if (this.relation instanceof TextRelation) {
       prefix = `for (${varNames.join(", ")} in ${this.relation.name}) {`; 
@@ -93,7 +95,7 @@ export class LoopStatement extends StatementContainer {
     if (!program) return;
 
     if (!relations || relations.length < 1) {
-      window.WALconsole.log("no relations yet so can't have loops in blockly.");
+      HelenaConsole.log("no relations yet so can't have loops in blockly.");
       return;
     }
 
@@ -312,7 +314,7 @@ export class LoopStatement extends StatementContainer {
   }
 
   public updateRelationNodeVariables(environment: EnvironmentPlaceholder) {
-    window.WALconsole.log("updateRelationNodeVariables");
+    HelenaConsole.log("updateRelationNodeVariables");
     this.relation.updateNodeVariables(environment, this.pageVar);
   }
 

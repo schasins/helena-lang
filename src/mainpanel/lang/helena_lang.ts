@@ -12,6 +12,7 @@ import { RunObject, RunOptions, HelenaProgram } from "./program";
 import { ClickStatement } from "./statements/page_action/click";
 import { TypeStatement } from "./statements/page_action/type";
 import { HelenaMainpanel } from "../helena_mainpanel";
+import { Revival } from "../revival";
 
 export type RingerStatement = (PageActionStatement | LoadStatement);
 export type OutputPageVarStatement = (LoadStatement | ClickStatement |
@@ -22,7 +23,7 @@ export interface StatementParameter {
   value: any;
 }
 
-export class HelenaLangObject implements Revivable {
+export class HelenaLangObject implements Revival.Revivable {
   public ___revivalLabel___: string;
 
   public block: Blockly.Block;

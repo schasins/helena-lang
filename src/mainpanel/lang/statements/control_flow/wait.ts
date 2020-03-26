@@ -7,6 +7,7 @@ import { HelenaLangObject } from "../../helena_lang";
 import { GenericRelation } from "../../../relation/generic";
 import { PageVariable } from "../../../variables/page_variable";
 import { HelenaProgram, RunOptions, RunObject } from "../../program";
+import { Revival } from "../../../revival";
 
 /**
  * No longer executed by Ringer but rather by own run method.
@@ -19,7 +20,7 @@ export class WaitStatement extends HelenaLangObject {
 
   constructor() {
     super();
-    window.Revival.addRevivalLabel(this);
+    Revival.addRevivalLabel(this);
     this.setBlocklyLabel("wait");
     this.wait = 0;
   }  

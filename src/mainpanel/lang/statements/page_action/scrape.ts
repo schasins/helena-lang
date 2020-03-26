@@ -1,5 +1,7 @@
 import * as Blockly from "blockly";
 
+import { HelenaConsole } from "../../../../common/utils/helena_console";
+
 import { HelenaMainpanel, NodeSources } from "../../../helena_mainpanel";
 
 import { NodeVariable } from "../../../variables/node_variable";
@@ -15,6 +17,7 @@ import { PageActionStatement } from "./page_action";
 import { GenericRelation } from "../../../relation/generic";
 import { PageVariable } from "../../../variables/page_variable";
 import { HelenaProgram, RunObject } from "../../program";
+import { Revival } from "../../../revival";
 
 export class ScrapeStatement extends PageActionStatement {
   public static maxDim = 50;
@@ -30,7 +33,7 @@ export class ScrapeStatement extends PageActionStatement {
 
   constructor(trace: EventMessage[]) {
     super();
-    window.Revival.addRevivalLabel(this);
+    Revival.addRevivalLabel(this);
     this.setBlocklyLabel("scrape");
 
     this.alternativeBlocklyLabel = "scrape_ringer";
@@ -264,7 +267,7 @@ export class ScrapeStatement extends PageActionStatement {
   }
 
   public parameterizeForRelation(relation: GenericRelation) {
-    window.WALconsole.log("scraping cleantrace", this.cleanTrace);
+    HelenaConsole.log("scraping cleantrace", this.cleanTrace);
 
     if (!this.pageVar) {
       throw new ReferenceError("Page var not set.");

@@ -94,9 +94,9 @@ export namespace Screenshot {
     tContext.drawImage(canvas, left, top, tempCanvas.width, tempCanvas.height,
       0, 0, tempCanvas.width, tempCanvas.height);
 
-    // WALconsole.log(canvas.width, canvas.height);
-    // WALconsole.log(left, right, top, bottom);
-    // WALconsole.log(tempCanvas.width, tempCanvas.height);
+    // HelenaConsole.log(canvas.width, canvas.height);
+    // HelenaConsole.log(left, right, top, bottom);
+    // HelenaConsole.log(tempCanvas.width, tempCanvas.height);
 
     return tempCanvas;
   }
@@ -153,7 +153,7 @@ export namespace Screenshot {
     // ok, looks like this is actually the first time seeing this, better
     //   actually canvasize it
     element.waitingForRender = true;
-    // WALconsole.log("going to render: ", node);
+    // HelenaConsole.log("going to render: ", node);
 
     html2canvas(element).then(function(canvas: HTMLCanvasElement) {
       canvas = identifyTransparentEdges(canvas);

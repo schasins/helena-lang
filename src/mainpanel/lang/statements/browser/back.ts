@@ -1,6 +1,9 @@
+import { HelenaConsole } from "../../../../common/utils/helena_console";
 import { HelenaLangObject } from "../../helena_lang";
 import { PageVariable } from "../../../variables/page_variable";
 import { RunObject, RunOptions } from "../../program";
+import { Revival } from "../../../revival";
+import { Messages } from "../../../../common/messages";
 
 export class BackStatement extends HelenaLangObject {
   public pageVarBack: PageVariable;
@@ -8,7 +11,7 @@ export class BackStatement extends HelenaLangObject {
   constructor(pageVarCurr: PageVariable,
       pageVarBack: PageVariable) {
     super();
-    window.Revival.addRevivalLabel(this);
+    Revival.addRevivalLabel(this);
     // setBlocklyLabel(this, "back");
     
     this.pageVarCurr = pageVarCurr;
@@ -31,7 +34,7 @@ export class BackStatement extends HelenaLangObject {
   public run(runObject: RunObject, rbbcontinuation: Function,
       rbboptions: RunOptions) {
     const self = this;
-    window.WALconsole.log("run back statement");
+    HelenaConsole.log("run back statement");
     
     // if something went wrong, we won't have a pagevar tabid, ugh
     if (!this.pageVarCurr.currentTabId()) {
@@ -48,9 +51,9 @@ export class BackStatement extends HelenaLangObject {
     //   process we started earlier that *just* decided to load a new top-level
     //   page but that should probably be rare.
     // todo: is that actually rare?
-    window.utilities.listenForMessageOnce("content", "mainpanel",
+    Messages.listenForMessageOnce("content", "mainpanel",
       "requestTabID", () => {
-        window.WALconsole.log("back completed");
+        HelenaConsole.log("back completed");
         if (pageVarTabId) {
           self.pageVarBack.setCurrentTabId(pageVarTabId,
             () => rbbcontinuation(rbboptions));
@@ -58,7 +61,7 @@ export class BackStatement extends HelenaLangObject {
     });
 
     // send a back message to pageVarCurr
-    window.utilities.sendMessage("mainpanel", "content", "backButton", {}, null,
+    Messages.sendMessage("mainpanel", "content", "backButton", {}, null,
       null, [pageVarTabId]);
     // todo: is it enough to just send this message and hope all goes well, or
     //   do we need some kind of acknowledgement?

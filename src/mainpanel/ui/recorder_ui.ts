@@ -1,11 +1,13 @@
 import * as _ from "underscore";
 import * as later from "later";
 
+import { HelenaConsole } from "../../common/utils/helena_console";
 import { HelenaUIBase } from "./helena_ui_base";
 
 import { ContentMessage, EditRelationMessage,
   NextButtonSelectorMessage, 
-  RelationResponse} from "../../common/messages";
+  RelationResponse,
+  Messages} from "../../common/messages";
 
 import { ColumnSelector } from "../../content/selector/column_selector";
 
@@ -16,6 +18,7 @@ import { AnnotationItem } from "../lang/statements/control_flow/skip_block";
 import { MainpanelNode } from "../../common/mainpanel_node";
 import { HelenaProgram, RunObject } from "../lang/program";
 import { LoadStatement } from "../lang/statements/browser/load";
+import { ScheduledRun } from "../../common/scheduled_run";
 
 function activateButton(div: JQuery<HTMLElement>, selector: string,
   handler: JQuery.EventHandlerBase<HTMLElement,
@@ -26,7 +29,6 @@ function activateButton(div: JQuery<HTMLElement>, selector: string,
 }
 
 interface Indexable {
-  // cjbaik: This is for the `updateBlocklyBlocks` function.
   // TODO: cjbaik: can we update that function and avoid this index sig?
   [key: string]: any;
 }
@@ -102,24 +104,24 @@ export class RecorderUI extends HelenaUIBase {
 
     const self = this;
     // messages received by this component
-    // utilities.listenForMessage("content", "mainpanel", "selectorAndListData",
+    // Messages.listenForMessage("content", "mainpanel", "selectorAndListData",
     //   processSelectorAndListData);
-    // utilities.listenForMessage("content", "mainpanel", "nextButtonData",
+    // Messages.listenForMessage("content", "mainpanel", "nextButtonData",
     //   processNextButtonData);
-    // utilities.listenForMessage("content", "mainpanel", "moreItems",
+    // Messages.listenForMessage("content", "mainpanel", "moreItems",
     //   moreItems);
-    window.utilities.listenForMessage("content", "mainpanel", "scrapedData",
+    Messages.listenForMessage("content", "mainpanel", "scrapedData",
       this.processScrapedData.bind(this));
-    window.utilities.listenForMessage("content", "mainpanel",
+    Messages.listenForMessage("content", "mainpanel",
       "requestCurrentRecordingWindows",
       this.sendCurrentRecordingWindows.bind(this));
-    window.utilities.listenForMessage("background", "mainpanel",
+    Messages.listenForMessage("background", "mainpanel",
       "runScheduledScript", this.runScheduledScript.bind(this));
-    window.utilities.listenForMessage("background", "mainpanel",
+    Messages.listenForMessage("background", "mainpanel",
       "pleasePrepareForRefresh", this.prepareForPageRefresh.bind(this));
-    window.utilities.listenForMessage("content", "mainpanel",
+    Messages.listenForMessage("content", "mainpanel",
       "requestRingerUseXpathFastMode", () =>
-        window.utilities.sendMessage("mainpanel", "content",
+        Messages.sendMessage("mainpanel", "content",
           "ringerUseXpathFastMode", {use: self.ringerUseXpathFastMode})
     );
     
@@ -197,7 +199,7 @@ export class RecorderUI extends HelenaUIBase {
   public sendCurrentRecordingWindows() {
     // the tabs will check whether they're in the window that's actually
     //   recording to figure out what UI stuff to show
-    window.utilities.sendMessage("mainpanel", "content",
+    Messages.sendMessage("mainpanel", "content",
       "currentRecordingWindows", {
         window_ids: window.recordingWindowIds
       }); 
@@ -283,7 +285,7 @@ export class RecorderUI extends HelenaUIBase {
   }
 
   public showProgramPreview(inProgress = false) {
-    window.WALconsole.log("showProgramPreview");
+    HelenaConsole.log("showProgramPreview");
     const div = $("#new_script_content");
     // let's put in the script_preview node
     window.DOMCreationUtilities.replaceContent(div, $("#script_preview"));
@@ -372,7 +374,7 @@ export class RecorderUI extends HelenaUIBase {
 
   public run(fastMode = false, params?: object) {
     const self = this;
-    window.WALconsole.log("Params: " + params);
+    HelenaConsole.log("Params: " + params);
     // first set the correct fast mode, which means setting it to false if we
     //   haven't gotten true passed in might still be on from last time
 
@@ -421,7 +423,7 @@ export class RecorderUI extends HelenaUIBase {
     this.tabs.tabs("option", "active", this.scriptRunCounter + 2);
 
     // update the panel to show pause, resume buttons
-    window.WALconsole.log("UI newRunTab");
+    HelenaConsole.log("UI newRunTab");
     const div = $("#" + tabDivId).find("#running_script_content");
     window.DOMCreationUtilities.replaceContent(div, $("#script_running"));
 
@@ -553,7 +555,7 @@ export class RecorderUI extends HelenaUIBase {
   public handleNewUploadedHelenaProgram(event: Event) {
     const self = this;
 
-    window.WALconsole.log("New program uploaded.");
+    HelenaConsole.log("New program uploaded.");
     const fileReader = new FileReader();
     fileReader.onload = () => {
       const str = fileReader.result;
@@ -601,7 +603,7 @@ export class RecorderUI extends HelenaUIBase {
   }
 
   public pauseRun(runObject: RunObject) {
-    window.WALconsole.log("Setting pause flag.");
+    HelenaConsole.log("Setting pause flag.");
     
     // next runbasicblock call will handle saving a continuation
     runObject.userPaused = true;
@@ -625,7 +627,7 @@ export class RecorderUI extends HelenaUIBase {
   }
 
   public restartRun(runObject: RunObject) {
-    window.WALconsole.log("Restarting.");
+    HelenaConsole.log("Restarting.");
     const div = $("#" + runObject.tab).find("#running_script_content");
     //div.find("#pause").button("option", "disabled", false);
     div.find("#resume").button("option", "disabled", true);
@@ -636,7 +638,7 @@ export class RecorderUI extends HelenaUIBase {
   public scheduleLater() {
     const self = this;
 
-    window.WALconsole.log("going to schedule later runs.");
+    HelenaConsole.log("going to schedule later runs.");
     const div = $("#new_script_content");
     window.DOMCreationUtilities.replaceContent(div, $("#schedule_a_run"));
     activateButton(div, "#schedule_a_run_done", () => {
@@ -648,9 +650,9 @@ export class RecorderUI extends HelenaUIBase {
         console.log(scheduleText, schedule);
       } else {
         // ok, everything is fine.  just save the thing
-        const scheduledRecord = {
+        const scheduledRecord: ScheduledRun = {
           schedule: scheduleText,
-          progId: self.currentHelenaProgram?.id
+          progId: <string> self.currentHelenaProgram?.id
         };
         window.chrome.storage.sync.get("scheduledRuns", (obj) => {
           if (!obj.scheduledRuns) {
@@ -663,7 +665,7 @@ export class RecorderUI extends HelenaUIBase {
             self.showProgramPreview(false);
             // and let's tell the background script to retrieve all the
             //   schedules so it will actually run them
-            window.utilities.sendMessage("mainpanel", "background",
+            Messages.sendMessage("mainpanel", "background",
               "scheduleScrapes", {});
           })
         });
@@ -700,7 +702,7 @@ export class RecorderUI extends HelenaUIBase {
     const self = this;
     console.log("Running scheduled script", data);
     // let's let the background script know that we got its message
-    window.utilities.sendMessage("mainpanel", "background",
+    Messages.sendMessage("mainpanel", "background",
       "runningScheduledScript", {});
     const progId = data.progId;
     this.loadSavedProgram(progId, () => {
@@ -748,7 +750,7 @@ export class RecorderUI extends HelenaUIBase {
         // ok, we're done.  we've closed the datasets for all the current run
         //   objects. we want to let the background page know that we refreshed,
         //   in case it was the one that requested it
-        window.utilities.sendMessage("mainpanel", "background",
+        Messages.sendMessage("mainpanel", "background",
           "readyToRefresh", {});
       } else {
         // still more run objects to process
@@ -771,13 +773,15 @@ export class RecorderUI extends HelenaUIBase {
     let bestLengthSoFar = 0;
     let heardAnswer = false;
     chrome.tabs.create({ url: relation.url, active: true }, (tab) => {
-      if (tab.id === undefined) {
+      const tabId = tab.id;
+      if (tabId === undefined) {
         throw new ReferenceError("Tab has no ID set.");
       }
-      self.showRelationEditor(relation, tab.id);
+      self.showRelationEditor(relation, tabId);
       const sendSelectorInfo = () => {
-        window.utilities.sendMessage("mainpanel", "content", "editRelation",
-          relation.messageRelationRepresentation(), null, null, [tab.id]);
+        Messages.sendMessage("mainpanel", "content", "editRelation",
+          relation.messageRelationRepresentation(), undefined, undefined,
+          [ tabId ]);
         };
       const sendSelectorInfoUntilAnswer = () => {
         $("#instructions_part_1").css("display", "none");
@@ -793,9 +797,10 @@ export class RecorderUI extends HelenaUIBase {
     });
     // now we've sent over the current selector info.  let's set up the listener
     //   that will update the preview (and the object)
-    window.utilities.listenForMessageWithKey("content", "mainpanel",
+    Messages.listenForMessageWithKey("content", "mainpanel",
       "editRelation", "editRelation",
-      (msg: RelationResponse & EditRelationMessage & ContentMessage) => {
+      (msg: RelationResponse & EditRelationMessage &
+          Messages.MessageContentWithTab) => {
         heardAnswer = true;
         if (msg.demonstration_time_relation.length >= bestLengthSoFar) {
           bestLengthSoFar = msg.demonstration_time_relation.length;
@@ -822,7 +827,7 @@ export class RecorderUI extends HelenaUIBase {
     const self = this;
     // show the UI for replacing the selector, which will basically be the same
     //   as the one we use for uploading a text relation in the first place
-    window.WALconsole.log("going to upload a replacement relation.");
+    HelenaConsole.log("going to upload a replacement relation.");
     const div = $("#new_script_content");
     window.DOMCreationUtilities.replaceContent(div, $("#upload_relation"));
     
@@ -865,7 +870,7 @@ export class RecorderUI extends HelenaUIBase {
 
   public updateDisplayedRelations(currentlyUpdating = false) {
     const self = this;
-    window.WALconsole.log("updateDisplayedRelation");
+    HelenaConsole.log("updateDisplayedRelation");
 
     if (!self.currentHelenaProgram) {
       throw new ReferenceError("currentHelenaProgram not set.");
@@ -920,7 +925,7 @@ export class RecorderUI extends HelenaUIBase {
       return;
     }
     for (const relation of relations) {
-      window.WALconsole.log("updateDisplayedRelations table");
+      HelenaConsole.log("updateDisplayedRelations table");
       const $relDiv = $("<div class=relation_preview></div>");
       $div.append($relDiv);
       let textRelation = relation.demonstrationTimeRelationText();
@@ -974,7 +979,7 @@ export class RecorderUI extends HelenaUIBase {
         self.currentHelenaProgram?.removeRelation(relation);
       });
       $relDiv.append(removeRelationButton);
-      window.WALconsole.log("Done with updateDisplayedRelations table");
+      HelenaConsole.log("Done with updateDisplayedRelations table");
 
       if (relation instanceof TextRelation) {
         const replaceRelationButton =
@@ -1026,15 +1031,15 @@ export class RecorderUI extends HelenaUIBase {
         const expl = div.find("#next_type_explanation");
         expl.html("Please click on the '" + buttonType + "' button now.");
 
-        window.utilities.listenForMessageOnce("content", "mainpanel",
+        Messages.listenForMessageOnce("content", "mainpanel",
         "nextButtonSelector", (data: NextButtonSelectorMessage) => {
           relation.nextButtonSelector = data.selector;
           expl.html("");
         });
-        window.utilities.sendMessage("mainpanel", "content",
+        Messages.sendMessage("mainpanel", "content",
           "nextButtonSelector", null, null, null, [tabId]);
       } else {
-        window.utilities.sendMessage("mainpanel", "content",
+        Messages.sendMessage("mainpanel", "content",
           "clearNextButtonSelector", null, null, null, [tabId]);
       }
     });
@@ -1072,7 +1077,7 @@ export class RecorderUI extends HelenaUIBase {
 
   public updateDisplayedRelation(relation: Relation, colors: string[]) {
     const self = this;
-    window.WALconsole.log("updateDisplayedRelation");
+    HelenaConsole.log("updateDisplayedRelation");
     const $relDiv = $("#new_script_content").find("#output_preview");
     $relDiv.html("");
 
@@ -1090,7 +1095,7 @@ export class RecorderUI extends HelenaUIBase {
         colorStyle + " ></input>");
       columnTitle.val(<string> column.name);
       columnTitle.change(() => {
-        window.WALconsole.log(columnTitle.val(), xpath);
+        HelenaConsole.log(columnTitle.val(), xpath);
         relation.setColumnName(column, <string> columnTitle.val());
         self.updateDisplayedScript();
       });
@@ -1120,7 +1125,7 @@ export class RecorderUI extends HelenaUIBase {
         "style='background-color:" + colors[i] + "'></div>");
       const col = columnLs[i].index;
       colorDiv.click(() => {
-        window.utilities.sendMessage("mainpanel", "content",
+        Messages.sendMessage("mainpanel", "content",
           "currentColumnIndex", { index: col }, null, null, [tabid]);
       });
       $div.append(colorDiv);
@@ -1132,7 +1137,7 @@ export class RecorderUI extends HelenaUIBase {
     const colorDiv = $("<div class='edit-relation-color-block' " + 
       "id='edit-relation-new-col-button'>New Col</div>");
     colorDiv.click(() => {
-      window.utilities.sendMessage("mainpanel", "content", "currentColumnIndex",
+      Messages.sendMessage("mainpanel", "content", "currentColumnIndex",
         {index: "newCol"}, null, null, [tabid]);
       }
     );
@@ -1141,7 +1146,7 @@ export class RecorderUI extends HelenaUIBase {
   }
 
   public updateDisplayedScript(updateBlockly = true) {
-    window.WALconsole.log("updateDisplayedScript");
+    HelenaConsole.log("updateDisplayedScript");
     const program = this.currentHelenaProgram;
     const scriptPreviewDiv =
       $("#new_script_content").find("#program_representation");
@@ -1212,7 +1217,7 @@ export class RecorderUI extends HelenaUIBase {
 
   public updateDuplicateDetection() {
     const self = this;
-    window.WALconsole.log("updateDuplicateDetection");
+    HelenaConsole.log("updateDuplicateDetection");
     const duplicateDetectionData =
       this.currentHelenaProgram?.getDuplicateDetectionData();
 
@@ -1319,7 +1324,7 @@ export class RecorderUI extends HelenaUIBase {
   }
 
   public updateCustomThresholds() {
-    window.WALconsole.namedLog("tooCommon", "updateCustomThresholds");
+    HelenaConsole.namedLog("tooCommon", "updateCustomThresholds");
     // program.relationFindingTimeoutThreshold and
     //   program.nextButtonAttemptsThreshold
     const prog = this.currentHelenaProgram;
@@ -1411,7 +1416,7 @@ export class RecorderUI extends HelenaUIBase {
   }
 
   public updateCustomWaits() {
-    window.WALconsole.namedLog("tooCommon", "updateCustomWaits");
+    HelenaConsole.namedLog("tooCommon", "updateCustomWaits");
 
     // program.relationFindingTimeoutThreshold and
     //   program.nextButtonAttemptsThreshold
@@ -1473,7 +1478,7 @@ export class RecorderUI extends HelenaUIBase {
 
   public updateNodeRequiredFeaturesUI() {
     const self = this;
-    window.WALconsole.log("updateNodeRequiredFeaturesUI");
+    HelenaConsole.log("updateNodeRequiredFeaturesUI");
     const similarityNodes =
       this.currentHelenaProgram?.getNodesFoundWithSimilarity();
 
@@ -1568,7 +1573,7 @@ export class RecorderUI extends HelenaUIBase {
               "</div>"));  
       }
     } else if (l < limit) {
-      window.WALconsole.log("adding output row: ", l);
+      HelenaConsole.log("adding output row: ", l);
       div.append(window.DOMCreationUtilities.arrayOfTextsToTableRow(
         listOfCellTexts));
     }
@@ -1578,7 +1583,7 @@ export class RecorderUI extends HelenaUIBase {
 
   public uploadRelation() {
     const self = this;
-    window.WALconsole.log("going to upload a relation.");
+    HelenaConsole.log("going to upload a relation.");
     const div = $("#new_script_content");
     window.DOMCreationUtilities.replaceContent(div, $("#upload_relation"));
     // and let's actually process changes
@@ -1600,7 +1605,7 @@ export class RecorderUI extends HelenaUIBase {
   public demonstrateRelation() {
     // for now we'll just assume we want to introduce a new relation on first
     //   page.  in future fix.  todo: fix
-    window.WALconsole.log("going to demo a relation.");
+    HelenaConsole.log("going to demo a relation.");
     const loadStmt = <LoadStatement> this.currentHelenaProgram?.statements[0];
     let pageVarName = loadStmt.outputPageVar.name;
     if (!pageVarName) {
@@ -1619,7 +1624,7 @@ export class RecorderUI extends HelenaUIBase {
 
   public handleNewUploadedRelation(event: JQuery.ChangeEvent) {
     const self = this;
-    window.WALconsole.log("New list uploaded.");
+    HelenaConsole.log("New list uploaded.");
     const fileName = event.target.files[0].name;
     const fileReader = new FileReader();
     fileReader.onload = () => {
@@ -1688,10 +1693,10 @@ export class RecorderUI extends HelenaUIBase {
 
   public loadSavedScripts() {
     const self = this;
-    window.WALconsole.log("going to load saved scripts.");
+    HelenaConsole.log("going to load saved scripts.");
     const savedScriptsDiv = $("#saved_script_list");
     const handler = (response: ServerSavedProgram[]) => {
-      window.WALconsole.log(response);
+      HelenaConsole.log(response);
       const arrayOfArrays = response.map((prog) => {
         const date = $.format.date(prog.date * 1000, "dd/MM/yyyy HH:mm")
         return [prog.name, date];
@@ -1701,9 +1706,9 @@ export class RecorderUI extends HelenaUIBase {
       const trs = html.find("tr");
       for (let i = 0; i < trs.length; i++) {
         const cI = i;
-        window.WALconsole.log("adding handler", trs[i], response[i].id);
+        HelenaConsole.log("adding handler", trs[i], response[i].id);
         $(trs[i]).click(() => {
-          window.WALconsole.log(cI);
+          HelenaConsole.log(cI);
           const id = response[cI].id;
           self.loadSavedProgram(id);
         });
@@ -1741,7 +1746,7 @@ export class RecorderUI extends HelenaUIBase {
             console.log("Saved the new unscheduled run.");
             // and let's tell the background script to retrieve all the
             //   schedules so it will update the ones it's keeping track of
-            window.utilities.sendMessage("mainpanel", "background",
+            Messages.sendMessage("mainpanel", "background",
               "scheduleScrapes", {});
           })
           self.loadScheduledScripts();
@@ -1756,7 +1761,7 @@ export class RecorderUI extends HelenaUIBase {
         pub.showProgramPreview(false);
         // and let's tell the background script to retrieve all the schedules so
         //   it will actually run them
-        utilities.sendMessage("mainpanel", "background", "scheduleScrapes", {});
+        Messages.sendMessage("mainpanel", "background", "scheduleScrapes", {});
       })
       */
     });
@@ -1764,7 +1769,7 @@ export class RecorderUI extends HelenaUIBase {
 
   public loadSavedDataset(datasetId: string) {
     const self = this;
-    window.WALconsole.log("loading dataset: ", datasetId);
+    HelenaConsole.log("loading dataset: ", datasetId);
     HelenaServerInteractions.loadSavedDataset(datasetId, (progId: string) => {
       self.loadSavedProgram(progId);
     });
@@ -1772,10 +1777,10 @@ export class RecorderUI extends HelenaUIBase {
 
   public loadSavedProgram(progId: string, continuation?: Function) {
     const self = this;
-    window.WALconsole.log("loading program: ", progId);
+    HelenaConsole.log("loading program: ", progId);
     HelenaServerInteractions.loadSavedProgram(progId,
       (resp: { program: ServerSavedProgram }) => {
-        window.WALconsole.log("received program: ", resp);
+        HelenaConsole.log("received program: ", resp);
         const revivedProgram = window.ServerTranslationUtilities.
           unJSONifyProgram(resp.program.serialized_program);
         

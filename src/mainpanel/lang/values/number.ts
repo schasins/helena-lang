@@ -1,20 +1,21 @@
-// TODO: cjbaik: doesn't appear to be used
-/*
 import * as Blockly from "blockly";
 
 import { HelenaMainpanel } from "../../helena_mainpanel";
 
 import { Value } from "./value";
 
-import { Relation } from "../../relation/relation";
+import { GenericRelation } from "../../relation/generic";
+import { PageVariable } from "../../variables/page_variable";
+import { HelenaProgram } from "../program";
+import { Revival } from "../../revival";
 
-export class Number extends Value {
+export class HelenaNumber extends Value {
   public static fieldName = 'numberFieldName';
 
   constructor() {
     super();
-    window.Revival.addRevivalLabel(this);
-    HelenaMainpanel.setBlocklyLabel(this, "num");
+    Revival.addRevivalLabel(this);
+    this.setBlocklyLabel("num");
     this.currentVal = null;
   }
 
@@ -27,26 +28,26 @@ export class Number extends Value {
   }
 
   public updateBlocklyBlock(program?: HelenaProgram,
-      pageVars?: PageVarPlaceholder[], relations?: Relation[]) {
+      pageVars?: PageVariable[], relations?: GenericRelation[]) {
     HelenaMainpanel.addToolboxLabel(this.blocklyLabel, "numbers");
     const defaultNum = 100;
     Blockly.Blocks[this.blocklyLabel] = {
       init: function(this: Blockly.Block) {
-        const helena = HelenaMainpanel.getWAL(this);
+        const helena = HelenaMainpanel.getHelenaStatement(this);
         if (!helena) {
-          HelenaMainpanel.setWAL(this, new Number());
+          HelenaMainpanel.setHelenaStatement(this, new HelenaNumber());
         }
 
         const block = this;
         this.appendDummyInput()
             .appendField(new Blockly.FieldNumber(defaultNum, undefined,
               undefined, undefined, (newNum: number) => {
-                (<Number> HelenaMainpanel.getWAL(block)).currentVal = newNum;
-              }), Number.fieldName);
+                (<HelenaNumber> HelenaMainpanel.getHelenaStatement(block)).currentVal = newNum;
+              }), HelenaNumber.fieldName);
 
         this.setOutput(true, 'number');
         this.setColour(25);
-        (<Number> HelenaMainpanel.getWAL(this)).currentVal = defaultNum;
+        (<HelenaNumber> HelenaMainpanel.getHelenaStatement(this)).currentVal = defaultNum;
       }
     };
   }
@@ -54,10 +55,10 @@ export class Number extends Value {
   public genBlocklyNode(prevBlock: Blockly.Block,
       workspace: Blockly.WorkspaceSvg) {
     this.block = workspace.newBlock(this.blocklyLabel);
-    HelenaMainpanel.setWAL(this.block, this);
+    HelenaMainpanel.setHelenaStatement(this.block, this);
     if (this.currentVal) {
-      this.block.setFieldValue(this.currentVal.toString(), Number.fieldName);
+      this.block.setFieldValue(this.currentVal.toString(), HelenaNumber.fieldName);
     }
     return this.block;
   }
-}*/
+}

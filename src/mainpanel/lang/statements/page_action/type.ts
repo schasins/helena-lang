@@ -8,7 +8,7 @@ import { NodeVariable } from "../../../variables/node_variable";
 import { NodeVariableUse } from "../../values/node_variable_use";
 
 import { Concatenate } from "../../values/concatenate";
-import { String } from "../../values/string";
+import { HelenaString } from "../../values/string";
 import { PageActionStatement } from "./page_action";
 import { EventMessage } from "../../../../common/messages";
 import { ColumnSelector } from "../../../../content/selector/column_selector";
@@ -16,12 +16,13 @@ import { MainpanelNode } from "../../../../common/mainpanel_node";
 import { GenericRelation } from "../../../relation/generic";
 import { PageVariable } from "../../../variables/page_variable";
 import { RunObject, RunOptions, HelenaProgram } from "../../program";
+import { Revival } from "../../../revival";
 
 /**
  * Statement representing a user taking the action of typing something.
  */
 export class TypeStatement extends PageActionStatement {
-  public currentTypedString: String | Concatenate | NodeVariableUse | null;
+  public currentTypedString: HelenaString | Concatenate | NodeVariableUse | null;
   public keyCodes: number[];
   public keyEvents: EventMessage[];
   public onlyKeydowns: boolean;
@@ -34,7 +35,7 @@ export class TypeStatement extends PageActionStatement {
 
   constructor(trace: EventMessage[]) {
     super();
-    window.Revival.addRevivalLabel(this);
+    Revival.addRevivalLabel(this);
     this.setBlocklyLabel("type");
     this.trace = trace;
     this.cleanTrace = HelenaMainpanel.cleanTrace(trace);
@@ -74,7 +75,7 @@ export class TypeStatement extends PageActionStatement {
     //   replay
     this.currentNode = HelenaMainpanel.makeNodeVariableForTrace(trace);
     this.origNode = this.node;
-    this.currentTypedString = new String(this.typedString);
+    this.currentTypedString = new HelenaString(this.typedString);
 
     // we want to do slightly different things for cases where the typestatement only has keydowns or only has keyups (as when ctrl, shift, alt used)
     const onlyKeydowns = textEntryEvents.every(
@@ -118,7 +119,7 @@ export class TypeStatement extends PageActionStatement {
     let stringRep = "";
     if (this.currentTypedString instanceof Concatenate) {
       stringRep = this.currentTypedString.toString();
-    } else if (this.currentTypedString instanceof String) {
+    } else if (this.currentTypedString instanceof HelenaString) {
       stringRep = <string> this.currentTypedString.getCurrentVal();
     }
     return stringRep;
@@ -180,7 +181,7 @@ export class TypeStatement extends PageActionStatement {
       workspace: Blockly.WorkspaceSvg) {
     if (this.onlyKeyups || this.onlyKeydowns ||
        (this.currentTypedString &&
-          (this.currentTypedString instanceof String ||
+          (this.currentTypedString instanceof HelenaString ||
              this.currentTypedString instanceof Concatenate) &&
           !this.currentTypedString.hasText())) {
       return null;
@@ -207,7 +208,7 @@ export class TypeStatement extends PageActionStatement {
       .connection.targetBlock();
     if (currentTypedString) {
       this.currentTypedString =
-        <String | Concatenate> HelenaMainpanel.getHelenaStatement(currentTypedString).
+        <HelenaString | Concatenate> HelenaMainpanel.getHelenaStatement(currentTypedString).
           getHelena();
     } else {
       this.currentTypedString = null;
@@ -277,7 +278,7 @@ export class TypeStatement extends PageActionStatement {
       const components = [];
       const left = string.slice(0, startIndex);
       if (left.length > 0) {
-        components.push(new String(left));
+        components.push(new HelenaString(left));
       }
 
       const nodevaruse = new NodeVariableUse(
@@ -288,7 +289,7 @@ export class TypeStatement extends PageActionStatement {
       const right = string.slice(startIndex +
         (<string> this.typedString).length, string.length);
       if (right.length > 0) {
-        components.push(new String(right));
+        components.push(new HelenaString(right));
       }
 
       let finalNode = null;
@@ -335,7 +336,7 @@ export class TypeStatement extends PageActionStatement {
   public unParameterizeForRelation(relation: GenericRelation) {
     this.unParameterizeNodeWithRelation(relation);
     if (this.typedStringParameterizationRelation === relation) {
-      this.currentTypedString = new String(this.typedString);
+      this.currentTypedString = new HelenaString(this.typedString);
     }
   }
 

@@ -11,7 +11,6 @@ var markTimedOut;
 var markNonExistantFeatures;
 var ringerUseXpathFastMode = false; // good for speed, bad for evolving webpages.
 
-
 utilities.listenForMessage("mainpanel", "content", "ringerUseXpathFastMode", function(msg){ringerUseXpathFastMode = msg.use;});
 utilities.sendMessage("content", "mainpanel", "requestRingerUseXpathFastMode", {});
 

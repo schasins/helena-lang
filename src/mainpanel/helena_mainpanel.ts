@@ -2,6 +2,7 @@ import * as _ from "underscore";
 import * as Blockly from "blockly";
 
 import { EventMessage } from "../common/messages";
+import { HelenaConsole } from "../common/utils/helena_console";
 
 import { NodeVariable } from "./variables/node_variable";
 
@@ -17,6 +18,19 @@ import { NodeVariableUse } from "./lang/values/node_variable_use";
 import { RecorderUI } from "./ui/recorder_ui";
 import { PageVariable } from "./variables/page_variable";
 import { HelenaProgram } from "./lang/program";
+import { Revival } from "./revival";
+import { Relation } from "./relation/relation";
+import { TextRelation } from "./relation/text_relation";
+import { Concatenate } from "./lang/values/concatenate";
+import { HelenaNumber } from "./lang/values/number";
+import { HelenaString } from "./lang/values/string";
+import { BackStatement } from "./lang/statements/browser/back";
+import { ClosePageStatement } from "./lang/statements/browser/close_page";
+import { SkipBlock } from "./lang/statements/control_flow/skip_block";
+import { ClickStatement } from "./lang/statements/page_action/click";
+import { PulldownInteractionStatement } from "./lang/statements/page_action/pulldown_interaction";
+import { ScrapeStatement } from "./lang/statements/page_action/scrape";
+import { OutputRowStatement } from "./lang/statements/output_row";
 
 let statementToEventMapping = {
   mouse: ['click','dblclick','mousedown','mousemove','mouseout','mouseover',
@@ -57,18 +71,39 @@ export class HelenaMainpanel {
   
   public static UIObject: RecorderUI;
 
+  public static revivable: {
+    [key: string]: Revival.Prototype
+  } = {
+    "NodeVariable": NodeVariable,
+    "PageVariable": PageVariable,
+    "Relation": Relation,
+    "TextRelation": TextRelation,
+    "HelenaProgram": HelenaProgram,
+    "Concatenate": Concatenate,
+    "NodeVariableUse": NodeVariableUse,
+    "HelenaNumber": HelenaNumber,
+    "HelenaString": HelenaString,
+    "BackStatement": BackStatement,
+    "ClosePageStatement": ClosePageStatement,
+    "LoadStatement": LoadStatement,
+    "LoopStatement": LoopStatement,
+    "SkipBlock": SkipBlock,
+    "WaitStatement": WaitStatement,
+    "ClickStatement": ClickStatement,
+    "PulldownInteractionStatement": PulldownInteractionStatement,
+    "ScrapeStatement": ScrapeStatement,
+    "TypeStatement": TypeStatement,
+    "OutputRowStatement": OutputRowStatement
+  };
+
   constructor(obj: RecorderUI) {
     HelenaMainpanel.UIObject = obj;
     window.Environment.setUIObject(obj);
 
     // time to apply labels for revival purposes
-    for (const prop in HelenaMainpanel) {
-      console.error("TODO: cjbaik: fix this reference to pub!");
-      if (typeof (<Indexable> HelenaMainpanel)[prop] === "function") {
-        window.WALconsole.log("making revival label for ", prop);
-        window.Revival.introduceRevivalLabel(prop,
-          (<Indexable> HelenaMainpanel)[prop]);
-      }
+    for (const prop in HelenaMainpanel.revivable) {
+      HelenaConsole.log("making revival label for ", prop);
+      Revival.introduceRevivalLabel(prop, HelenaMainpanel.revivable[prop]);
     }
 
     // make one so we'll add the blocklylabel
@@ -207,7 +242,7 @@ export class HelenaMainpanel {
       const thisBlockConnection = currBlock.previousConnection;
       prevBlockConnection.connect(thisBlockConnection);
     } else {
-      window.WALconsole.warn("Woah, tried to attach to a null prevBlock!");
+      HelenaConsole.warn("Woah, tried to attach to a null prevBlock!");
     }
   }
 
@@ -215,7 +250,7 @@ export class HelenaMainpanel {
   public static attachNestedBlocksToWrapper(wrapperBlock: Blockly.Block | null,
       firstNestedBlock: Blockly.Block | null) {
     if (!wrapperBlock || !firstNestedBlock) {
-      window.WALconsole.warn("Woah, tried attachNestedBlocksToWrapper with",
+      HelenaConsole.warn("Woah, tried attachNestedBlocksToWrapper with",
         wrapperBlock, firstNestedBlock);
       return;
     }
@@ -227,7 +262,7 @@ export class HelenaMainpanel {
   public static attachToInput(leftBlock: Blockly.Block,
       rightBlock: Blockly.Block, name: string) {
     if (!leftBlock || !rightBlock || !name) {
-      window.WALconsole.warn("Woah, tried attachToInput with", leftBlock,
+      HelenaConsole.warn("Woah, tried attachToInput with", leftBlock,
         rightBlock, name);
       return;
     }
@@ -239,7 +274,7 @@ export class HelenaMainpanel {
   public static attachInputToOutput(leftBlock: Blockly.Block,
       rightBlock: Blockly.Block) {
     if (!leftBlock || !rightBlock) {
-      window.WALconsole.warn("Woah, tried attachInputToOutput with", leftBlock,
+      HelenaConsole.warn("Woah, tried attachInputToOutput with", leftBlock,
         rightBlock);
       return;
     }
@@ -430,50 +465,52 @@ export class HelenaMainpanel {
     throw new ReferenceError("Invalid NodeVariable name.");
   }
 
-  public static updateBlocklyBlocks(program: HelenaProgram | null) {
-    // have to update the current set of blocks based on our pageVars,
-    //   relations, so on
-
+  /**
+   * Updates blocks available for the toolbox based on our pageVars, relations,
+   *   and so on.
+   * @param program 
+   */
+  public static updateToolboxBlocks(program: HelenaProgram | null) {
     // this is silly, but just making a new object for each of our statements is
     //   an easy way to get access to the updateBlocklyBlock function and still
     //   keep it an instance method/right next to the genBlockly function
-    const toolBoxBlocks = ["Number", "NodeVariableUse", "String", "Concatenate",
-      "IfStatement", "WhileStatement", "ContinueStatement", "BinOpString",
-      "BinOpNum", "LengthString", "BackStatement", "ClosePageStatement",
-      "WaitStatement", "WaitUntilUserReadyStatement", "SayStatement"];
+    // const toolBoxBlocks = ["Number", "NodeVariableUse", "String", "Concatenate",
+    //   "IfStatement", "WhileStatement", "ContinueStatement", "BinOpString",
+    //   "BinOpNum", "LengthString", "BackStatement", "ClosePageStatement",
+    //   "WaitStatement", "WaitUntilUserReadyStatement", "SayStatement"];
+    
+    // TODO: cjbaik: maybe make a map for these somewhere?
+    const toolBoxBlocks = ["HelenaNumber", "NodeVariableUse", "HelenaString",
+      "Concatenate", "BackStatement", "ClosePageStatement", "WaitStatement"];
     
     // let's also add in other nodes which may not have been used in programs
     // so far, but which we want to include in the toolbox no matter what
     const origBlocks = HelenaMainpanel.blocklyNames;
     const allDesiredBlocks = origBlocks.concat(toolBoxBlocks);
-
     for (const prop of allDesiredBlocks) {
-      if (typeof (<Indexable> HelenaMainpanel)[prop] === "function") {
-          try {
-            console.error("TODO: cjbaik: fix this reference to `pub`");
-            let obj = new (<Indexable> HelenaMainpanel)[prop]();
+      try {
+        let obj = new HelenaMainpanel.revivable[prop]();
 
-            if (obj && obj.updateBlocklyBlock) {
-              if (program) {
-                obj.updateBlocklyBlock(program, program.pageVars,
-                  program.relations)
-              } else {
-                obj.updateBlocklyBlock();
-              }
-            }
-          } catch(err) {
-            console.log("Couldn't create new object for prop:", prop,
-              "probably by design.");
-            console.log(err);
+        if (obj && obj instanceof HelenaLangObject) {
+          if (program) {
+            obj.updateBlocklyBlock(program, program.pageVars,
+              program.relations)
+          } else {
+            obj.updateBlocklyBlock();
           }
+        }
+      } catch(err) {
+        console.log("Couldn't create new object for prop:", prop,
+          "probably by design.");
+        console.log(err);
       }
     }
 
     // let's just warn about what things (potentially blocks!) aren't being
     //   included
-    for (const prop in HelenaMainpanel) {
+    for (const prop in HelenaMainpanel.revivable) {
       if (!allDesiredBlocks.includes(prop)) {
-        window.WALconsole.log("NOT INCLUDING PROP:", prop);
+        HelenaConsole.log("NOT INCLUDING PROP:", prop);
       }
     }
     return;

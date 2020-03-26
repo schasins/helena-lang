@@ -7,7 +7,7 @@ import { NodeVariableUse } from "../../values/node_variable_use";
 
 import { HelenaLangObject } from "../../helena_lang";
 
-import { String } from "../../values/string";
+import { HelenaString } from "../../values/string";
 import { Concatenate } from "../../values/concatenate";
 
 import { EventMessage } from "../../../../common/messages";
@@ -15,11 +15,12 @@ import { GenericRelation } from "../../../relation/generic";
 import { PageVariable } from "../../../variables/page_variable";
 import { RunObject, HelenaProgram, RunOptions,
   TraceContributions } from "../../program";
+import { Revival } from "../../../revival";
 
 export class LoadStatement extends HelenaLangObject {
   public cleanTrace: EventMessage[];
   public contributesTrace?: TraceContributions;
-  public currentUrl: string | String | NodeVariable | NodeVariableUse |
+  public currentUrl: string | HelenaString | NodeVariable | NodeVariableUse |
     Concatenate | null;
   public outputPageVar: PageVariable;
   public outputPageVars: PageVariable[];
@@ -29,7 +30,7 @@ export class LoadStatement extends HelenaLangObject {
 
   constructor(trace: EventMessage[]) {
     super();
-    window.Revival.addRevivalLabel(this);
+    Revival.addRevivalLabel(this);
     this.setBlocklyLabel("load");
 
     this.trace = trace;
@@ -44,7 +45,7 @@ export class LoadStatement extends HelenaLangObject {
 
     // for now, assume the ones we saw at record time are the ones we'll want at
     //   replay
-    this.currentUrl = new String(this.url);
+    this.currentUrl = new HelenaString(this.url);
 
     // usually 'completed' events actually don't affect replayer -- won't load a
     //   new page in a new tab just because we have one.  want to tell replayer
@@ -57,7 +58,7 @@ export class LoadStatement extends HelenaLangObject {
   public run(runObject: RunObject, rbbcontinuation: Function,
       rbboptions: RunOptions) {
     if (this.currentUrl &&
-        (this.currentUrl instanceof String ||
+        (this.currentUrl instanceof HelenaString ||
          this.currentUrl instanceof NodeVariableUse ||
          this.currentUrl instanceof Concatenate)) {
       this.currentUrl.run(runObject, rbbcontinuation, rbboptions);
@@ -80,7 +81,7 @@ export class LoadStatement extends HelenaLangObject {
         throw new ReferenceError("Current URL value is not a string!");
       }
       return val;
-    } else if (this.currentUrl instanceof String) {
+    } else if (this.currentUrl instanceof HelenaString) {
       return this.currentUrl.getCurrentVal();
     } else if (this.currentUrl instanceof Concatenate) {
       this.currentUrl.updateCurrentVal();
@@ -107,7 +108,7 @@ export class LoadStatement extends HelenaLangObject {
       // let's go ahead and correct it now
       
       // we'll make a little string node for it
-      this.currentUrl = new String(this.currentUrl);
+      this.currentUrl = new HelenaString(this.currentUrl);
     }
 
     if (this.currentUrl instanceof NodeVariable) {
@@ -167,7 +168,7 @@ export class LoadStatement extends HelenaLangObject {
     // ok, but we also want to update our own url object
     const url = this.block.getInput('url').connection.targetBlock();
     if (url) {
-      this.currentUrl = <String | Concatenate | NodeVariableUse>
+      this.currentUrl = <HelenaString | Concatenate | NodeVariableUse>
         HelenaMainpanel.getHelenaStatement(url).getHelena();
     } else {
       this.currentUrl = null;
@@ -178,7 +179,7 @@ export class LoadStatement extends HelenaLangObject {
   public traverse(fn: Function, fn2: Function) {
     fn(this);
     if (this.currentUrl &&
-        (this.currentUrl instanceof String ||
+        (this.currentUrl instanceof HelenaString ||
          this.currentUrl instanceof NodeVariableUse ||
          this.currentUrl instanceof Concatenate)) {
       this.currentUrl.traverse(fn, fn2);

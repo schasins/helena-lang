@@ -3,6 +3,8 @@ import * as $ from "jquery";
 import { ScrapeModeHandlers } from "./scrape_mode_handlers";
 import { ScrapingTooltip } from "../ui/scraping_tooltip";
 
+import { HelenaConsole } from "../../common/utils/helena_console";
+
 /** 
  * Handlers for user events on the content side while recording.
  */
@@ -130,7 +132,7 @@ export namespace RecordingModeHandlers {
   
     let addedOverlay = false;
     export function applyReplayOverlayIfAppropriate(replayWindowId: number) {
-      window.WALconsole.namedLog("tooCommon", "applyReplayOverlayIfAppropriate",
+      HelenaConsole.namedLog("tooCommon", "applyReplayOverlayIfAppropriate",
         replayWindowId, window.helenaContent.windowId, addedOverlay);
       
       // only apply it if we're in the replay window, if we haven't already

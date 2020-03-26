@@ -1,6 +1,8 @@
 import * as Blockly from "blockly";
 import * as _ from "underscore";
 
+import { HelenaConsole } from "../../../../common/utils/helena_console";
+
 import { HelenaMainpanel } from "../../../helena_mainpanel";
 
 import { HelenaLangObject } from "../../helena_lang";
@@ -12,6 +14,7 @@ import { SkipBlockResponse } from "../../../../common/messages";
 import { GenericRelation } from "../../../relation/generic";
 import { StatementContainer } from "../container";
 import { RunObject, RunOptions } from "../../program";
+import { Revival } from "../../../revival";
 
 enum SkippingStrategies {
   ALWAYS = "always",
@@ -88,8 +91,8 @@ export class SkipBlock extends StatementContainer {
       availableAnnotationItems: AnnotationItem[],
       bodyStatements: HelenaLangObject[]) {
     super();
-    window.Revival.addRevivalLabel(this);
-    this.setBlocklyLabel("duplicate_annotation");
+    Revival.addRevivalLabel(this);
+    this.setBlocklyLabel("skip_block");
     
     this.annotationItems = annotationItems;
     this.availableAnnotationItems = availableAnnotationItems;
@@ -436,7 +439,7 @@ export class SkipBlock extends StatementContainer {
           //   we're ready to skip to the next so actually nothing should happen
           //   the whole entityscope should be a no-op
           self.duplicatesInARow += 1;
-          window.WALconsole.namedLog("duplicates", "new duplicate",
+          HelenaConsole.namedLog("duplicates", "new duplicate",
             self.duplicatesInARow);
           if (rbboptions.breakAfterXDuplicatesInARow &&
               self.duplicatesInARow >= rbboptions.breakAfterXDuplicatesInARow) {
@@ -485,7 +488,7 @@ export class SkipBlock extends StatementContainer {
       } else if (item.attr === "LINK") {
         val = <string> nodeVar.currentLink(environment);
       } else { 
-        window.WALconsole.warn("yo, we don't know what kind of attr we're " +
+        HelenaConsole.warn("yo, we don't know what kind of attr we're " +
           "looking for: ", item.attr);
       }
       rep.push({
@@ -537,7 +540,7 @@ export class SkipBlock extends StatementContainer {
     else if (strat === SkippingStrategies.SOMETIMESLOGICAL) {
       rep.logical_time_diff = this.logicalTime; // the run id is already associated, so we only need to know how many back we're allowed to go
     } else {
-      window.WALconsole.warn("Woah, there was a skipping strategy that we " +
+      HelenaConsole.warn("Woah, there was a skipping strategy that we " +
         "actually don't support: ", strat);
     }
     return rep;
@@ -587,7 +590,7 @@ function transactionToHash(currentTransaction: TransactionItem[]) {
     transactionStr += "_" + item.attr + "___" + item.val;
   }
   const h = hash(transactionStr);
-  window.WALconsole.log(transactionStr, h);
+  HelenaConsole.log(transactionStr, h);
   return h;
 }
 

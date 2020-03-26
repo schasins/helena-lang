@@ -2,24 +2,25 @@ import * as Blockly from "blockly";
 
 import { HelenaMainpanel } from "../../helena_mainpanel";
 
-import { String } from "./string";
+import { HelenaString } from "./string";
 import { Value } from "./value";
 
 import { NodeVariableUse } from "./node_variable_use";
 import { GenericRelation } from "../../relation/generic";
 import { PageVariable } from "../../variables/page_variable";
 import { RunObject, HelenaProgram, RunOptions } from "../program";
+import { Revival } from "../../revival";
 
 export class Concatenate extends Value {
   public currentVal: string;
-  public left?: String | NodeVariableUse | Concatenate;
-  public right?: String | NodeVariableUse | Concatenate;
+  public left?: HelenaString | NodeVariableUse | Concatenate;
+  public right?: HelenaString | NodeVariableUse | Concatenate;
 
-  constructor(left?: String | NodeVariableUse | Concatenate,
-              right?: String | NodeVariableUse | Concatenate) {
+  constructor(left?: HelenaString | NodeVariableUse | Concatenate,
+              right?: HelenaString | NodeVariableUse | Concatenate) {
     super();
 
-    window.Revival.addRevivalLabel(this);
+    Revival.addRevivalLabel(this);
     this.setBlocklyLabel("concatenate");
   
     this.left = left;
@@ -84,13 +85,13 @@ export class Concatenate extends Value {
     const leftBlock = this.block.getInput('left').connection.targetBlock();
     const rightBlock = this.block.getInput('right').connection.targetBlock();
     if (leftBlock) {
-      this.left = <String> HelenaMainpanel.getHelenaStatement(leftBlock).getHelena();
+      this.left = <HelenaString> HelenaMainpanel.getHelenaStatement(leftBlock).getHelena();
     } else {
       this.left = undefined;
     }
 
     if (rightBlock) {
-      this.right = <String> HelenaMainpanel.getHelenaStatement(rightBlock).getHelena();
+      this.right = <HelenaString> HelenaMainpanel.getHelenaStatement(rightBlock).getHelena();
     } else {
       this.right = undefined;
     }

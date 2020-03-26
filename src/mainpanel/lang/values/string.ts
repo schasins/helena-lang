@@ -7,15 +7,16 @@ import { Value } from "./value";
 import { GenericRelation } from "../../relation/generic";
 import { PageVariable } from "../../variables/page_variable";
 import { HelenaProgram } from "../program";
+import { Revival } from "../../revival";
 
-export class String extends Value {
+export class HelenaString extends Value {
   public static fieldName = 'stringFieldName';
 
   public currentVal: string;
 
   constructor(currString?: string) {
     super();
-    window.Revival.addRevivalLabel(this);
+    Revival.addRevivalLabel(this);
     this.setBlocklyLabel("string");
 
     if (currString || currString === "") {
@@ -44,20 +45,20 @@ export class String extends Value {
       init: function(this: Blockly.Block) {
         const helena = HelenaMainpanel.getHelenaStatement(this);
         if (!helena) {
-          HelenaMainpanel.setHelenaStatement(this, new String());
+          HelenaMainpanel.setHelenaStatement(this, new HelenaString());
         }
 
         this.appendDummyInput()
             .appendField(new Blockly.FieldTextInput(text,
               function (newStr: string) {
                 const helenaStr =
-                  <String> HelenaMainpanel.getHelenaStatement(this.sourceBlock_);
+                  <HelenaString> HelenaMainpanel.getHelenaStatement(this.sourceBlock_);
                 helenaStr.currentVal = newStr;
-              }), String.fieldName);
+              }), HelenaString.fieldName);
 
         this.setOutput(true, 'string');
         this.setColour(25);
-        const helenaStr = <String> HelenaMainpanel.getHelenaStatement(this);
+        const helenaStr = <HelenaString> HelenaMainpanel.getHelenaStatement(this);
         helenaStr.currentVal = text;
       }
     };
@@ -68,7 +69,7 @@ export class String extends Value {
     this.block = workspace.newBlock(this.blocklyLabel);
     HelenaMainpanel.setHelenaStatement(this.block, this);
     if (this.currentVal) {
-      this.block.setFieldValue(this.currentVal, String.fieldName);
+      this.block.setFieldValue(this.currentVal, HelenaString.fieldName);
     }
     return this.block;
   }

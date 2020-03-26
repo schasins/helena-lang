@@ -1,12 +1,15 @@
 import * as _ from "underscore";
 
+import { HelenaConsole } from "../../common/utils/helena_console";
 import { HelenaMainpanel, NodeSources } from "../helena_mainpanel";
 import { MainpanelNode } from "../../common/mainpanel_node";
 import { PageVariable } from "./page_variable";
+import { Revival } from "../revival";
 
-export class NodeVariable {
+export class NodeVariable implements Revival.Revivable {
   public static counter = 0;
 
+  public ___revivalLabel___: string;
   public name: string | null;
   public nodeSource?: number;
   private privateName: string;
@@ -20,7 +23,7 @@ export class NodeVariable {
       mainpanelRep?: MainpanelNode.Interface | null,
       recordedNodeSnapshot?: MainpanelNode.Interface | null,
       imgData?: string | null, source?: number) {
-    window.Revival.addRevivalLabel(this);
+    Revival.addRevivalLabel(this);
 
     if (!name) {
       NodeVariable.counter += 1;
@@ -159,7 +162,7 @@ export class NodeVariable {
   public setCurrentNodeRep(environment: EnvironmentPlaceholder,
     nodeRep: MainpanelNode.Interface | null) {
     // todo: should be a better way to get env
-    window.WALconsole.log("setCurrentNodeRep", this.getName(), nodeRep);
+    HelenaConsole.log("setCurrentNodeRep", this.getName(), nodeRep);
     environment.envBind(this.getName(), nodeRep);
   };
 

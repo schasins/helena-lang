@@ -1,5 +1,8 @@
 import { RelationSelector } from "../selector/relation_selector";
 
+import { HelenaConsole } from "../../common/utils/helena_console";
+import { Messages } from "../../common/messages";
+
 /**
  * TODO: cjbaik: returned from Helena back-end server.
  *   Not sure what all parameters mean yet.
@@ -36,13 +39,13 @@ export class RelationHighlighter {
     // have to use postForMe right now to make the extension make a POST
     // request because modern Chrome won't let us request http content from
     // https pages and we don't currently have ssl certificate for kaofang
-    window.utilities.sendMessage("content", "background", "postForMe", {
+    Messages.sendMessage("content", "background", "postForMe", {
       url: helenaServerUrl + '/allpagerelations',
       params: {url: window.location.href }
     });
-    window.utilities.listenForMessageOnce("background", "content", "postForMe",
+    Messages.listenForMessageOnce("background", "content", "postForMe",
       function (resp: { relations: string[] }) {
-        window.WALconsole.log(resp);
+        HelenaConsole.log(resp);
         self.preprocessKnownRelations(resp.relations);
       }
     );

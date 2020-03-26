@@ -1,5 +1,7 @@
 import * as $ from "jquery";
 
+import { Messages } from "../../common/messages";
+
 import { PulldownSelector, ContentSelector, ComparisonSelector,
   RelationSelector, TableSelector } from "./relation_selector";
 
@@ -16,6 +18,8 @@ import SuffixXPathList = XPath.SuffixXPathList;
 
 import { EditRelationMessage, LikelyRelationMessage,
   FreshRelationItemsMessage } from "../../common/messages";
+
+import { HelenaConsole } from "../../common/utils/helena_console";
 
 export interface ScrapedElement extends HTMLElement {
   ___relationFinderId___?: number;
@@ -86,7 +90,7 @@ export namespace RelationFinder {
         }
         let columns = rel.columns;
         let relXpaths = columns.map((col: ColumnSelectorI) => col.xpath);
-        window.WALconsole.log(relXpaths);
+        HelenaConsole.log(relXpaths);
 
         let matched = 0;
         for (const xpath of nonPulldownXPaths) {
@@ -99,7 +103,7 @@ export namespace RelationFinder {
           maxNodesCoveredByServerRelations = matched;
         }
       }
-      window.WALconsole.log("maxNodesCoveredByServerRelations",
+      HelenaConsole.log("maxNodesCoveredByServerRelations",
         maxNodesCoveredByServerRelations);
     }
 
@@ -160,7 +164,7 @@ export namespace RelationFinder {
     // todo: in future, consider adding more than one additional selector --
     //   may need up to one selector per column but for now, we'll try one
     let uncoveredSoFar = unmatchedXpaths(xpaths, curBestSelector.relation[0]);
-    window.WALconsole.log("uncoveredSoFar", uncoveredSoFar);
+    HelenaConsole.log("uncoveredSoFar", uncoveredSoFar);
     if (uncoveredSoFar.length > 0) {
       // let's see if we can cover as many as possible of the remaining nodes
       let uncoveredNodes = XPath.getFirstElementOfEach(uncoveredSoFar);
@@ -170,11 +174,11 @@ export namespace RelationFinder {
       //   sense to pair them
       if (newSelector &&
         curBestSelector.relation?.length === newSelector.relation?.length){
-        window.WALconsole.log("We're adding an additional selector.", newSelector);
+        HelenaConsole.log("We're adding an additional selector.", newSelector);
         curBestSelector.merge(newSelector);
         let rel = curBestSelector.getMatchingRelation();
         curBestSelector.relation = MainpanelNode.convertRelation(rel);
-        window.WALconsole.log("currBestSelector.relation", curBestSelector.relation);
+        HelenaConsole.log("currBestSelector.relation", curBestSelector.relation);
       }
     }
 
@@ -201,7 +205,7 @@ export namespace RelationFinder {
       resultSelector.next_button_selector =
         curBestSelector.next_button_selector;
     }
-    window.WALconsole.log("currBestSelector", curBestSelector);
+    HelenaConsole.log("currBestSelector", curBestSelector);
 
     if (pulldownRelations.length > 0){
       resultSelector.pulldown_relations = pulldownRelations;
@@ -219,7 +223,7 @@ export namespace RelationFinder {
       }
     }
 
-    //window.utilities.sendMessage("content", "mainpanel", "likelyRelation", newMsg);
+    //Messages.sendMessage("content", "mainpanel", "likelyRelation", newMsg);
     processedLikelyRelationRequest = true;
     return resultSelector; // return rather than sendmessage because it's a builtin response handler one
   }
@@ -234,7 +238,7 @@ export namespace RelationFinder {
     }
     let relation = selector.getMatchingRelation();
     let relationData = MainpanelNode.convertRelation(relation);
-    window.utilities.sendMessage("content", "mainpanel", "relationItems", 
+    Messages.sendMessage("content", "mainpanel", "relationItems", 
       { relation: relationData });
     return relationData;
   }
@@ -252,7 +256,7 @@ export namespace RelationFinder {
       //   setup again
       return;
     }
-    // window.utilities.sendMessage("mainpanel", "content", "editRelation", {selector: this.selector, selector_version: this.selectorVersion, exclude_first: this.excludeFirst, columns: this.columns}, null, null, [tab.id]);};
+    // Messages.sendMessage("mainpanel", "content", "editRelation", {selector: this.selector, selector_version: this.selectorVersion, exclude_first: this.excludeFirst, columns: this.columns}, null, null, [tab.id]);};
     currentSelectorToEdit = <ContentSelector> selector;
 
     // TODO: cjbaik: move this to some place for all document listeners
@@ -309,7 +313,7 @@ export namespace RelationFinder {
           didScroll = false;
           // Ok, we're ready to redo the relation highlighting with new page
           //   situation
-          window.WALconsole.log("scroll updating");
+          HelenaConsole.log("scroll updating");
           newSelectorGuess(contentSelector);
         }
         }, 250);
@@ -373,7 +377,7 @@ export namespace RelationFinder {
     mainpanelSelector.colors =
       window.helenaContent.relationHighlighter.highlightColors;
 
-    window.utilities.sendMessage("content", "mainpanel", "editRelation",
+    Messages.sendMessage("content", "mainpanel", "editRelation",
       mainpanelSelector);
   }
 
@@ -394,7 +398,7 @@ export namespace RelationFinder {
   function findAncestorLikeSpec(specAncestor: HTMLElement,
     element: HTMLElement) {
     //will return exactly the same node if there's only one item in first_row_items
-    window.WALconsole.log("findAncestorLikeSpec", specAncestor, element);
+    HelenaConsole.log("findAncestorLikeSpec", specAncestor, element);
     let spec_xpath_list = XPath.toXPathNodeList(
       <string> XPath.fromNode(specAncestor));
     let xpath_list = XPath.toXPathNodeList(<string> XPath.fromNode(element));
@@ -699,14 +703,14 @@ export namespace RelationFinder {
   }
 
   export function clearRelationInfo(selector: RelationSelector) {
-    window.WALconsole.namedLog("nextInteraction", "clearing relation info",
+    HelenaConsole.namedLog("nextInteraction", "clearing relation info",
       selector);
     let sid = selector.hash();
     delete nextInteractionSinceLastGetFreshRelationItems[sid];
     delete currentRelationData[sid];
     delete currentRelationSeenNodes[sid];
     delete noMoreItemsAvailable[sid];
-    window.utilities.sendMessage("content", "mainpanel", "clearedRelationInfo",
+    Messages.sendMessage("content", "mainpanel", "clearedRelationInfo",
       {});
   }
 
@@ -718,23 +722,23 @@ export namespace RelationFinder {
    * @param selector relation selector
    */
   export function getNextPage(selector: RelationSelector) {
-    window.WALconsole.namedLog("nextInteraction", "running next interaction",
+    HelenaConsole.namedLog("nextInteraction", "running next interaction",
       selector);
 
     // todo: will this always reach the page?  if not, big trouble
-    window.utilities.sendMessage("content", "mainpanel",
+    Messages.sendMessage("content", "mainpanel",
       "runningNextInteraction", {});
 
     let sid = selector.hash();
     if (sid in currentRelationData) {
-      window.WALconsole.namedLog("nextInteraction",
+      HelenaConsole.namedLog("nextInteraction",
         "sid in currentRelationData");
     } else {
-      window.WALconsole.namedLog("nextInteraction",
+      HelenaConsole.namedLog("nextInteraction",
         "sid not in currentRelationData");
-      window.WALconsole.namedLog("nextInteraction", currentRelationData);
-      window.WALconsole.namedLog("nextInteraction", "----");
-      window.WALconsole.namedLog("nextInteraction", sid);
+      HelenaConsole.namedLog("nextInteraction", currentRelationData);
+      HelenaConsole.namedLog("nextInteraction", "----");
+      HelenaConsole.namedLog("nextInteraction", sid);
       for (const key in currentRelationData){
         console.log(key === sid);
         console.log(key.slice(20));
@@ -749,12 +753,12 @@ export namespace RelationFinder {
     let nextButtonType = selector.next_type;
 
     if (nextButtonType === window.NextTypes.SCROLLFORMORE) {
-      window.WALconsole.namedLog("nextInteraction", "scrolling for more");
+      HelenaConsole.namedLog("nextInteraction", "scrolling for more");
       let crd = currentRelationData[sid];
       scrollThroughRowsOrSpace(crd);
     } else if (nextButtonType === window.NextTypes.MOREBUTTON ||
       nextButtonType === window.NextTypes.NEXTBUTTON) {
-      window.WALconsole.namedLog("nextInteraction", "msg.next_button_selector",
+      HelenaConsole.namedLog("nextInteraction", "msg.next_button_selector",
         selector.next_button_selector);
 
       let crd = currentRelationData[sid];
@@ -768,14 +772,14 @@ export namespace RelationFinder {
         <NextButtonSelector.Interface> selector.next_button_selector,
         selector.prior_next_button_text);
       if (button) {
-        window.utilities.sendMessage("content", "mainpanel", "nextButtonText",
+        Messages.sendMessage("content", "mainpanel", "nextButtonText",
           { text: button.textContent });
-        window.WALconsole.namedLog("nextInteraction",
+        HelenaConsole.namedLog("nextInteraction",
           "clicked next or more button");
         console.log("About to click on node", button, button.textContent);
         button.click();
       } else {
-        window.WALconsole.namedLog("nextInteraction",
+        HelenaConsole.namedLog("nextInteraction",
           "next or more button was null");
         noMoreItemsAvailable[sid] = true;
       }
@@ -790,7 +794,7 @@ export namespace RelationFinder {
       //   for new items and be pleasantly surprised that some are there
       noMoreItemsAvailable[sid] = true;
     } else {
-      window.WALconsole.namedLog("nextInteraction",
+      HelenaConsole.namedLog("nextInteraction",
         "Failure. Don't know how to produce items because don't know next button type.  Guessing we just want the current page items.");
       noMoreItemsAvailable[sid] = true;
     }
@@ -799,8 +803,8 @@ export namespace RelationFinder {
   export function getFreshRelationItems(selector: RelationSelector) {
     getFreshRelationItemsHelper(selector,
       (respMsg: FreshRelationItemsMessage) => {
-        window.WALconsole.log('respMsg', respMsg);
-        window.utilities.sendMessage("content", "mainpanel", "freshRelationItems",
+        HelenaConsole.log('respMsg', respMsg);
+        Messages.sendMessage("content", "mainpanel", "freshRelationItems",
           respMsg);
     });
   }
@@ -849,12 +853,12 @@ export namespace RelationFinder {
       return;
     }
     let sid = selector.hash();
-    window.WALconsole.log("noMoreItemsAvailable", noMoreItemsAvailable[sid],
+    HelenaConsole.log("noMoreItemsAvailable", noMoreItemsAvailable[sid],
       noMoreItemsAvailable);
   
     if (noMoreItemsAvailable[sid]) {
       // that's it, we're done.  last use of the next interaction revealed there's nothing left
-      window.WALconsole.log("no more items at all, because noMoreItemsAvailable was set.");
+      HelenaConsole.log("no more items at all, because noMoreItemsAvailable was set.");
       continuation({
         type: window.RelationItemsOutputs.NOMOREITEMS,
         relation: null
@@ -864,14 +868,14 @@ export namespace RelationFinder {
     /*
     if (!nextInteractionSinceLastGetFreshRelationItems[strMsg] && (strMsg in currentRelationData)){
       // we have a cached version and the data shouldn't have changed since we cached it
-      window.utilities.sendMessage("content", "mainpanel", "freshRelationItems", {type: RelationItemsOutputs.NEWITEMS, relation: currentRelationData[strMsg]});
+      Messages.sendMessage("content", "mainpanel", "freshRelationItems", {type: RelationItemsOutputs.NEWITEMS, relation: currentRelationData[strMsg]});
       return;
     }
     */
     // ok, don't have a cached version, either because never collected before, or bc done a next interaction since then.  better grab the data afresh
 
     let relationNodes = selector.getMatchingRelation();
-    window.WALconsole.log("relationNodes", relationNodes);
+    HelenaConsole.log("relationNodes", relationNodes);
 
     // ok, let's go through these nodes and give them ids if they've never been
     //   scraped for a node before. then we want to figure out whether we're in
@@ -924,7 +928,7 @@ export namespace RelationFinder {
         try {
           observer.observe(cell, config);
         } catch (err) {
-          window.WALconsole.warn("woah, couldn't observe mutations. are we getting all data?");
+          HelenaConsole.warn("woah, couldn't observe mutations. are we getting all data?");
         }  
       }
       relationNodesIds.push(rowIds);
@@ -967,15 +971,15 @@ export namespace RelationFinder {
         // this is a next interaction, so we should never have overlap.
         //   wait until everything is new
         if (relationNodes.length !== newRows.length) {
-      	  window.WALconsole.log("sending no new items yet because we found some repeated items and it's a next button.  is that bad?");
-          window.WALconsole.log("alreadySeenRelationNodeIds",
+      	  HelenaConsole.log("sending no new items yet because we found some repeated items and it's a next button.  is that bad?");
+          HelenaConsole.log("alreadySeenRelationNodeIds",
             alreadySeenRelationNodeIds.length, alreadySeenRelationNodeIds);
-          window.WALconsole.log("relationNodes", relationNodes.length,
+          HelenaConsole.log("relationNodes", relationNodes.length,
             relationNodes);
-      	  window.WALconsole.log("newRows", newRows.length, newRows);
+      	  HelenaConsole.log("newRows", newRows.length, newRows);
           // looks like some of our rows weren't new, so next button hasn't happened yet
 
-          window.WALconsole.log("newRows", newRows);
+          HelenaConsole.log("newRows", newRows);
           continuation({type: window.RelationItemsOutputs.NONEWITEMSYET, relation: null});
         }
         // otherwise we can just carry on, since the relationNodes has the right set
@@ -1017,8 +1021,8 @@ export namespace RelationFinder {
       if (crd && crd.length === relationData.length &&
           mainpanelRepresentationOfRelationsEqual(crd, relationData)){
         // data still looks the same as it looked before.  no new items yet.
-        window.WALconsole.log("No new items yet because the data is actualy equal");
-        window.WALconsole.log(crd, relationData);
+        HelenaConsole.log("No new items yet because the data is actualy equal");
+        HelenaConsole.log(crd, relationData);
         continuation({
           type: window.RelationItemsOutputs.NONEWITEMSYET,
           relation: null
@@ -1030,7 +1034,7 @@ export namespace RelationFinder {
       // we only want the fresh ones!
       let newItems = relationData; // start by assuming that's everything
       if (crd) {
-        // window.WALconsole.log("crd, relationData, relationData slice", crd,
+        // HelenaConsole.log("crd, relationData, relationData slice", crd,
         //   relationData, relationData.slice(0,crd.length),
         //   _.isEqual(crd, relationData.slice(0, crd.length)))
       }
@@ -1045,14 +1049,14 @@ export namespace RelationFinder {
       //   might have 0 rows in an intermediate state, but then still need to
       //   trim the top off the list based on having already collected the data
       if (newItems.length > 0) {
-        window.WALconsole.namedLog("nextInteraction", "setting relation info",
+        HelenaConsole.namedLog("nextInteraction", "setting relation info",
           selector);
         currentRelationData[sid] = relationData;
         let newRelationSeenNodes = currentRelationSeenNodes[sid].concat(
           (<number[]> []).concat(...relationNodesIds));
         currentRelationSeenNodes[sid] = newRelationSeenNodes.filter(
           (nodeId) => nodeId);
-        window.WALconsole.log("actual new items", newItems);
+        HelenaConsole.log("actual new items", newItems);
         continuation({
           type: window.RelationItemsOutputs.NEWITEMS,
           relation: newItems

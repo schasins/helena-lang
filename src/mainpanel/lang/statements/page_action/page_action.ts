@@ -1,3 +1,4 @@
+import { HelenaConsole } from "../../../../common/utils/helena_console";
 import { HelenaLangObject, StatementParameter } from "../../helena_lang";
 import { EventMessage } from "../../../../common/messages";
 import { NodeVariable } from "../../../variables/node_variable";
@@ -159,7 +160,7 @@ export class PageActionStatement extends HelenaLangObject {
       if (!this.node) {
         // sometimes this.node will be empty, as when we add a scrape
         //   statement for known relation item, with no trace associated 
-        window.WALconsole.warn("Hey, you tried to require some features, but " +
+        HelenaConsole.warn("Hey, you tried to require some features, but " +
           "there was no Ringer trace associated with the statement.", this,
           featureNames);
       }

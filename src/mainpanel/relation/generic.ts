@@ -1,3 +1,4 @@
+import { HelenaConsole } from "../../common/utils/helena_console";
 import { ColumnSelector } from "../../content/selector/column_selector";
 import { MainpanelNode } from "../../common/mainpanel_node";
 import { NodeVariable } from "../variables/node_variable";
@@ -5,8 +6,10 @@ import { HelenaMainpanel } from "../helena_mainpanel";
 import { HelenaLangObject } from "../lang/helena_lang";
 import { PageVariable } from "../variables/page_variable";
 import { RunObject } from "../lang/program";
+import { Revival } from "../revival";
 
-export class GenericRelation {
+export class GenericRelation implements Revival.Revivable {
+  public ___revivalLabel___: string;
   public name: string;
   public columns: ColumnSelector.Interface[];
   public firstRowTexts: string[];
@@ -52,7 +55,7 @@ export class GenericRelation {
         return column;
       }
     }
-    window.WALconsole.log("Ack!  No column object for that xpath: ",
+    HelenaConsole.log("Ack!  No column object for that xpath: ",
       this.columns, xpath);
     return null;
   }

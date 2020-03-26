@@ -1,3 +1,4 @@
+import { HelenaConsole } from "../../common/utils/helena_console";
 import { HelenaMainpanel, NodeSources } from "../helena_mainpanel";
 import { ColumnSelector } from "../../content/selector/column_selector";
 import { NodeVariable } from "../variables/node_variable";
@@ -5,6 +6,7 @@ import { HelenaLangObject } from "../lang/helena_lang";
 import { GenericRelation } from "./generic";
 import { PageVariable } from "../variables/page_variable";
 import { RunObject } from "../lang/program";
+import { Revival } from "../revival";
 
 // used for relations that only have text in cells, as when user uploads the relation
 export class TextRelation extends GenericRelation {
@@ -13,7 +15,7 @@ export class TextRelation extends GenericRelation {
 
   constructor(csvFileContents?: string, name?: string) {
     super();
-    window.Revival.addRevivalLabel(this);
+    Revival.addRevivalLabel(this);
     
     this.columns = [];
 
@@ -62,7 +64,7 @@ export class TextRelation extends GenericRelation {
 
   public updateNodeVariables(environment: EnvironmentPlaceholder,
       pageVar: PageVariable) {
-    window.WALconsole.log("updateNodeVariables TextRelation");
+    HelenaConsole.log("updateNodeVariables TextRelation");
     var nodeVariables = this.nodeVariables();
     var columns = this.columns; // again, nodeVariables and columns must be aligned
     for (let i = 0; i < columns.length; i++) {
@@ -123,13 +125,13 @@ export class TextRelation extends GenericRelation {
       throw new ReferenceError("Column object contains no index.");
     }
 
-    window.WALconsole.log(this.currentRowsCounter, "currentRowsCounter");
+    HelenaConsole.log(this.currentRowsCounter, "currentRowsCounter");
     return this.relation[this.currentRowsCounter][columnObject.index];
   };
 
   public getCurrentLink(pageVar: PageVariable,
     columnObject: ColumnSelector.Interface) {
-    window.WALconsole.log("yo, why are you trying to get a link from a text " +
+    HelenaConsole.log("yo, why are you trying to get a link from a text " +
       "relation???");
     return "";
   }

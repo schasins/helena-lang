@@ -12,6 +12,7 @@ import { MainpanelNode } from "../../../common/mainpanel_node";
 import { GenericRelation } from "../../relation/generic";
 import { PageVariable } from "../../variables/page_variable";
 import { RunObject, HelenaProgram, RunOptions } from "../program";
+import { Revival } from "../../revival";
 
 // silly to use strings, I know, but it makes it easier to do the blockly
 //   dropdown
@@ -30,7 +31,7 @@ export class NodeVariableUse extends Value {
 
   constructor(nodeVar: NodeVariable, attributeOption = AttributeOptions.TEXT) {
     super();
-    window.Revival.addRevivalLabel(this);
+    Revival.addRevivalLabel(this);
     this.setBlocklyLabel("variableUse");
     this.nodeVar = nodeVar;
     this.attributeOption = attributeOption;

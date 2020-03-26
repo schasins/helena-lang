@@ -1,4 +1,4 @@
-import { EventMessage } from "../../common/messages";
+import { EventMessage, Messages } from "../../common/messages";
 import { MainpanelNode } from "../../common/mainpanel_node";
 import MainpanelNodeI = MainpanelNode.Interface;
 
@@ -19,7 +19,7 @@ export namespace ScrapeModeHandlers {
     let linkScraping = eventMessage.data.shiftKey || eventMessage.data.metaKey;
     data.linkScraping = linkScraping;
     if (eventMessage.data.type === "click") {
-      window.utilities.sendMessage("content", "mainpanel", "scrapedData", data);
+      Messages.sendMessage("content", "mainpanel", "scrapedData", data);
     } // send it to the mainpanel for visualization
     return data;
   };

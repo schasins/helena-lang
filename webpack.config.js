@@ -3,7 +3,9 @@ const path = require('path');
 
 module.exports = {
     entry: {
-        "content/main": "./src/content/main.ts"
+        "content/main": "./src/content/main.ts",
+        "mainpanel/main": "./src/mainpanel/main.ts",
+        "background/main": "./src/background/main.ts"
     },
     output: {
         filename: '[name].js',

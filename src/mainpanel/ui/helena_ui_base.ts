@@ -1,6 +1,7 @@
 import * as Blockly from "blockly";
 import * as $ from "jquery";
 
+import { HelenaConsole } from "../../common/utils/helena_console";
 import { HelenaMainpanel } from "../helena_mainpanel";
 import { HelenaProgram } from "../lang/program";
 
@@ -51,7 +52,7 @@ export class HelenaUIBase {
   }
 
   public updateBlocklyToolbox() {
-    window.WALconsole.log("updateBlocklyToolbox");
+    HelenaConsole.log("updateBlocklyToolbox");
     let toolboxDiv = this.retrieveBlocklyComponent(this.toolboxId);
 
     if (!toolboxDiv) {
@@ -59,8 +60,9 @@ export class HelenaUIBase {
     }
     let $toolboxDiv = $(toolboxDiv);
 
-    // before we can use the toolbox, we have to actually have all the relevant blocks
-    HelenaMainpanel.updateBlocklyBlocks(this.helenaProg);
+    // before we can use the toolbox, we have to actually have all the relevant
+    //   blocks
+    HelenaMainpanel.updateToolboxBlocks(this.helenaProg);
     
     $toolboxDiv.html("");
     for (const key in HelenaMainpanel.blocklyLabels){
@@ -75,7 +77,8 @@ export class HelenaUIBase {
     if (this.workspace) {
       this.workspace.updateToolbox($toolboxDiv[0]);
     } else {
-      window.WALconsole.warn("Tried to update toolbox before the workspace was initialized (should be done with setUpBlocklyEditor).");
+      HelenaConsole.warn("Tried to update toolbox before the workspace " +
+        "was initialized (should be done with setUpBlocklyEditor).");
     }
   }
 
@@ -135,12 +138,12 @@ export class HelenaUIBase {
   };
 
   public setUpBlocklyEditor(updateToolbox = true) {
-    window.WALconsole.log("handleBlocklyEditorResizing");
+    HelenaConsole.log("handleBlocklyEditorResizing");
     let toolboxDiv = this.retrieveBlocklyComponent(this.toolboxId);
     let blocklyArea = this.retrieveBlocklyComponent(this.blocklyAreaId);
     let blocklyDiv = this.retrieveBlocklyComponent(this.blocklyDivId);
     if (!blocklyArea || !blocklyDiv){
-      window.WALconsole.warn("Tried to set up the blockly editor display, but the blockly area or div not present now.");
+      HelenaConsole.warn("Tried to set up the blockly editor display, but the blockly area or div not present now.");
       console.log(blocklyArea, blocklyDiv);
       if (this.currWaitsForDivAppearance < this.maxWaitsForDivAppearance) {
         setTimeout(this.setUpBlocklyEditor, 100);
@@ -177,10 +180,11 @@ export class HelenaUIBase {
 
   public displayBlockly(program: HelenaProgram) {
     this.updateBlocklyToolbox();
-    if (program) {
+    if (program && this.workspace) {
       program.displayBlockly(this.workspace);
     } else {
-      window.WALconsole.warn("Called displayBlockly, but no program to display yet.  Should be set with setBlocklyProgram.");
+      HelenaConsole.warn("Called displayBlockly, but no program to " +
+        "display yet.  Should be set with setBlocklyProgram.");
     }
   }
 
@@ -211,7 +215,7 @@ export class HelenaUIBase {
       if (r === statementLs[0].block){
         // found the program root
         let helenaStatements = HelenaMainpanel.getHelenaFromBlocklyRoot(r);
-        program.loopyStatements = helenaStatements;
+        program.bodyStatements = helenaStatements;
       }
     }
   }

@@ -1,6 +1,11 @@
 import * as Blockly from "blockly";
 import * as _ from "underscore";
 
+import { ServerSaveResponse, EventMessage, RetrieveRelationsResponse,
+  RelationResponse, 
+  Messages} from "../../common/messages";
+import { HelenaConsole } from "../../common/utils/helena_console";
+
 import { HelenaMainpanel, NodeSources } from "../helena_mainpanel";
 
 import { SkipBlock } from "./statements/control_flow/skip_block";
@@ -22,11 +27,10 @@ import { PageVariable } from "../variables/page_variable";
 import { GenericRelation } from "../relation/generic";
 import { PageActionStatement } from "./statements/page_action/page_action";
 import { StatementContainer } from "./statements/container";
-import { ServerSaveResponse, EventMessage, RetrieveRelationsResponse,
-  RelationResponse } from "../../common/messages";
 import { ColumnSelector } from "../../content/selector/column_selector";
 import { BackStatement } from "./statements/browser/back";
 import { ClosePageStatement } from "./statements/browser/close_page";
+import { Revival } from "../revival";
 
 // TODO: move these somewhere safer
 let scrapingRunsCompleted = 0;
@@ -126,7 +130,7 @@ export class HelenaProgram extends StatementContainer {
   constructor(statements: HelenaLangObject[], addOutputStatement = true) {
     super();
 
-    window.Revival.addRevivalLabel(this);
+    Revival.addRevivalLabel(this);
 
     // TODO: cjbaik: added this because it doesn't seem to be initialized
     //   anywhere?
@@ -276,14 +280,14 @@ export class HelenaProgram extends StatementContainer {
       associated_string: this.associatedString
     };
   
-    window.WALconsole.log("about to post", (new Date().getTime()/1000));
+    HelenaConsole.log("about to post", (new Date().getTime()/1000));
     // this first request is just to get us the right program id to associate
     //   any later stuff with.  it won't actually save the program saving the
     //   program takes a long time, so we don't want other stuff to wait on it,
     //   will do it in background
     window.MiscUtilities.postAndRePostOnFailure(
         helenaServerUrl + '/saveprogram', msg, (resp: ServerSaveResponse) => {
-      window.WALconsole.log("server responded to program save");
+      HelenaConsole.log("server responded to program save");
       const progId = resp.program.id;
       self.setId(progId);
       // ok, now that we know the right program id (in cases where there wasn't
@@ -334,7 +338,7 @@ export class HelenaProgram extends StatementContainer {
   //   return boolean to do that
   public traverse(fn: Function, fn2: Function) {
     if (this.bodyStatements.length < 1) {
-      window.WALconsole.warn("Calling traverse on a program even though " +
+      HelenaConsole.warn("Calling traverse on a program even though " +
         "bodyStatements is empty.");
     }
 
@@ -371,7 +375,7 @@ export class HelenaProgram extends StatementContainer {
     const possibleNewbodyStatements = insertAfterHelper(this.bodyStatements,
       stmtToInsert, stmtToInsertAfter);
     if (!possibleNewbodyStatements) {
-      window.WALconsole.warn("Woah, tried to insert after a particular " +
+      HelenaConsole.warn("Woah, tried to insert after a particular " +
         "WALStatement, but that statement wasn't in our prog.");
     } else {
       this.bodyStatements = possibleNewbodyStatements;
@@ -386,7 +390,7 @@ export class HelenaProgram extends StatementContainer {
     var seq = removeStatementAndFollowing(this.bodyStatements, movedStatement);
     //console.log("removed the seq:". removedSeq);
     if (!seq) {
-      WALconsole.warn("Woah, tried to remove a particular WALStatement, but that statement wasn't in our prog.");
+      HelenaConsole.warn("Woah, tried to remove a particular WALStatement, but that statement wasn't in our prog.");
     }
 
     // now, if we end up pulling this same seq back in...better know about the seq
@@ -411,7 +415,7 @@ export class HelenaProgram extends StatementContainer {
 
     var added = addSeq(this.bodyStatements, addedSeq, precedingStatement, inputName);
     if (!added) {
-      WALconsole.warn("Woah, tried to insert after a particular WALStatement, but that statement wasn't in our prog.");
+      HelenaConsole.warn("Woah, tried to insert after a particular WALStatement, but that statement wasn't in our prog.");
     }
     return added;
   }
@@ -493,7 +497,7 @@ export class HelenaProgram extends StatementContainer {
     }
 
     window.SimpleRecord.replay(trace, null, () => {
-      window.WALconsole.log("Done replaying.");
+      HelenaConsole.log("Done replaying.");
     });
   }
 
@@ -502,10 +506,10 @@ export class HelenaProgram extends StatementContainer {
     // we should see corresponding 'completed' events in the traces
     var recCompleted = _.filter(recordTimeTrace, function(ev) {return ev.type === "completed" && ev.data.type === "main_frame";}); // now only doing this for top-level completed events.  will see if this is sufficient
     var repCompleted = _.filter(replayTimeTrace, function(ev) {return ev.type === "completed" && ev.data.type === "main_frame";});
-    WALconsole.log(recCompleted, repCompleted);
+    HelenaConsole.log(recCompleted, repCompleted);
     // should have same number of top-level load events.  if not, might be trouble
     if (recCompleted.length !== repCompleted.length) {
-      WALconsole.log("Different numbers of completed events in record and replay: ", recCompleted, repCompleted);
+      HelenaConsole.log("Different numbers of completed events in record and replay: ", recCompleted, repCompleted);
     }
     // todo: for now aligning solely based on point at which the events appear in the trace.  if we get traces with many events, may need to do something more intelligent
     var smallerLength = recCompleted.length;
@@ -533,7 +537,7 @@ export class HelenaProgram extends StatementContainer {
     window.SimpleRecord.replay(runnableTrace, config,
         (replayObject: ReplayObjectPlaceholder) => {
       // use what we've observed in the replay to update page variables
-      window.WALconsole.namedLog("rbb", "replayObject", replayObject);
+      HelenaConsole.namedLog("rbb", "replayObject", replayObject);
 
       // based on the replay object, we need to update any pagevars involved in
       //   the trace
@@ -550,7 +554,7 @@ export class HelenaProgram extends StatementContainer {
         // statements may need to do something based on this trace, so go ahead
         //   and do any extra processing
         for (let i = 0; i < basicBlockStmts.length; i++) {
-          window.WALconsole.namedLog("rbb", "calling postReplayProcessing on",
+          HelenaConsole.namedLog("rbb", "calling postReplayProcessing on",
             basicBlockStmts[i]);
           basicBlockStmts[i].postReplayProcessing(runObject,
             replayObject.record.events, i);
@@ -581,7 +585,7 @@ export class HelenaProgram extends StatementContainer {
         //   program.runBasicBlock(bodyStatements.slice(nextBlockStartIndex,
         //     bodyStatements.length), callback) (as above)
         // instead we'll just do the callback
-        window.WALconsole.warn("rbb: couldn't find a node based on " +
+        HelenaConsole.warn("rbb: couldn't find a node based on " +
           "user-required features.  skipping the rest of this row.");
 
         // even though couldn't complete the whole trace, still need to do
@@ -618,7 +622,7 @@ export class HelenaProgram extends StatementContainer {
         //   good way to fix them
         // for now just treat them like a node finding failure and continue
 
-        window.WALconsole.warn("rbb: port failure.  ugh.");
+        HelenaConsole.warn("rbb: port failure.  ugh.");
 
         // even though couldn't complete the whole trace, still need to do
         //   updatePageVars because that's how we figure out which tab is
@@ -665,7 +669,7 @@ export class HelenaProgram extends StatementContainer {
     if (!haveAllNecessaryRelationNodes) {
       // ok, we're going to have to skip this iteration, because we're supposed
       //   to open a page and we just won't know how to
-      window.WALconsole.warn("Had to skip an iteration because of lacking " +
+      HelenaConsole.warn("Had to skip an iteration because of lacking " +
         "the node we'd need to open a new page");
       // todo: should probably also warn the contents of the various relation
       //   variables at this iteration that we're skipping
@@ -686,7 +690,7 @@ export class HelenaProgram extends StatementContainer {
       // statements may need to do something as post-processing, even without a
       //   replay so go ahead and do any extra processing
       for (let i = 0; i < basicBlockStmts.length; i++) {
-        window.WALconsole.namedLog("rbb", "calling postReplayProcessing on",
+        HelenaConsole.namedLog("rbb", "calling postReplayProcessing on",
           basicBlockStmts[i]);
         basicBlockStmts[i].postReplayProcessing(runObject, [], i);
       }
@@ -722,18 +726,18 @@ export class HelenaProgram extends StatementContainer {
       //   statements have been updated!  otherwise won't know what needs to be
       //   parameterized, will assume nothing
       // should see in future whether this is a reasonable way to do it
-      window.WALconsole.namedLog("rbb", "trace", trace);
+      HelenaConsole.namedLog("rbb", "trace", trace);
       const parameterizedTrace = pbv(trace, basicBlockStmts);
       
       // now that we've run parameterization-by-value, have a function, let's
       //   put in the arguments we need for the current run
-      window.WALconsole.namedLog("rbb", "parameterizedTrace",
+      HelenaConsole.namedLog("rbb", "parameterizedTrace",
         parameterizedTrace);
       const runnableTrace = passArguments(parameterizedTrace, basicBlockStmts,
         runObject.environment);
       const config: ParameterizedTraceConfig = parameterizedTrace.getConfig();
       config.targetWindowId = runObject.window;
-      window.WALconsole.namedLog("rbb", "runnableTrace", runnableTrace, config);
+      HelenaConsole.namedLog("rbb", "runnableTrace", runnableTrace, config);
 
       // the above works because we've already put in VariableUses for statement
       //   arguments that use relation items, for all statements within a loop,
@@ -788,10 +792,10 @@ export class HelenaProgram extends StatementContainer {
   public runBasicBlock(runObject: RunObject, bodyStmts: HelenaLangObject[],
       callback: Function, options: RunOptions = {}) {
     const self = this;
-    window.WALconsole.namedLog("rbb", bodyStmts.length, bodyStmts);
+    HelenaConsole.namedLog("rbb", bodyStmts.length, bodyStmts);
 
     // first check if we're supposed to pause, stop execution if yes
-    window.WALconsole.namedLog("rbb", "runObject.userPaused",
+    HelenaConsole.namedLog("rbb", "runObject.userPaused",
       runObject.userPaused);
     if (runObject.userPaused) {
       const repWindowId = window.currentReplayWindowId;
@@ -800,12 +804,12 @@ export class HelenaProgram extends StatementContainer {
         window.currentReplayWindowId = repWindowId;
         self.runBasicBlock(runObject, bodyStmts, callback, options);
       };
-      window.WALconsole.log("paused");
+      HelenaConsole.log("paused");
       return;
     }
-    window.WALconsole.log("runObject.userStopped", runObject.userStopped);
+    HelenaConsole.log("runObject.userStopped", runObject.userStopped);
     if (runObject.userStopped) {
-      window.WALconsole.log("run stopped");
+      HelenaConsole.log("run stopped");
       
       // set it back so that if the user goes to run again, everything will work
       runObject.userStopped = false;
@@ -813,7 +817,7 @@ export class HelenaProgram extends StatementContainer {
     }
 
     if (bodyStmts.length < 1) {
-      window.WALconsole.namedLog("rbb", "rbb: empty loopystatments.");
+      HelenaConsole.namedLog("rbb", "rbb: empty loopystatments.");
       callback(options);
       return;
     } else if (bodyStmts[0] instanceof LoopStatement) {
@@ -828,22 +832,22 @@ export class HelenaProgram extends StatementContainer {
           callback, options);
         return;
       }
-      window.WALconsole.namedLog("rbb", "rbb: loop.");
+      HelenaConsole.namedLog("rbb", "rbb: loop.");
 
       const cleanupAfterLoopEnd = (continuation: Function) => {
         loopStmt.rowsSoFar = 0;
 
         if (loopStmt.pageVar) {
           const prinfo = relation.getPrinfo(loopStmt.pageVar);
-          window.WALconsole.namedLog("prinfo", "change prinfo, finding for cleanup");
-          window.WALconsole.namedLog("prinfo", shortPrintString(prinfo));
-          window.WALconsole.log("prinfo in cleanup", prinfo);
+          HelenaConsole.namedLog("prinfo", "change prinfo, finding for cleanup");
+          HelenaConsole.namedLog("prinfo", shortPrintString(prinfo));
+          HelenaConsole.log("prinfo in cleanup", prinfo);
           // have to get rid of this prinfo in case (as when a pulldown menu is
           //   dynamically adjusted by another, and so we want to come back and
           //   get it again later) we'll want to scrape the same relation fresh
           //   from the same page later
           delete loopStmt.pageVar.pageRelations[relation.name+"_"+relation.id];
-          window.WALconsole.namedLog("prinfo", "cleared a page relation entry"); 
+          HelenaConsole.namedLog("prinfo", "cleared a page relation entry"); 
         }
         
         // time to run end-of-loop-cleanup on the various bodyStatements
@@ -858,7 +862,7 @@ export class HelenaProgram extends StatementContainer {
 
       // are we actually breaking out of the loop?
       if (options.breakMode) {
-        window.WALconsole.warn("breaking out of the loop");
+        HelenaConsole.warn("breaking out of the loop");
         // if we were in break mode, we're done w/loop, so turn off break mode
         options.breakMode = false;
         const continuation = () => {
@@ -874,7 +878,7 @@ export class HelenaProgram extends StatementContainer {
       // have we hit the maximum number of iterations we want to do?
       if (loopStmt.maxRows !== null && loopStmt.rowsSoFar >= loopStmt.maxRows) {
         // hey, we're done!
-        window.WALconsole.namedLog("rbb", "hit the row limit");
+        HelenaConsole.namedLog("rbb", "hit the row limit");
         const continuation = () => {
           // once we're done with the loop, have to replay the remainder of the
           //   script
@@ -941,7 +945,7 @@ export class HelenaProgram extends StatementContainer {
           (moreRows: boolean) => {
         if (!moreRows) {
           // hey, we're done!
-          window.WALconsole.namedLog("rbb", "no more rows");
+          HelenaConsole.namedLog("rbb", "no more rows");
           const continuation = () => {
             // once we're done with the loop, have to replay the remainder of
             //   the script
@@ -951,24 +955,24 @@ export class HelenaProgram extends StatementContainer {
           cleanupAfterLoopEnd(continuation);
           return;
         }
-        window.WALconsole.namedLog("rbb", "we have a row!  let's run");
+        HelenaConsole.namedLog("rbb", "we have a row!  let's run");
         // otherwise, should actually run the body
         loopStmt.rowsSoFar += 1;
         // block scope.  let's add a new frame
         runObject.environment = runObject.environment.envExtend();
-        window.WALconsole.namedLog("rbb", "envExtend done");
+        HelenaConsole.namedLog("rbb", "envExtend done");
         // and let's give us access to all the loop variables
         // note that for now loopVarsMap includes all columns of the relation.
         //   may some day want to limit it to only the ones used...
         loopStmt.updateRelationNodeVariables(runObject.environment);
-        window.WALconsole.namedLog("rbb", "bodyStatements", bodyStmts);
+        HelenaConsole.namedLog("rbb", "bodyStatements", bodyStmts);
 
         // running extra iterations of the for loop is the only time we change
         //   the callback
         self.runBasicBlock(runObject, loopStmt.bodyStatements, () => {
           // and once we've run the body, we should do the next iteration of the
           //   loop but first let's get rid of that last environment frame
-          window.WALconsole.namedLog("rbb", "rbb: preparing for next loop " +
+          HelenaConsole.namedLog("rbb", "rbb: preparing for next loop " +
             "iteration, popping frame off environment.");
           runObject.environment = runObject.environment.parent;
           // for the next iteration, we'll be back out of skipMode if we were in
@@ -982,7 +986,7 @@ export class HelenaProgram extends StatementContainer {
           self.runBasicBlock(runObject, loopStmt.cleanupStatements, () => {
             // and once we've done that loop body cleanup, then let's finally
             //   go ahead and go back to do the loop again!
-            window.WALconsole.namedLog("rbb", "Post-cleanupstatements.")
+            HelenaConsole.namedLog("rbb", "Post-cleanupstatements.")
             self.runBasicBlock(runObject, bodyStmts, callback, options); 
           }, options);
         }, options);
@@ -991,7 +995,7 @@ export class HelenaProgram extends StatementContainer {
     } else if (!bodyStmts[0].isRingerBased()) {
       // also need special processing for back statements, if statements,
       //   continue statements, whatever isn't ringer-based
-      window.WALconsole.namedLog("rbb", "rbb: non-Ringer-based statement.");
+      HelenaConsole.namedLog("rbb", "rbb: non-Ringer-based statement.");
 
       if (options.skipMode || options.breakMode) {
         // in this case, when we're basically 'continue'ing, we should do
@@ -1015,7 +1019,7 @@ export class HelenaProgram extends StatementContainer {
       bodyStmts[0].run(runObject, continuation, options);
       return;
     } else {
-      window.WALconsole.namedLog("rbb", "rbb: r+r.");
+      HelenaConsole.namedLog("rbb", "rbb: r+r.");
       // the fun stuff!  we get to run a basic block with the r+r layer
 
       if (options.skipMode || options.breakMode) {
@@ -1055,18 +1059,18 @@ export class HelenaProgram extends StatementContainer {
     console.log("continuation", continuation);
     console.log("parameters", parameters);
 
-    window.WALconsole.log("parameters", parameters);
+    HelenaConsole.log("parameters", parameters);
     for (const prop in options) {
       if (!recognizedOptions.includes(prop)) {
         // woah, bad, someone thinks they're providing an option that will
         //   affect us, but we don't know what to do with it
         // don't let them think everything's ok, especially since they probably
         //   just mispelled
-        window.WALconsole.warn("Woah, woah, woah.  Tried to provide option " +
+        HelenaConsole.warn("Woah, woah, woah.  Tried to provide option " +
           prop + " to program run, but we don't know what to do with it.");
         if (internalOptions.includes(prop)) {
           // ok, well an internal prop sneaking in is ok, so we'll just provide a warning.  otherwise we're actually going to stop
-          window.WALconsole.warn("Ok, we're allowing it because it's an " +
+          HelenaConsole.warn("Ok, we're allowing it because it's an " +
             "internal option, but we're not happy about it and we're setting " +
             "it to false.");
           options[prop] = false;
@@ -1268,7 +1272,7 @@ export class HelenaProgram extends StatementContainer {
       }
     }
     // ask the server for relations
-    // sample: $($.post('http://localhost:3000/retrieverelations', { pages: [{xpaths: ["a[1]/div[2]"], url: "www.test2.com/test-test"}] }, function(resp) { WALconsole.log(resp);} ));
+    // sample: $($.post('http://localhost:3000/retrieverelations', { pages: [{xpaths: ["a[1]/div[2]"], url: "www.test2.com/test-test"}] }, function(resp) { HelenaConsole.log(resp);} ));
     const reqList = [];
     for (const pageVarName in this.pagesToNodes) {
       reqList.push({
@@ -1311,7 +1315,7 @@ export class HelenaProgram extends StatementContainer {
           const outputPVStmt = (<OutputPageVarStatement> curStmt);
           const outputPageVars = <PageVariable[]> outputPVStmt.outputPageVars;
           const targetPageVar = outputPageVars[0];
-          window.WALconsole.log("processServerrelations going for index:", i,
+          HelenaConsole.log("processServerrelations going for index:", i,
             targetPageVar);
 
           // this is one of the points to which we'll have to replay
@@ -1323,10 +1327,10 @@ export class HelenaProgram extends StatementContainer {
           // strip the display info back out from the event objects
           //_.each(trace, function(ev) {EventM.clearDisplayInfo(ev);});
 
-          window.WALconsole.log("processServerrelations program: ", self);
-          window.WALconsole.log("processServerrelations trace indexes: ",
+          HelenaConsole.log("processServerrelations program: ", self);
+          HelenaConsole.log("processServerrelations trace indexes: ",
             startIndex, i);
-          window.WALconsole.log("processServerrelations trace:", trace.length);
+          HelenaConsole.log("processServerrelations trace:", trace.length);
 
           const nextIndex = i + 1;
 
@@ -1340,7 +1344,7 @@ export class HelenaProgram extends StatementContainer {
             targetWindowId: windowId
           }, (replayObj: ReplayObjectPlaceholder) => {
             // continuation
-            window.WALconsole.log("replayobj", replayObj);
+            HelenaConsole.log("replayobj", replayObj);
 
             // what's the tab that now has the target page?
             const replayTrace = replayObj.record.events;
@@ -1364,7 +1368,7 @@ export class HelenaProgram extends StatementContainer {
             // let's do some trace alignment to figure out a tab mapping
             const newMapping = tabMappingFromTraces(trace, replayTrace);
             tabMapping = _.extend(tabMapping, newMapping);
-            window.WALconsole.log(newMapping, tabMapping);
+            HelenaConsole.log(newMapping, tabMapping);
 
             // and what are the server-suggested relations we want to send?
             const resps = resp.pages;
@@ -1388,7 +1392,7 @@ export class HelenaProgram extends StatementContainer {
               }
             }
             if (suggestedRelations === null) {
-              window.WALconsole.log("Panic!  We found a page in our " +
+              HelenaConsole.log("Panic!  We found a page in our " +
                 "outputPageVars that wasn't in our request to the server for " +
                 "relations that might be relevant on that page.");
             }
@@ -1418,7 +1422,7 @@ export class HelenaProgram extends StatementContainer {
               HelenaMainpanel.UIObject.updateDisplayedRelations(true);
               // now let's go through this process all over again for the next
               //   page, if there is one
-              window.WALconsole.log("going to processServerRelations with " +
+              HelenaConsole.log("going to processServerRelations with " +
                 "nextIndex: ", nextIndex);
               self.processServerRelations(resp, nextIndex, tabsToCloseAfter,
                 tabMapping, windowId, pageCount);
@@ -1443,12 +1447,12 @@ export class HelenaProgram extends StatementContainer {
                 }
               }
               // todo: this is just debugging
-              window.WALconsole.log("framesHandled", framesHandled);
+              HelenaConsole.log("framesHandled", framesHandled);
 
               let dataObjs = Object.keys(framesHandled).map(
                 (key) => framesHandled[key]
               );
-              window.WALconsole.log("dataObjs", dataObjs);
+              HelenaConsole.log("dataObjs", dataObjs);
               // todo: should probably do a fancy similarity thing here, but for
               //   now we'll be casual
               // we'll sort by number of cells, then return the first one that
@@ -1467,9 +1471,9 @@ export class HelenaProgram extends StatementContainer {
                 }
               }); // ascending
               sortedDataObjs = sortedDataObjs.reverse();
-              window.WALconsole.log("sortedDataObjs", sortedDataObjs);
+              HelenaConsole.log("sortedDataObjs", sortedDataObjs);
               const frameUrls = self.pagesToFrameUrls[targetPageVar.name];
-              window.WALconsole.log("frameUrls", frameUrls,
+              HelenaConsole.log("frameUrls", frameUrls,
                 self.pagesToFrameUrls, targetPageVar.name);
               
               // a silly one-liner for getting the most freq
@@ -1489,7 +1493,7 @@ export class HelenaProgram extends StatementContainer {
               // drat, none of them had the exact same url. ok, let's just pick
               //   the first
               if (sortedDataObjs.length < 1) {
-                window.WALconsole.log("Aaaaaaaaaaah there aren't any frames " +
+                HelenaConsole.log("Aaaaaaaaaaah there aren't any frames " +
                   "that offer good relations!  Why???");
                 return;
               }
@@ -1502,7 +1506,7 @@ export class HelenaProgram extends StatementContainer {
               for (const frame of frames) {
                 // keep track of which frames need to respond before we'll be
                 //   read to advance
-                window.WALconsole.log("frameId", frame);
+                HelenaConsole.log("frameId", frame);
                 delete framesHandled[frame];
               }
               for (const frame of frames) {
@@ -1516,7 +1520,7 @@ export class HelenaProgram extends StatementContainer {
                 
                 // here's the function for sending the message once
                 var getLikelyRelationFunc = () => {
-                  window.utilities.sendFrameSpecificMessage("mainpanel",
+                  Messages.sendFrameSpecificMessage("mainpanel",
                     "content", "likelyRelation", {
                       xpaths: self.pagesToNodes[targetPageVar.name],
                       pageVarName: targetPageVar.name,
@@ -1634,12 +1638,12 @@ export class HelenaProgram extends StatementContainer {
   }
 
   public processLikelyRelation(data: RelationResponse) {
-    window.WALconsole.log(data);
+    HelenaConsole.log(data);
 
     if (this.pagesProcessed[data.page_var_name]) {
       // we already have an answer for this page.  must have gotten sent
       //   multiple times even though that shouldn't happen
-      window.WALconsole.log("Alarming.  We received another likely relation " +
+      HelenaConsole.log("Alarming.  We received another likely relation " +
         "for a given pageVar, even though content script should prevent this.");
       return this.relations;
     }
@@ -1679,7 +1683,7 @@ export class HelenaProgram extends StatementContainer {
       }
     }
 
-    window.WALconsole.log(this.pagesToNodes);
+    HelenaConsole.log(this.pagesToNodes);
 
     if (!this.automaticLoopInsertionForbidden) {
       this.insertLoops(true);
@@ -1883,10 +1887,10 @@ function alignCompletedEvents(recordTrace: EventMessage[],
     ev.data.url.indexOf(helenaServerUrl) < 0
   );
 
-  window.WALconsole.log(recCompleted, repCompleted);
+  HelenaConsole.log(recCompleted, repCompleted);
   // should have same number of top-level load events.  if not, might be trouble
   if (recCompleted.length !== repCompleted.length) {
-    window.WALconsole.log("Different numbers of completed events in record " +
+    HelenaConsole.log("Different numbers of completed events in record " +
       "and replay: ", recCompleted, repCompleted);
   }
   // todo: for now aligning solely based on point at which the events appear in
@@ -1904,11 +1908,11 @@ function alignCompletedEvents(recordTrace: EventMessage[],
 
 function updatePageVars(recordTrace: EventMessage[],
     replayTrace: EventMessage[], continuation: Function) {
-  // WALconsole.log("updatePageVars", recordTimeTrace, replayTimeTrace);
+  // HelenaConsole.log("updatePageVars", recordTimeTrace, replayTimeTrace);
   const alignedTraces = alignCompletedEvents(recordTrace, replayTrace);
   const alignedRecord = alignedTraces[0];
   const alignedReplay = alignedTraces[1];
-  // WALconsole.log("recEvents:", recEvents, "repEvents", repEvents);
+  // HelenaConsole.log("recEvents:", recEvents, "repEvents", repEvents);
   updatePageVarsHelper(alignedRecord, alignedReplay, 0, continuation);
 }
 
@@ -1922,7 +1926,7 @@ function updatePageVarsHelper(recordTrace: EventMessage[],
       updatePageVarsHelper(recordTrace, replayTrace, index + 1, continuation);
       return;
     }
-    // WALconsole.log("Setting pagevar current tab id to:", repEvents[i].data.tabId);
+    // HelenaConsole.log("Setting pagevar current tab id to:", repEvents[i].data.tabId);
     pageVar.setCurrentTabId(replayTrace[index].data.tabId, () =>
       updatePageVarsHelper(recordTrace, replayTrace, index + 1, continuation)
     );
@@ -2120,7 +2124,7 @@ function runInternals(program: HelenaProgram, parameters: Parameters,
   runObject.program.prepareToRun();
 
   const usesTheWeb = runObject.program.loadsUrl();
-  window.WALconsole.log("usesTheWeb", usesTheWeb);
+  HelenaConsole.log("usesTheWeb", usesTheWeb);
 
   const runProgFunc = (windowId?: number) => {
     // now let's actually run
@@ -2190,7 +2194,7 @@ function runInternals(program: HelenaProgram, parameters: Parameters,
         window.currentRunObjects = window.currentRunObjects.filter(
           (runObj) => runObj !== runObject
         );
-        window.WALconsole.log("Done with script execution.");
+        HelenaConsole.log("Done with script execution.");
         const timeScraped = (new Date()).getTime() -
           parseInt(dataset.pass_start_time.toString());
         console.log(runObject.dataset.id, timeScraped);
@@ -2263,7 +2267,7 @@ function pbv(trace: EventMessage[], stmts: RingerStatement[]) {
   for (let i = 0; i < stmts.length; i++) {
     const stmt = stmts[i];
     const pbvs = stmt.pbvs();
-    window.WALconsole.log("pbvs", pbvs);
+    HelenaConsole.log("pbvs", pbvs);
     for (const curPbv of pbvs) {
       var pname = paramName(i, curPbv.type);
       if (curPbv.type === "url") {
@@ -2279,7 +2283,7 @@ function pbv(trace: EventMessage[], stmts: RingerStatement[]) {
       } else if (curPbv.type === "property") {
         pTrace.parameterizeProperty(pname, curPbv.value);
       } else {
-        window.WALconsole.log("Tried to do pbv on a type we don't know.");
+        HelenaConsole.log("Tried to do pbv on a type we don't know.");
       }
     }
   }
@@ -2297,7 +2301,7 @@ function parameterizeWrapperNodes(pTrace: ParameterizedTrace, origXpath: string,
   const origSegs = origXpath.split("/");
   const newSegs = newXpath.split("/");
   if (origSegs.length !== newSegs.length) {
-    window.WALconsole.log("origSegs and newSegs different length!", origXpath,
+    HelenaConsole.log("origSegs and newSegs different length!", origXpath,
       newXpath);
   }
   
@@ -2318,9 +2322,9 @@ function parameterizeWrapperNodes(pTrace: ParameterizedTrace, origXpath: string,
       HelenaProgram.wrapperNodeCounter += 1;
       pTrace.parameterizeXpath(pname, origXpathPrefix);
       pTrace.useXpath(pname, newXpathPrefix);
-      window.WALconsole.log("Wrapper node correction:");
-      window.WALconsole.log(origXpathPrefix);
-      window.WALconsole.log(newXpathPrefix);
+      HelenaConsole.log("Wrapper node correction:");
+      HelenaConsole.log(origXpathPrefix);
+      HelenaConsole.log(newXpathPrefix);
     } else {
       // this one is now diff, so shouldn't do replacement for the one further
       // (shouldn't do a1/b1/c1 -> d1/e1/f1 from example above)
@@ -2357,7 +2361,7 @@ function passArguments(pTrace: ParameterizedTrace, stmts: RingerStatement[],
       } else if (curArg.type === "property") {
         pTrace.useProperty(pname, curArg.value);
       } else {
-        window.WALconsole.log("Tried to do pbv on type we don't know. " +
+        HelenaConsole.log("Tried to do pbv on type we don't know. " +
           "(Arg provision.)");
       }
     }
@@ -2410,7 +2414,7 @@ function isScrapingSet(keyCodes: number[]) {
 
 function sameNodeIsNextUsed(stmt: PageActionStatement,
     stmts: PageActionStatement[]) {
-  window.WALconsole.log("sameNodeIsNextUsed", stmt, stmts);
+  HelenaConsole.log("sameNodeIsNextUsed", stmt, stmts);
 
   if (!stmt.origNode) { // there's no node associated with the first arg
     console.log("Warning!  No node associated with the statement, which may " +
@@ -2469,7 +2473,7 @@ function markNonTraceContributingStatements(stmts: HelenaLangObject[]):
   //   then only scraping statements, then a keyup, assume we can toss the keyup
   //   and keydown ones
 
-  window.WALconsole.log("markNonTraceContributingStatements", stmts);
+  HelenaConsole.log("markNonTraceContributingStatements", stmts);
 
   // ok first some special handling for cases where the only statements in the
   //   block aren't ringer-y at all
@@ -2530,7 +2534,7 @@ function markNonTraceContributingStatements(stmts: HelenaLangObject[]):
       // below: are we letting up all the same keys we put down before? and are
       //   the keys from a set we might use for entering scraping mode?
       if (_.isEqual(keysdown, keysup) && isScrapingSet(keysdown)) {
-        window.WALconsole.log("decided to remove set", keyIndexes, keysdown);
+        HelenaConsole.log("decided to remove set", keyIndexes, keysdown);
         sets.push(keyIndexes);
         keyIndexes = [];
         keysdown = [];
@@ -2578,7 +2582,7 @@ function markNonTraceContributingStatements(stmts: HelenaLangObject[]):
       // it's definitely ok while we're only using our own inserted for loops,
       //   since those get inserted where we start using a new node
       const lastStatementBeforeKeyup = <RingerStatement> stmts[keyupIndex - 1];
-      window.WALconsole.log("lastStatementBeforeKeyup",
+      HelenaConsole.log("lastStatementBeforeKeyup",
         lastStatementBeforeKeyup);
       lastStatementBeforeKeyup.contributesTrace = TraceContributions.FOCUS;
       // let's make sure to make the state match the state it should have, based
@@ -2611,7 +2615,7 @@ function markNonTraceContributingStatements(stmts: HelenaLangObject[]):
     
   }
   
-  window.WALconsole.log("markNonTraceContributingStatements", stmts);
+  HelenaConsole.log("markNonTraceContributingStatements", stmts);
   return <RingerStatement[]> stmts;
 }
 

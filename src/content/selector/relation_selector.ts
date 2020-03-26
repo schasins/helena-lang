@@ -19,6 +19,8 @@ import { XPath } from "../utils/xpath";
 import XPathList = XPath.XPathList;
 import SuffixXPathList = XPath.SuffixXPathList;
 
+import { HelenaConsole } from "../../common/utils/helena_console";
+
 /**
  * Produce the powerset of the array.
  * @param arr the array
@@ -103,7 +105,7 @@ function getCellsInRowMatchingSuffixes(suffixes: SuffixXPathList[][],
         rowNodeXPath = rowNodeXPaths[0];
         suffixListRep = suffixLs[k];
         if (candidateRowNodes.length > 1){
-          window.WALconsole.warn("Woah, bad, we have no selector index associated " +
+          HelenaConsole.warn("Woah, bad, we have no selector index associated " +
             "with a column suffix, but we have multiple row nodes.");
         }
       }
@@ -257,7 +259,7 @@ export class RelationSelector {
   public getMatchingElements() {
     let featureSet = <FeatureSet> this.selector;
     
-    // window.WALconsole.log("interpretRelationSelectorHelper", feature_dict,
+    // HelenaConsole.log("interpretRelationSelectorHelper", feature_dict,
     //   excludeFirst, subcomponents_function);
     let candidates = getAllCandidateElements();
     let listOfRowNodes = [];
@@ -283,7 +285,7 @@ export class RelationSelector {
     if (this.exclude_first > 0 && listOfRowNodes.length > this.exclude_first){
       return [listOfRowNodes.slice(this.exclude_first, listOfRowNodes.length)];
     }
-    window.WALconsole.log("listOfRowNodes", listOfRowNodes);
+    HelenaConsole.log("listOfRowNodes", listOfRowNodes);
     return [listOfRowNodes];
   }
 
@@ -296,9 +298,9 @@ export class RelationSelector {
     let rowNodeLists = this.getMatchingRows();
     // now that we have some row nodes, time to extract the individual cells
     let cells = this.getMatchingCells(rowNodeLists);
-    window.WALconsole.log("cells", cells);
+    HelenaConsole.log("cells", cells);
     //cells = onlyDisplayedCellsAndRows(cells);
-    window.WALconsole.log("returning cells 1", cells);
+    HelenaConsole.log("returning cells 1", cells);
     return cells;
   }
 
@@ -380,13 +382,13 @@ export class RelationSelector {
               exclude_first = 1;
             } else if (features !== Features.FEATURES_EXCEPT_XPATH) {
               // xpaths weren't enough to exclude nodes we need to exclude
-              window.WALconsole.log("need to try more features.");
+              HelenaConsole.log("need to try more features.");
               return RelationSelector.fromPositiveAndNegativeElements(
                 positiveEls, negativeEls, columns,
                 Features.FEATURES_EXCEPT_XPATH);
             }
             else {
-              window.WALconsole.log(featureSet);
+              HelenaConsole.log(featureSet);
               throw new Error("Failed to exclude all negative nodes " + 
                 "even with all features.");
             }
@@ -507,16 +509,16 @@ export class ContentSelector extends RelationSelector {
     //   where we don't already have server-suggested to help us with
     //   smallestSubsetToConsider?
     let combos = powerset(cells, true);
-    window.WALconsole.log("combos", combos);
+    HelenaConsole.log("combos", combos);
     let maxNumCells = -1;
     let maxSelector: ContentSelector | null = null;
     let maxComboSize = -1;
     for (const combo of combos) {
-      window.WALconsole.log("working on a new combo", combo);
+      HelenaConsole.log("working on a new combo", combo);
       // TODO: cjbaik: the if below is an inefficient way to do this!
       //   do it better in future!  just make the smaller set of combos!
       if (combo.length < minSubsetSize){
-        window.WALconsole.log("skipping a combo becuase it's smaller than the server-suggested combo", combo, minSubsetSize);
+        HelenaConsole.log("skipping a combo becuase it's smaller than the server-suggested combo", combo, minSubsetSize);
         continue;
       }
       if (combo.length < maxComboSize){
@@ -529,11 +531,11 @@ export class ContentSelector extends RelationSelector {
       if (combo.length == 0) { break; }
 
       let selector = ContentSelector.fromRow(combo);
-      window.WALconsole.log("selector", selector);
+      HelenaConsole.log("selector", selector);
       if (selector.relation.length <= 1) {
         // we're really not interested in relations of size one -- it's not
         //   going to require parameterization at all
-        window.WALconsole.log("ignoring a combo because it produces a length 1 relation", combo, selector.relation);
+        HelenaConsole.log("ignoring a combo because it produces a length 1 relation", combo, selector.relation);
         continue;
       }
 
@@ -542,16 +544,16 @@ export class ContentSelector extends RelationSelector {
         maxNumCells = numCells;
         maxSelector = selector;
         maxComboSize = combo.length;
-        window.WALconsole.log("maxselector so far", maxSelector);
-        window.WALconsole.log("relation so far", selector.relation);
+        HelenaConsole.log("maxselector so far", maxSelector);
+        HelenaConsole.log("relation so far", selector.relation);
       }
     }
 
     if (!maxSelector){
-      window.WALconsole.log("No maxSelector");
+      HelenaConsole.log("No maxSelector");
       return null;
     }
-    window.WALconsole.log("returning maxselector", maxSelector);
+    HelenaConsole.log("returning maxselector", maxSelector);
     return maxSelector;
   }
 
@@ -647,7 +649,7 @@ export class TableSelector extends ContentSelector {
    * @param cells elements describing cells in the row
    */
   public static fromTableRow(cells: HTMLElement[]) {
-    window.WALconsole.log(cells);
+    HelenaConsole.log(cells);
 
     let trs = [];
 
@@ -660,7 +662,7 @@ export class TableSelector extends ContentSelector {
     }
 
     if (trs.length === 0){
-      window.WALconsole.log("No tr parents.");
+      HelenaConsole.log("No tr parents.");
       return null;
     }
     
@@ -670,7 +672,7 @@ export class TableSelector extends ContentSelector {
     );
 
     if (trs.length === 0){
-      window.WALconsole.log("No shared tr parents.");
+      HelenaConsole.log("No shared tr parents.");
       return null;
     }
 

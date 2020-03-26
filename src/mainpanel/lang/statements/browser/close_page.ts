@@ -1,13 +1,17 @@
 import * as _ from "underscore";
+
+import { HelenaConsole } from "../../../../common/utils/helena_console";
+
 import { HelenaLangObject } from "../../helena_lang";
 import { PageVariable } from "../../../variables/page_variable";
 import { RunObject, RunOptions } from "../../program";
+import { Revival } from "../../../revival";
 
 export class ClosePageStatement extends HelenaLangObject {
   public pageVarCurr: PageVariable;
   constructor(pageVarCurr: PageVariable) {
     super();
-    window.Revival.addRevivalLabel(this);
+    Revival.addRevivalLabel(this);
     // setBlocklyLabel(this, "close");
     this.pageVarCurr = pageVarCurr;
   }
@@ -56,7 +60,7 @@ export class ClosePageStatement extends HelenaLangObject {
         rbbcontinuation(rbboptions);
       }
     } else {
-      window.WALconsole.log("Warning: trying to close tab for pageVar that " +
+      HelenaConsole.log("Warning: trying to close tab for pageVar that " +
         "didn't have a tab associated at the moment.  Can happen after " +
         "continue statement.");
       rbbcontinuation(rbboptions);

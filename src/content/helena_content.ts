@@ -2,7 +2,8 @@ import { ScrapeModeFilters } from "./filters/scrape_mode_filters";
 import { RecordingModeHandlers } from "./handlers/recording_mode_handlers";
 import { ScrapeModeHandlers } from "./handlers/scrape_mode_handlers";
 import { TabDetailsMessage, WindowsMessage,
-  WindowIdMessage } from "../common/messages";
+  WindowIdMessage, 
+  Messages} from "../common/messages";
 import { RecordingModeFilters } from "./filters/recording_mode_filters";
 import { RelationHighlighter } from "./ui/relation_highlighter";
 import { Screenshot } from "./utils/screenshot";
@@ -130,7 +131,7 @@ export class HelenaContent {
      * 1. Set up listeners.
      */
 
-    window.utilities.listenForMessage("background", "content", "tabID",
+    Messages.listenForMessage("background", "content", "tabID",
     function (msg: TabDetailsMessage) {
         self.tabId = msg.tab_id;
         self.windowId = msg.window_id;
@@ -139,12 +140,12 @@ export class HelenaContent {
             self.tabTopUrl);
       }
     );
-    window.utilities.listenForMessage("mainpanel", "content",
+    Messages.listenForMessage("mainpanel", "content",
       "currentRecordingWindows", function (msg: WindowsMessage) {
         self.currentRecordingWindows = msg.window_ids;
     });
 
-    window.utilities.listenForMessage("mainpanel", "content",
+    Messages.listenForMessage("mainpanel", "content",
       "currentReplayWindowId", function (msg: WindowIdMessage) {
         self.currentReplayWindowId = msg.window; 
         RecordingModeHandlers.applyReplayOverlayIfAppropriate(msg.window);
@@ -159,7 +160,7 @@ export class HelenaContent {
      */
     window.MiscUtilities.repeatUntil(
       function() {
-          window.utilities.sendMessage("content", "background",
+          Messages.sendMessage("content", "background",
               "requestTabID", {});
       },
       function() {
@@ -170,7 +171,7 @@ export class HelenaContent {
 
     window.MiscUtilities.repeatUntil(
       function () {
-          window.utilities.sendMessage("content", "mainpanel",
+          Messages.sendMessage("content", "mainpanel",
               "requestCurrentRecordingWindows", {});
       },
       function () {
@@ -181,7 +182,7 @@ export class HelenaContent {
 
     window.MiscUtilities.repeatUntil(
       function () {
-          window.utilities.sendMessage("content", "mainpanel",
+          Messages.sendMessage("content", "mainpanel",
               "currentReplayWindowId", {});
       },
       function () {

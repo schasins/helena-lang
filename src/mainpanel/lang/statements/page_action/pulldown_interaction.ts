@@ -1,5 +1,7 @@
 import * as Blockly from "blockly";
 
+import { HelenaConsole } from "../../../../common/utils/helena_console";
+
 import { HelenaMainpanel, NodeSources } from "../../../helena_mainpanel";
 
 import { NodeVariable } from "../../../variables/node_variable";
@@ -8,6 +10,7 @@ import { PageActionStatement } from "./page_action";
 import { GenericRelation } from "../../../relation/generic";
 import { PageVariable } from "../../../variables/page_variable";
 import { HelenaProgram } from "../../program";
+import { Revival } from "../../../revival";
 
 function deleteAPropDelta(trace: EventMessage[], propertyName: string) {
   for (const event of trace) {
@@ -53,7 +56,7 @@ export class PulldownInteractionStatement extends PageActionStatement {
 
   constructor(trace: EventMessage[]) {
     super();
-    window.Revival.addRevivalLabel(this);
+    Revival.addRevivalLabel(this);
     this.setBlocklyLabel("pulldownInteraction");
     this.trace = trace;
     
@@ -184,7 +187,7 @@ export class PulldownInteractionStatement extends PageActionStatement {
       // extract the correct selectedIndex from the xpath of the current option
       //   node
       const xpath = <string> this.currentNodeXpath(environment);
-      window.WALconsole.log("currentNodeXpath", xpath);
+      HelenaConsole.log("currentNodeXpath", xpath);
       const segments = xpath.split("[")
       let indexStr = segments[segments.length - 1].split("]")[0]; 
       let indexOfNextOption = parseInt(indexStr);

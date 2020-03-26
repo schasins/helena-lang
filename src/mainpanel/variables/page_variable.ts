@@ -1,6 +1,8 @@
 // import { SortedArray } from "../../common/utils/sorted_array";
 
+import { HelenaConsole } from "../../common/utils/helena_console";
 import { MainpanelNode } from "../../common/mainpanel_node";
+import { Revival } from "../revival";
 
 // note that first arg should be SortedArray not just sorted array
 /*function outlier(sortedList, potentialItem) {
@@ -47,7 +49,8 @@ export interface PageRelation {
   needNewRows?: boolean;
 }
 
-export class PageVariable {
+export class PageVariable implements Revival.Revivable {
+  public ___revivalLabel___: string;
   public name: string;
   public recordTimeUrl: string;
   public pageRelations: {
@@ -60,12 +63,12 @@ export class PageVariable {
   public recordTimeFrameData: FrameDataPlaceholder;
 
   constructor(name: string, recordTimeUrl: string) {
-    window.Revival.addRevivalLabel(this);
+    Revival.addRevivalLabel(this);
 
     this.name = name;
     this.recordTimeUrl = recordTimeUrl;
     this.pageRelations = {};
-    window.WALconsole.namedLog("prinfo", "fresh empty pageRelations");
+    HelenaConsole.namedLog("prinfo", "fresh empty pageRelations");
     // this.pageStats = freshPageStats();
   }
   
@@ -74,7 +77,7 @@ export class PageVariable {
   }
 
   public setCurrentTabId(tabId: number, continuation: Function) {
-    window.WALconsole.log("setCurrentTabId", tabId);
+    HelenaConsole.log("setCurrentTabId", tabId);
     this.tabId = tabId;
     continuation();
     return;
@@ -84,7 +87,7 @@ export class PageVariable {
     this.currentTabIdPageStatsRetrieved = false;
     that.nonOutlierProcessing(data, continuation);
     if (tabId !== undefined) {
-      utilities.listenForMessageOnce("content", "mainpanel", "pageStats", function(data) {
+      Messages.listenForMessageOnce("content", "mainpanel", "pageStats", function(data) {
         that.currentTabIdPageStatsRetrieved = true;
         if (that.pageOutlier(data)) {
           WALconsole.log("This was an outlier page!");
@@ -102,7 +105,7 @@ export class PageVariable {
         }
       });
       MiscUtilities.repeatUntil(
-        function() {utilities.sendMessage("mainpanel", "content", "pageStats", {}, null, null, [tabId], null);}, 
+        function() {Messages.sendMessage("mainpanel", "content", "pageStats", {}, null, null, [tabId], null);}, 
         function() {return that.currentTabIdPageStatsRetrieved;},
   function() {},
         1000, true);
@@ -135,11 +138,11 @@ export class PageVariable {
   
   public clearRelationData() {
     this.pageRelations = {};
-    window.WALconsole.namedLog("prinfo", "clear relation data");
+    HelenaConsole.namedLog("prinfo", "clear relation data");
   }
 
   public originalTabId() {
-    window.WALconsole.log(this.recordTimeFrameData);
+    HelenaConsole.log(this.recordTimeFrameData);
     if (this.recordTimeFrameData) {
       return this.recordTimeFrameData.tab;
     }

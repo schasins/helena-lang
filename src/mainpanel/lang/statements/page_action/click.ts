@@ -9,6 +9,7 @@ import { ColumnSelector } from "../../../../content/selector/column_selector";
 import { GenericRelation } from "../../../relation/generic";
 import { PageVariable } from "../../../variables/page_variable";
 import { HelenaProgram } from "../../program";
+import { Revival } from "../../../revival";
 
 export class ClickStatement extends PageActionStatement {
   public static maxDim = 50;
@@ -22,7 +23,7 @@ export class ClickStatement extends PageActionStatement {
 
   constructor(trace: EventMessage[]) {
     super();
-    window.Revival.addRevivalLabel(this);
+    Revival.addRevivalLabel(this);
     this.setBlocklyLabel("click");
 
     this.trace = trace;

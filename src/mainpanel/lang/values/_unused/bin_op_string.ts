@@ -26,7 +26,7 @@ export class BinOpString extends Value {
 
   constructor() {
     super();
-    window.Revival.addRevivalLabel(this);
+    Revival.addRevivalLabel(this);
     HelenaMainpanel.setBlocklyLabel(this, "binopstring");
     this.left = null;
     this.right = null;

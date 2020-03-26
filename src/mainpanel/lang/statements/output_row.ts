@@ -1,6 +1,8 @@
 import * as Blockly from "blockly";
 import * as _ from "underscore";
 
+import { HelenaConsole } from "../../../common/utils/helena_console";
+
 import { HelenaMainpanel } from "../../helena_mainpanel";
 
 import { HelenaLangObject } from "../helena_lang";
@@ -13,6 +15,7 @@ import { GenericRelation } from "../../relation/generic";
 import { MainpanelNode } from "../../../common/mainpanel_node";
 import { PageVariable } from "../../variables/page_variable";
 import { RunObject, HelenaProgram, RunOptions } from "../program";
+import { Revival } from "../../revival";
 
 export class OutputRowStatement extends HelenaLangObject {
   public cleanTrace: EventMessage[];
@@ -23,7 +26,7 @@ export class OutputRowStatement extends HelenaLangObject {
 
   constructor(scrapeStatements: ScrapeStatement[]) {
     super();
-    window.Revival.addRevivalLabel(this);
+    Revival.addRevivalLabel(this);
     this.setBlocklyLabel("output");
     this.trace = []; // no extra work to do in r+r layer for this
     this.cleanTrace = [];
@@ -62,7 +65,7 @@ export class OutputRowStatement extends HelenaLangObject {
       (stmt) => stmt.currentNode.toString(true)
     );
     const allNames = textRelationRepLs.concat(nodeRepLs);
-    window.WALconsole.log("outputRowStatement", textRelationRepLs, nodeRepLs);
+    HelenaConsole.log("outputRowStatement", textRelationRepLs, nodeRepLs);
     return [ `addOutputRow([ ${allNames.join(", ")}])` ];
   };
 

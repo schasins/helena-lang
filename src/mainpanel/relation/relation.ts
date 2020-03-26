@@ -1,12 +1,15 @@
 import * as _ from "underscore";
 
+import { HelenaConsole } from "../../common/utils/helena_console";
+
 import { HelenaMainpanel, NodeSources } from "../helena_mainpanel";
 
 import { ColumnSelector } from "../../content/selector/column_selector";
 import { NextButtonSelector } from "../../content/selector/next_button_selector";
 
 import { FreshRelationItemsMessage,
-  NextButtonTextMessage } from "../../common/messages";
+  NextButtonTextMessage, 
+  Messages} from "../../common/messages";
 
 import { MainpanelNode } from "../../common/mainpanel_node";
 
@@ -24,6 +27,7 @@ import { GenericRelation } from "./generic";
 import { PageActionStatement } from "../lang/statements/page_action/page_action";
 import { PageRelation, PageVariable } from "../variables/page_variable";
 import { RunObject } from "../lang/program";
+import { Revival } from "../revival";
 
 function shortPrintString(obj: object) {
   if (!obj) {
@@ -142,7 +146,7 @@ export class Relation extends GenericRelation {
       frame: number) {
     super();
     
-    window.Revival.addRevivalLabel(this);
+    Revival.addRevivalLabel(this);
 
     this.id = relationId;
     this.selector = selector;
@@ -167,7 +171,7 @@ export class Relation extends GenericRelation {
       this.name = name;
     }
 
-    window.WALconsole.log(this);
+    HelenaConsole.log(this);
     this.processColumns();
     this.updateFirstRowInfo();
 
@@ -209,14 +213,14 @@ export class Relation extends GenericRelation {
 
   public updateNodeVariables(environment: EnvironmentPlaceholder,
       pageVar: PageVariable) {
-    window.WALconsole.log("updateNodeVariables Relation");
+    HelenaConsole.log("updateNodeVariables Relation");
     const nodeVariables = this.nodeVariables();
     const columns = this.columns; // again, nodeVariables and columns must be aligned
     for (let i = 0; i < columns.length; i++) {
       let currNodeRep = this.getCurrentNodeRep(pageVar, columns[i]);
       nodeVariables[i].setCurrentNodeRep(environment, currNodeRep);
     }
-    window.WALconsole.log("updateNodeVariables Relation completed");
+    HelenaConsole.log("updateNodeVariables Relation completed");
   }
 
   public processColumns(oldColumns?: ColumnSelector.Interface[]) {
@@ -375,7 +379,7 @@ export class Relation extends GenericRelation {
     const prinfo = this.getPrinfo(pageVar);
     if (allowMoreNextInteractions &&
       prinfo.currentNextInteractionAttempts < maxNextButtonAttempts) {
-      window.WALconsole.log("ok, we're going to try calling getNextRow again," +
+      HelenaConsole.log("ok, we're going to try calling getNextRow again," +
         " running the next interaction again. currentNextInteractionAttempts: "+
         prinfo.currentNextInteractionAttempts);
       // so that we don't fall back into trying to grab rows from current page
@@ -386,8 +390,8 @@ export class Relation extends GenericRelation {
       // no more rows -- let the callback know we're done
       // clear the stored relation data also
       prinfo.currentRows = null;
-      window.WALconsole.namedLog("prinfo", "changing prinfo.currentrows, setting to null bc no more rows");
-      window.WALconsole.namedLog("prinfo", shortPrintString(prinfo));
+      HelenaConsole.namedLog("prinfo", "changing prinfo.currentrows, setting to null bc no more rows");
+      HelenaConsole.namedLog("prinfo", shortPrintString(prinfo));
       prinfo.currentRowsCounter = 0;
       prinfo.currentNextInteractionAttempts = 0;
       callback(false); 
@@ -401,9 +405,9 @@ export class Relation extends GenericRelation {
     //   the items we want
     prinfo.needNewRows = false;
     prinfo.currentRows = rel;
-    window.WALconsole.namedLog("prinfo", "changing prinfo.currentrows, " +
+    HelenaConsole.namedLog("prinfo", "changing prinfo.currentrows, " +
       "setting to rel bc found more rows", rel);
-    window.WALconsole.namedLog("prinfo", shortPrintString(prinfo));
+    HelenaConsole.namedLog("prinfo", shortPrintString(prinfo));
     prinfo.currentRowsCounter = 0;
     prinfo.currentNextInteractionAttempts = 0;
     callback(true);
@@ -415,7 +419,7 @@ export class Relation extends GenericRelation {
     
     const self = this;
     if (!pageVar.currentTabId()) {
-      window.WALconsole.warn("Hey!  How'd you end up trying to find a " +
+      HelenaConsole.warn("Hey!  How'd you end up trying to find a " +
        "relation on a page for which you don't have a current tab id?? " +
        "That doesn't make sense.", pageVar);
     }
@@ -426,7 +430,7 @@ export class Relation extends GenericRelation {
     // once we've gotten data from any frame, this is the function we'll call to
     //   process all the results
     const handleNewRelationItemsFromFrame = (data: FreshRelationItemsMessage,
-        frameId: string) => {
+        frameId: number) => {
       const currentGetRowsCounter = self.getRowsCounter;
       if (self.doneArray[currentGetRowsCounter]) {
         return;
@@ -439,9 +443,9 @@ export class Relation extends GenericRelation {
         // todo: we should make sure we're not totally losing data because of
         //   overwriting old data with new data, then only processing the new
         //   data...
-        window.WALconsole.namedLog("getRelationItems", "Got data from a frame" +
+        HelenaConsole.namedLog("getRelationItems", "Got data from a frame" +
           " for which we already have data", self.getRowsCounter);
-        window.WALconsole.namedLog("getRelationItems", _.isEqual(data,
+        HelenaConsole.namedLog("getRelationItems", _.isEqual(data,
           self.relationItemsRetrieved[frameId]), data,
           self.relationItemsRetrieved[frameId]);
         // we definitely don't want to clobber real new items with anything
@@ -460,7 +464,7 @@ export class Relation extends GenericRelation {
             data.type === window.RelationItemsOutputs.NEWITEMS &&
             self.relationItemsRetrieved[frameId].relation.length >
               data.relation.length) {
-          window.WALconsole.namedLog("getRelationItems", "The new data is " +
+          HelenaConsole.namedLog("getRelationItems", "The new data is " +
             "also new items, but it's shorter than the others, so we're " +
             "actually going to throw it away for now.  May be something to " +
             "change later.");
@@ -468,13 +472,13 @@ export class Relation extends GenericRelation {
         }
       }
 
-      window.WALconsole.log("data", data);
+      HelenaConsole.log("data", data);
       if (data.type === window.RelationItemsOutputs.NOMOREITEMS) {
         // NOMOREITEMS -> definitively out of items.
         //   this frame says this relation is done
         // to stop us from continuing to ask for freshitems
         self.relationItemsRetrieved[frameId] = data;
-        window.WALconsole.namedLog("getRelationItems", "We're giving up on " +
+        HelenaConsole.namedLog("getRelationItems", "We're giving up on " +
           "asking for new items for one of ",
           Object.keys(self.relationItemsRetrieved).length, " frames. frameId: ",
           frameId, self.relationItemsRetrieved, self.missesSoFar);
@@ -483,7 +487,7 @@ export class Relation extends GenericRelation {
           data.relation.length === 0)) {
         // todo: currently if we get data but it's only 0 rows, it goes here.  is that just an unnecessary delay?  should we just believe that that's the final answer?
         self.missesSoFar[frameId] += 1;
-        window.WALconsole.namedLog("getRelationItems",
+        HelenaConsole.namedLog("getRelationItems",
           "adding a miss to our count", frameId, self.missesSoFar[frameId]);
       } else if (data.type === window.RelationItemsOutputs.NEWITEMS) {
         // yay, we have real data!
@@ -506,15 +510,15 @@ export class Relation extends GenericRelation {
             _.isEqual(
               extractUserVisibleAttributesFromRelation(prinfo.currentRows), 
               extractUserVisibleAttributesFromRelation(data.relation))) {
-          window.WALconsole.namedLog("getRelationItems", "This really " +
+          HelenaConsole.namedLog("getRelationItems", "This really " +
             "shouldn't happen.  We got the same relation back from the " +
             "content script that we'd already gotten.");
-          window.WALconsole.namedLog("getRelationItems", prinfo.currentRows);
+          HelenaConsole.namedLog("getRelationItems", prinfo.currentRows);
           self.missesSoFar[frameId] += 1;
         } else {
-          window.WALconsole.log("The relations are different.");
-          window.WALconsole.log(prinfo.currentRows, data.relation);
-          window.WALconsole.namedLog("getRelationItems", currentGetRowsCounter,
+          HelenaConsole.log("The relations are different.");
+          HelenaConsole.log(prinfo.currentRows, data.relation);
+          HelenaConsole.namedLog("getRelationItems", currentGetRowsCounter,
             data.relation.length);
 
           // to stop us from continuing to ask for freshitems
@@ -540,7 +544,7 @@ export class Relation extends GenericRelation {
           }
         }
       } else {
-        window.WALconsole.log("There's freshRelationItems with unknown type.");
+        HelenaConsole.log("There's freshRelationItems with unknown type.");
       }
 
       // so?  are we done?  if all frames indicated that there are no more, then
@@ -558,21 +562,21 @@ export class Relation extends GenericRelation {
         }
       }
       if (!stillPossibleMoreItems) {
-        window.WALconsole.namedLog("getRelationItems",
+        HelenaConsole.namedLog("getRelationItems",
           "all frames say we're done", self.getRowsCounter);
         self.doneArray[self.getRowsCounter] = true;
         
         // false because shouldn't try pressing the next button
         self.noMoreRows(runObject, pageVar, callback, false);
       } else {
-        window.WALconsole.namedLog("getRelationItems", "we think we might " +
+        HelenaConsole.namedLog("getRelationItems", "we think we might " +
           "still get rows based on some frames not responding yet");
       }
     }
 
     function processEndOfCurrentGetRows(pageVar: PageVariable,
       callback: Function) {
-      window.WALconsole.namedLog("getRelationItems",
+      HelenaConsole.namedLog("getRelationItems",
         "processEndOfCurrentGetRows", self.getRowsCounter);
       
       // ok, we have 'real' (NEWITEMS or decided we're done) data for all of
@@ -599,7 +603,7 @@ export class Relation extends GenericRelation {
         const diffPercent =
           Math.abs(data.relation.length - targetNumRows) / targetNumRows;
         if (percentColumns > .5 && diffPercent < .3) {
-          window.WALconsole.namedLog("getRelationItems",
+          HelenaConsole.namedLog("getRelationItems",
             "all defined and found new items", self.getRowsCounter);
           self.doneArray[self.getRowsCounter] = true;
           self.gotMoreRows(pageVar, callback, data.relation);
@@ -610,7 +614,7 @@ export class Relation extends GenericRelation {
       // drat, even with our more flexible requirements, still didn't find one
       //   that works.  guess we're done?
 
-      window.WALconsole.namedLog("getRelationItems",
+      HelenaConsole.namedLog("getRelationItems",
         "all defined and couldn't find any relation items from any frames",
         self.getRowsCounter);
       self.doneArray[self.getRowsCounter] = true;
@@ -626,13 +630,13 @@ export class Relation extends GenericRelation {
       const currentGetRowsCounter = self.getRowsCounter;
       self.relationItemsRetrieved = {};
       self.missesSoFar = {};
-      for (const frame in frames) {
+      for (const frame of frames) {
         // keep track of which frames need to respond before we'll be ready to
         //   advance
         self.relationItemsRetrieved[frame] = false;
         self.missesSoFar[frame] = 0;
       }
-      for (const frame in frames) {
+      for (const frame of frames) {
         // for each frame in the target tab, we want to see if the frame
         //   retrieves good relation items. we'll pick the one we like best
         // todo: is there a better way?  after all, we do know the frame in
@@ -642,17 +646,17 @@ export class Relation extends GenericRelation {
         
         // here's the function for sending the message once
         const sendGetRelationItems = () => {
-          window.WALconsole.namedLog("getRelationItems",
+          HelenaConsole.namedLog("getRelationItems",
             "requesting relation items", currentGetRowsCounter);
-          window.utilities.sendFrameSpecificMessage("mainpanel", "content",
+          Messages.sendFrameSpecificMessage("mainpanel", "content",
             "getFreshRelationItems", self.messageRelationRepresentation(), 
-            tabId, frame, (msg: FreshRelationItemsMessage) => { 
+            <number> tabId, frame, (msg: FreshRelationItemsMessage) => { 
               // question: is it ok to insist that every single frame returns a
               //   non-null one?  maybe have a timeout?  maybe accept once we
               //   have at least one good response from one of the frames?
-              window.WALconsole.namedLog("getRelationItems",
+              HelenaConsole.namedLog("getRelationItems",
                 "Receiving response: ", frame, msg); 
-              window.WALconsole.namedLog("getRelationItems",
+              HelenaConsole.namedLog("getRelationItems",
                 "getFreshRelationItems answer", msg);
               
               // when get response, call handleNewRelationItemsFromFrame
@@ -683,7 +687,7 @@ export class Relation extends GenericRelation {
       //   timeout
       
       setTimeout(() => {
-        window.WALconsole.namedLog("getRelationItems",
+        HelenaConsole.namedLog("getRelationItems",
           "TIMEOUT, giving up on currentGetRows", currentGetRowsCounter);
         if (!self.doneArray[currentGetRowsCounter]) {
           self.doneArray[currentGetRowsCounter] = false;
@@ -722,7 +726,7 @@ export class Relation extends GenericRelation {
     //   relation again, it's critical that we clear out all the stuff that's
     //   stored about the relation now
     let gotAck = false;
-    window.utilities.listenForMessageOnce("content", "mainpanel",
+    Messages.listenForMessageOnce("content", "mainpanel",
       "clearedRelationInfo", () => {
         gotAck = true;
         continuation();
@@ -731,9 +735,9 @@ export class Relation extends GenericRelation {
     const currentTabId = pageVar.currentTabId();
     if (currentTabId) {
       window.MiscUtilities.repeatUntil(() => {
-        window.utilities.sendMessage("mainpanel", "content",
-          "clearRelationInfo", self.messageRelationRepresentation(), null, null,
-          [currentTabId]);
+        Messages.sendMessage("mainpanel", "content",
+          "clearRelationInfo", self.messageRelationRepresentation(), undefined,
+          undefined, [currentTabId]);
       }, () => gotAck, () => {}, 1000, false);
     } else {
       continuation();
@@ -747,16 +751,16 @@ export class Relation extends GenericRelation {
     const self = this;
 
     // ok, what's the page info on which we're manipulating this relation?
-    window.WALconsole.log(pageVar.pageRelations);
+    HelenaConsole.log(pageVar.pageRelations);
 
     // separate relations can have same name (no rule against that) and same id
     //   (undefined if not yet saved to server), but since we assign unique
     //   names when not saved to server and unique ides when saved to server,
     //   should be rare to have same both.  todo: be more secure in future
     let prinfo = this.getPrinfo(pageVar);
-    window.WALconsole.namedLog("prinfo",
+    HelenaConsole.namedLog("prinfo",
       "change prinfo, finding it for getnextrow", this.name, this.id);
-    window.WALconsole.namedLog("prinfo", shortPrintString(prinfo));
+    HelenaConsole.namedLog("prinfo", shortPrintString(prinfo));
 
     // if we haven't seen the frame currently associated with this pagevar, need
     //   to clear our state and start fresh
@@ -769,13 +773,13 @@ export class Relation extends GenericRelation {
         currentNextInteractionAttempts: 0
       };
       this.setPrinfo(pageVar, prinfo);
-      window.WALconsole.namedLog("prinfo",
+      HelenaConsole.namedLog("prinfo",
         "change prinfo, prinfo was undefined", this.name, this.id);
-      window.WALconsole.namedLog("prinfo", shortPrintString(prinfo));
+      HelenaConsole.namedLog("prinfo", shortPrintString(prinfo));
     }
 
     // now that we have the page info to manipulate, what do we need to do to get the next row?
-    window.WALconsole.log("getnextrow", this, prinfo.currentRowsCounter);
+    HelenaConsole.log("getnextrow", this, prinfo.currentRowsCounter);
     if ((prinfo.currentRows === null || prinfo.needNewRows) &&
         !prinfo.runNextInteraction) {
       // cool!  no data right now, so we have to go to the page and ask for some
@@ -814,19 +818,19 @@ export class Relation extends GenericRelation {
       // essentially, we want to run getNextRow again, ready to grab new data
       //   from the page that's now been loaded or updated
       let stopRequestingNext = false;
-      window.utilities.listenForMessageOnce("content", "mainpanel",
+      Messages.listenForMessageOnce("content", "mainpanel",
         "runningNextInteraction", () => {
         const currentGetNextRowCounter = self.getNextRowCounter;
-        window.WALconsole.namedLog("getRelationItems", currentGetNextRowCounter,
+        HelenaConsole.namedLog("getRelationItems", currentGetNextRowCounter,
           "got nextinteraction ack");
         prinfo.currentNextInteractionAttempts += 1;
-        window.WALconsole.log("we've tried to run the get next interaction " +
+        HelenaConsole.log("we've tried to run the get next interaction " +
           "again, got an acknowledgment, so now we'll stop requesting next");
         stopRequestingNext = true;
         continueWithANewPage();
       });
 
-      window.utilities.listenForMessageOnce("content", "mainpanel",
+      Messages.listenForMessageOnce("content", "mainpanel",
         "nextButtonText", (data: NextButtonTextMessage) => {
           self.currNextButtonText = data.text;
       });
@@ -835,7 +839,7 @@ export class Relation extends GenericRelation {
       // here's us telling the content script to take care of clicking on the
       //   next button, more button, etc
       if (!pageVar.currentTabId()) {
-        window.WALconsole.log("Hey!  How'd you end up trying to click next " +
+        HelenaConsole.log("Hey!  How'd you end up trying to click next " +
         "button on a page for which you don't have a current tab id?? " +
         "That doesn't make sense.", pageVar);
       }
@@ -845,13 +849,13 @@ export class Relation extends GenericRelation {
       //   todo: is this something we even hit?
       const relationFindingTimeout = 120000;
       const sendRunNextInteraction = () => {
-        window.WALconsole.log("we're trying to send a next interaction again");
+        HelenaConsole.log("we're trying to send a next interaction again");
         const currTime = (new Date()).getTime();
         // let's check if we've hit our timeout
         if ((currTime - startRequestNextInteraction) > relationFindingTimeout) {
           // ok, we've crossed the threshold time and the next button still
           //   didn't work.  let's try refreshing the tab
-          window.WALconsole.log("we crossed the time out between when we " +
+          HelenaConsole.log("we crossed the time out between when we " +
             "started requesting the next interaction and now. " +
             "we're going to try refreshing");
           stopRequestingNext = true;
@@ -866,12 +870,12 @@ export class Relation extends GenericRelation {
               //   is just restart from the beginning because this is a list
               //   page.  so we just don't know what else to do
               console.log(chrome.runtime.lastError.message);
-              window.WALconsole.warn("No idea what to do, so we're breaking" +
+              HelenaConsole.warn("No idea what to do, so we're breaking" +
                 " -- a list page just wasn't present, so didn't know what to" +
                 " do next.");
               return;
             } else {
-                window.WALconsole.log("refreshing the page now.");
+                HelenaConsole.log("refreshing the page now.");
                 // Tab exists.  so we can try reloading it, see how it goes
                 chrome.tabs.reload(tabId, {}, () => {
                   // ok, good, it's reloaded.  ready to go on with normal
@@ -883,12 +887,13 @@ export class Relation extends GenericRelation {
         }
         // ok, haven't hit the timeout so just keep trying the next interaction
         const currentGetNextRowCounter = self.getNextRowCounter;
-        window.WALconsole.namedLog("getRelationItems", currentGetNextRowCounter,
+        HelenaConsole.namedLog("getRelationItems", currentGetNextRowCounter,
           "requestNext");
         const msg = self.messageRelationRepresentation();
         msg.prior_next_button_text = self.currNextButtonText;
-        window.utilities.sendMessage("mainpanel", "content",
-          "runNextInteraction", msg, null, null, [ pageVar.currentTabId() ]);};
+        Messages.sendMessage("mainpanel", "content",
+          "runNextInteraction", msg, undefined, undefined,
+          [ <number> pageVar.currentTabId() ]);};
       window.MiscUtilities.repeatUntil(sendRunNextInteraction,
         () => stopRequestingNext, () => {}, 17000, false);
     } else {
@@ -903,26 +908,26 @@ export class Relation extends GenericRelation {
   public getCurrentNodeRep(pageVar: PageVariable,
     columnObject: ColumnSelector.Interface) {
     const prinfo = pageVar.pageRelations[this.name + "_" + this.id]
-    window.WALconsole.namedLog("prinfo",
+    HelenaConsole.namedLog("prinfo",
       "change prinfo, finding it for getCurrentNodeRep", this.name, this.id);
-    window.WALconsole.namedLog("prinfo", shortPrintString(prinfo));
+    HelenaConsole.namedLog("prinfo", shortPrintString(prinfo));
 
     if (prinfo === undefined) {
-      window.WALconsole.log("Bad!  Shouldn't be calling getCurrentLink on a " +
+      HelenaConsole.log("Bad!  Shouldn't be calling getCurrentLink on a " +
         "pageVar for which we haven't yet called getNextRow.");
       return null;
     }
     if (prinfo.currentRows === undefined) {
-      window.WALconsole.log("Bad!  Shouldn't be calling getCurrentLink on a " +
+      HelenaConsole.log("Bad!  Shouldn't be calling getCurrentLink on a " +
         "prinfo with no currentRows.", prinfo);
         return null;
     }
     if (prinfo.currentRows === null) {
-      window.WALconsole.namedLog("prinfo", "the bad state");
+      HelenaConsole.namedLog("prinfo", "the bad state");
       return null;
     }
     if (prinfo.currentRows[prinfo.currentRowsCounter] === undefined) {
-      window.WALconsole.log("Bad!  Shouldn't be calling getCurrentLink on a " +
+      HelenaConsole.log("Bad!  Shouldn't be calling getCurrentLink on a " +
         "prinfo with a currentRowsCounter that doesn't correspond to a row " +
         "in currentRows.", prinfo);
       return null;

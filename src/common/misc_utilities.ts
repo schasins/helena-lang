@@ -1,257 +1,6 @@
+import { HelenaConsole } from "./utils/helena_console";
+
 import { Relation } from "../mainpanel/relation/relation";
-
-var WALconsole = (function _WALconsole() { var pub = {};
-
-  pub.debugging = false;
-  pub.showWarnings = true;
-  pub.namedDebugging = []; //["nextInteraction"]; //["getRelationItems"]; // ["prinfo"]; //["duplicates"]; //["rbb"];//["getRelationItems", "nextInteraction"];
-  pub.styleMinimal = true;
-
-  function callerName(origArgs){
-    console.log("origArgs", origArgs);
-    try {
-      return origArgs.callee.caller.name;
-    }
-    catch(e){
-      return "unknown caller";
-    }
-  }
-
-  function loggingGuts(args, origArgs){
-    var prefix = [];
-    if (!pub.styleMinimal){
-      var caller = callerName(origArgs);
-      prefix = ["["+caller+"]"];
-    }
-    var newArgs = prefix.concat(Array.prototype.slice.call(args));
-    Function.apply.call(console.log, console, newArgs);
-  };
-
-  pub.log = function _log(){
-    if (pub.debugging){
-      loggingGuts(arguments, arguments);
-    }
-  };
-
-  pub.namedLog = function _log(){
-    var name = arguments[0];
-    if (pub.debugging || pub.namedDebugging.indexOf(name) > -1) {
-      var args = Array.prototype.slice.call(arguments);
-      loggingGuts(args.slice(1, arguments.length), arguments);
-    }
-  };
-
-  pub.warn = function _warn(){
-    if (pub.showWarnings){
-      var args = Array.prototype.slice.call(arguments);
-      var newArgs = ["Warning: "].concat(args);
-      loggingGuts(newArgs, arguments);
-    }
-  };
-
-return pub; }());
-
-var utilities = (function _utilities() { var pub = {};
-
-  var sendTypes = {
-    NORMAL: 0,
-    FRAMESPECIFIC: 1
-  };
-
-  var listenerCounter = 1;
-  var runtimeListeners = {};
-  var extensionListeners = {};
-
-  chrome.runtime.onMessage.addListener(function _listenerRuntime(msg, sender) {
-    for (var key in runtimeListeners){
-      var wasRightHandler = runtimeListeners[key](msg, sender);
-      if (wasRightHandler){
-        return;
-      }
-    }
-    WALconsole.namedLog("tooCommon", "couldn't find right handler", msg, sender);
-  });
-
-  chrome.extension.onMessage.addListener(function _listenerExtension(msg, sender) {
-    // WALconsole.log("keys", Object.keys(extensionListeners));
-    for (var key in extensionListeners){
-      // WALconsole.log("key", key);
-      var wasRightHandler = extensionListeners[key](msg, sender);
-      if (wasRightHandler){
-        return;
-      }
-    }
-    WALconsole.namedLog("tooCommon", "Couldn't find right handler", msg, sender);
-  });
-
-  pub.listenForMessage = function _listenForMessage(from, to, subject, fn, key){
-    if (key === undefined){ key = listenerCounter; }
-    WALconsole.log("Listening for messages: "+ from+" : "+to+" : "+subject);
-    listenerCounter += 1;
-    if (to === "background" || to === "mainpanel"){
-      runtimeListeners[key] = function _oneListenerRuntime(msg, sender) {
-        if (msg.from && (msg.from === from) && msg.subject && (msg.subject === subject) && (msg.send_type === sendTypes.NORMAL)) {
-          if (sender.tab && sender.tab.id){
-            // add a tab id iff it's from content, and thus has sender.tab and sender.tab.id
-            if (!msg.content){
-              msg.content = {};
-            }
-            msg.content.tab_id = sender.tab.id;
-          }
-          WALconsole.log("Receiving message: ", msg);
-          WALconsole.log("from tab id: ", msg.content.tab_id);
-          fn(msg.content);
-          return true;
-        }
-        if (true){WALconsole.log("No subject match: ", msg.subject, subject)};
-        return false;
-      };
-    }
-    else if (to === "content"){
-      // WALconsole.log("content listener", key, subject);
-      extensionListeners[key] = function _oneListenerExtension(msg, sender) {
-        // WALconsole.log(msg, sender);
-        var frame_id = SimpleRecord.getFrameId();
-        if (msg.frame_ids_include && msg.frame_ids_include.indexOf(frame_id) < -1){
-          WALconsole.log("Msg for frames with ids "+msg.frame_ids_include+", but this frame has id "+frame_id+".");
-          return false;
-        }
-        else if (msg.frame_ids_exclude && msg.frame_ids_exclude.indexOf(frame_id) > -1){
-          WALconsole.log("Msg for frames without ids "+msg.frame_ids_exclude+", but this frame has id "+frame_id+".");
-          return false;
-        }
-        else if (msg.from && (msg.from === from) && msg.subject && (msg.subject === subject) && (msg.send_type === sendTypes.NORMAL)) {
-          WALconsole.log("Receiving message: ", msg);
-          fn(msg.content);
-          return true;
-        }
-        else{
-          // WALconsole.log("Received message, but not a match for current listener.");
-          // WALconsole.log(msg.from, from, (msg.from === from), msg.subject, subject, (msg.subject === subject), (msg.send_type === sendTypes.NORMAL));
-          return false;
-        }
-      };
-    }
-    else{
-      console.log("Bad to field in msg:", msg);
-    }
-  };
-
-  // note that this frameSpecificMessage assume we'll have a response handler, so fn should provide a return value, rather than sending its own messages
-  pub.listenForFrameSpecificMessage = function _listenForFrameSpecificMessage(from, to, subject, fn){
-    WALconsole.log("Listening for frame-specific messages: "+ from+" : "+to+" : "+subject);
-    chrome.runtime.onMessage.addListener(function _frameSpecificListener(msg, sender) {
-      if (msg.subject === subject && msg.send_type === sendTypes.FRAMESPECIFIC){
-        var key = msg.frame_specific_subject;
-        var sendResponse = function _sendResponse(content){
-          pub.sendMessage(to, from, key, content);
-        };
-        WALconsole.log("Receiving frame-specific message: ", msg);
-        fn(msg.content, sendResponse);
-        return true; // must return true so that the sendResponse channel remains open (indicates we'll use sendResponse asynchronously.  may not always, but have the option)
-      }
-    });
-  }
-
-  var oneOffListenerCounter = 1;
-
-  pub.listenForMessageOnce = function _listenForMessageOnce(from, to, subject, fn){
-    WALconsole.log("Listening once for message: "+ from+" : "+to+" : "+subject);
-    var key = "oneoff_"+oneOffListenerCounter;
-    var newfunc = null;
-    oneOffListenerCounter += 1;
-    if (to === "background" || to === "mainpanel"){
-      newfunc = function(msg){delete runtimeListeners[key]; fn(msg);};
-    }
-    else if (to === "content"){
-      newfunc = function(msg){delete extensionListeners[key]; fn(msg);};
-    }
-    pub.listenForMessage(from, to, subject, newfunc, key);
-  }
-
-  pub.listenForMessageWithKey = function _listenForMessageWithKey(from, to, subject, key, fn){
-    WALconsole.log("Listening for message with key: "+ from+" : "+to+" : "+subject);
-    pub.listenForMessage(from, to, subject, fn, key);
-  }
-
-  pub.stopListeningForMessageWithKey = function _stopListeningForMessageWithKey(from, to, subect, key){
-    // WALconsole.log("deleting key", key);
-    if (to === "background" || to === "mainpanel"){
-      delete runtimeListeners[key];
-    }
-    else if (to === "content"){
-      delete extensionListeners[key];
-    }
-  }
-
-  pub.sendMessage = function _sendMessage(from, to, subject, content, frame_ids_include, frame_ids_exclude, tab_ids_include, tab_ids_exclude){ // note: frame_ids are our own internal frame ids, not chrome frame ids
-    if ((from ==="background" || from ==="mainpanel") && to === "content"){
-      var msg = {from: from, subject: subject, content: content, frame_ids_include: frame_ids_include, frame_ids_exclude: frame_ids_exclude};
-      msg.send_type = sendTypes.NORMAL;
-      WALconsole.log("Sending message: ", msg);
-      WALconsole.log(tab_ids_include, tab_ids_exclude);
-      if (tab_ids_include){
-        for (var i =0; i<tab_ids_include.length; i++){
-          if (tab_ids_include[i]){
-            chrome.tabs.sendMessage(tab_ids_include[i], msg); 
-          }
-          else{
-            WALconsole.warn("Tried to send message to undefined tab, very bad.");
-            var err = new Error();
-            WALconsole.warn(err.stack);
-          }
-        } 
-        WALconsole.log("(Sent to ", tab_ids_include.length, " tabs: ", tab_ids_include, " )");
-      }
-      else{
-          chrome.tabs.query({windowType: "normal"}, function _sendMessageTabs(tabs){
-            tabs_messaged = 0;
-            for (var i =0; i<tabs.length; i++){
-              if (!(tab_ids_exclude && tab_ids_exclude.indexOf(tabs[i].id) > -1)){
-                try {
-                    chrome.tabs.sendMessage(tabs[i].id, msg); 
-                }
-                catch(err) {
-                    // WALconsole.warn("failure to send message:", msg);
-                }
-                tabs_messaged ++;
-              }
-            }
-            WALconsole.log("(Sent to "+tabs_messaged+" tabs.)");
-        });
-      }
-    }
-    else if (to === "background" || to === "mainpanel"){
-      var msg = {from: from, subject: subject, content: content};
-      msg.send_type = sendTypes.NORMAL;
-      WALconsole.log("Sending message: ", msg);
-      chrome.runtime.sendMessage(msg);
-    }
-    else{
-      WALconsole.warn("Bad from field in msg:", msg);
-    }
-  };
-
-  // this is a weird one where we make a channel based on the frame id and the subject, and anything that comes from that
-  // frame with that subject will go to that channel
-  pub.sendFrameSpecificMessage = function _sendFrameSpecificMessage(from, to, subject, content, chromeTabId, chromeFrameId, responseHandler){ // note: not the same as our interna frame ids
-    var msg = {from: from, subject: subject, content: content};
-    msg.send_type = sendTypes.FRAMESPECIFIC;
-    WALconsole.log("Sending frame-specific message: ", msg);
-    var newResponseHandler = function(data){
-      //console.log("in response handler", data);
-      responseHandler(data);
-    }
-    var key = subject+"_"+chromeFrameId;
-    // let's register what to do when we actually get a response
-    // and remember, multiple frames might be sending this, so we need to make sure we'll always get the right handler
-    // (a different one for each frame), so we'll use the new frame-specific key as the 'subject'
-    pub.listenForMessage(to, from, key, newResponseHandler, key); 
-    msg.frame_specific_subject = key;
-    chrome.tabs.sendMessage(chromeTabId, msg, {frameId: chromeFrameId}); // only send to the correct tab!
-  }
-
-return pub; }());
 
 var DOMCreationUtilities = (function _DOMCreationUtilities() { var pub = {};
 
@@ -292,74 +41,6 @@ var DOMCreationUtilities = (function _DOMCreationUtilities() { var pub = {};
 
 return pub; }());
 
-/*
-A very important set of utilities for reviving objects that have been stringified
-(as for sending to the server) but have returned to us, and need to be used as
-proper objects again.
-We always store all the fields; it's the methods we lose.  So we basically, when it 
-comes time to revive it, want to union the attributes of the now unstringified dict
-and the prototype, grabbing the methods back from the prototype.
-*/
-var Revival = (function _Revival(){ var pub = {};
-
-  var revivalLabels = {};
-
-  pub.introduceRevivalLabel = function _introduceRevivalLabel(label, prototype){
-    revivalLabels[label] = prototype;
-  };
-
-  pub.addRevivalLabel = function _addRevivalLabel(object){
-    for (var prop in revivalLabels){
-      if (object instanceof revivalLabels[prop]){
-        object.___revivalLabel___ = prop;
-        return;
-      }
-    }
-    WALconsole.log("No known revival label for the type of object:", object);
-  };
-
-  pub.revive = function _revive(objectAttributes){
-
-    var seen = []; // we're going to be handling circular objects, so have to keep track of what we've already handled
-    var fullSeen = [];
-
-    var reviveHelper = function _reviveHelper(objectAttributes){
-      // ok, now let's figure out what kind of case we're dealing with
-      if (typeof objectAttributes !== "object" || objectAttributes === null){ // why is null even an object?
-        return objectAttributes; // nothing to do here
-      }
-      else if (seen.indexOf(objectAttributes) > -1){
-        // already seen it
-        var i = seen.indexOf(objectAttributes);
-        return fullSeen[i]; // get the corresponding revived object
-      }
-      else{
-        // ok, it's an object and we haven't processed it before
-        var fullObj = objectAttributes;
-        if (objectAttributes.___revivalLabel___){
-          // ok, we actually want to revive this very object
-          var prototype = revivalLabels[objectAttributes.___revivalLabel___];
-          fullObj = new prototype();
-          _.extend(fullObj, objectAttributes);
-          // now the fullObj is restored to having methods and such
-        }
-        seen.push(objectAttributes);
-        fullSeen.push(fullObj);
-        // ok, whether we revived this obj or not, we definitely have to descend
-        for (var prop in objectAttributes){
-          var val = objectAttributes[prop];
-          var fullVal = reviveHelper(val, false);
-          fullObj[prop] = fullVal; // must replace the old fields-only val with the proper object val
-        }
-      }
-      return fullObj;
-    };
-    var obj = reviveHelper(objectAttributes);
-    return obj;
-  };
-
-return pub; }());
-
 var Clone = (function _Clone() { var pub = {};
 
   pub.cloneProgram = function _cloneProgram(origProgram){
@@ -394,7 +75,7 @@ var ServerTranslationUtilities = (function _ServerTranslationUtilities() { var p
       for (var k = 0; k < relation.columns.length; k++){
         relation.columns[k].suffix = StableStringify.stringify(relation.columns[k].suffix); // is this the best place to deal with going between our object attributes and the server strings?
       }
-      WALconsole.log("relation after jsonification", relation);
+      HelenaConsole.log("relation after jsonification", relation);
       return relation;
     }
     else if (origRelation instanceof TextRelation){
@@ -433,7 +114,7 @@ var ServerTranslationUtilities = (function _ServerTranslationUtilities() { var p
     /*
     program.traverse(function(statement){
       if (statement instanceof LoopStatement){
-        WALconsole.log(program.relations.indexOf(statement.relation));
+        HelenaConsole.log(program.relations.indexOf(statement.relation));
         statement.relation = program.relations.indexOf(statement.relation); // note this means we must have the relations in same order from server that we have them here
       }
     });
@@ -519,7 +200,7 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
         for (var i = 0; i < displayInfoLs.length; i++){
           var bounds = displayInfoLs[i].bounds;
           bounds.right = bounds.left + bounds.width;
-          WALconsole.log(bounds);
+          HelenaConsole.log(bounds);
           if (bounds.left <= right && bounds.right >= right){
             // we've found the right display
             var top = currWindowInfo.top - 40; // - 40 because it doesn't seem to count the menu bar and I'm not looking for a more accurate solution at the moment
@@ -543,7 +224,7 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
               url = "pages/newRecordingWindow.html"
             }
             chrome.windows.create({url: url, focused: true, left: left, top: top, width: width, height: height}, function(win){
-              WALconsole.log("new record/replay window created.");
+              HelenaConsole.log("new record/replay window created.");
               //pub.sendCurrentRecordingWindow(); // todo: should probably still send this for some cases
               cont(win.id);
             });
@@ -649,8 +330,8 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
     if (grow){
       nextInterval = nextInterval * 2; // is this really how we want to grow it?  should it be a strategy passed in?
     }
-    WALconsole.log("grow", grow);
-    WALconsole.log("interval", nextInterval);
+    HelenaConsole.log("grow", grow);
+    HelenaConsole.log("interval", nextInterval);
     setTimeout(function(){pub.repeatUntil(repeatFunction, untilFunction, afterFunction, nextInterval, grow);}, interval);
   };
 
@@ -679,19 +360,19 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
       currentResponseRequested[key] = false;
       // now call the actual function
       currentResponseHandler[key](message);
-      WALconsole.namedLog("getRelationItems","we successfully did handleRegisterCurrentResponseRequested for key", sub(key, 40));
+      HelenaConsole.namedLog("getRelationItems","we successfully did handleRegisterCurrentResponseRequested for key", sub(key, 40));
     }
     else{
-      WALconsole.namedLog("getRelationItems","we tried to do handleRegisterCurrentResponseRequested for key", sub(key, 40), "but there was nothing registered.  throwing it out.");
+      HelenaConsole.namedLog("getRelationItems","we tried to do handleRegisterCurrentResponseRequested for key", sub(key, 40), "but there was nothing registered.  throwing it out.");
     }
     // else nothing to do.  yay!
   };
 
   pub.registerCurrentResponseRequested = function _registerCurrentResponseRequested(message, functionToHandleMessage){
     var key = StableStringify.stringify(message);
-    WALconsole.namedLog("getRelationItems", "registering new handler for key", sub(key, 40));
+    HelenaConsole.namedLog("getRelationItems", "registering new handler for key", sub(key, 40));
     var newFunctionToHandleMessage = function(msg){
-      WALconsole.namedLog("getRelationItems", "running the current handler for key:", sub(key, 40));
+      HelenaConsole.namedLog("getRelationItems", "running the current handler for key:", sub(key, 40));
       functionToHandleMessage(msg);
     }
     currentResponseRequested[key] = true;
@@ -743,7 +424,7 @@ var Highlight = (function _Highlight() { var pub = {};
   var highlights = [];
   pub.highlightNode = function _highlightNode(target, color, display, pointerEvents) {
     if (!target){
-      WALconsole.log("Woah woah woah, why were you trying to highlight a null or undefined thing?");
+      HelenaConsole.log("Woah woah woah, why were you trying to highlight a null or undefined thing?");
       return $('<div/>');
     }
     if (display === undefined){ display = true;}

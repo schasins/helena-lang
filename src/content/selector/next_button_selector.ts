@@ -1,6 +1,7 @@
 import { RelationFinder } from "./relation_finding";
 import { XPath } from "../utils/xpath";
-import { NextButtonSelectorMessage } from "../../common/messages";
+import { NextButtonSelectorMessage, Messages } from "../../common/messages";
+import { HelenaConsole } from "../../common/utils/helena_console";
 
 /**
  * Methods for selecting a next/pagination button on a page.
@@ -56,8 +57,7 @@ export namespace NextButtonSelector {
     }
     
     const msg: NextButtonSelectorMessage = { selector: data };
-    window.utilities.sendMessage("content", "mainpanel", "nextButtonSelector",
-      msg);
+    Messages.sendMessage("content", "mainpanel", "nextButtonSelector", msg);
     highlightNextButton(data);
 
     RelationFinder.highlightCurrentSelector(); // rehighlight the relaiton items
@@ -110,7 +110,7 @@ export namespace NextButtonSelector {
    */
   export function findNextButton(selector: NextButtonSelector.Interface,
     priorPageIndexText?: string): HTMLElement | null {
-    window.WALconsole.log(selector);
+    HelenaConsole.log(selector);
 
     let next_or_more_button_text = selector.text;
     let candButtons = [].slice.call(
@@ -119,20 +119,20 @@ export namespace NextButtonSelector {
     candButtons = candButtons.filter((button: HTMLElement) =>
       isPromisingNextButton(selector, button, priorPageIndexText)
     );
-    window.WALconsole.namedLog("findNextButton", "candidate_buttons",
+    HelenaConsole.namedLog("findNextButton", "candidate_buttons",
       candButtons);
 
     let doNumberVersion = priorPageIndexText && !isNaN(+priorPageIndexText);
 
     // hope there's only one button
     if (candButtons.length === 1 && !doNumberVersion) {
-      window.WALconsole.namedLog("findNextButton", "only one button");
+      HelenaConsole.namedLog("findNextButton", "only one button");
       return candButtons[0];
     }
     
     // if not and demo button had id, try using the id
     if (selector.id && selector.id !== "" && !doNumberVersion) {
-      window.WALconsole.namedLog("findNextButton", "we had an id")
+      HelenaConsole.namedLog("findNextButton", "we had an id")
       let idElement = document.getElementById(selector.id);
       if (idElement) {
         return idElement;
@@ -143,7 +143,7 @@ export namespace NextButtonSelector {
     let cbuttons = candButtons.filter((cand: HTMLElement) => 
       cand.className === selector.class);
     if (cbuttons.length === 1 && !doNumberVersion) {
-      window.WALconsole.namedLog("findNextButton",
+      HelenaConsole.namedLog("findNextButton",
         "filtered by class and there was only one");
       return cbuttons[0];
     }
@@ -151,7 +151,7 @@ export namespace NextButtonSelector {
     // is the case where we have numeric next buttons
     let lowestNodeSoFar = null
     if (priorPageIndexText && !isNaN(+priorPageIndexText)) {
-      window.WALconsole.namedLog("findNextButton",
+      HelenaConsole.namedLog("findNextButton",
         "filtered by class and now trying to do numeric");
       
       // let's go through and just figure out which one has the next highest number relative to the prior next button text
@@ -161,7 +161,7 @@ export namespace NextButtonSelector {
       }
       let priorButtonNum = parseInt(priorPageIndexText);
       let lowestNumSoFar = Number.MAX_VALUE;
-      window.WALconsole.namedLog("findNextButton", "potential buttons",
+      HelenaConsole.namedLog("findNextButton", "potential buttons",
         lsToSearch);
       for (const button of lsToSearch) {
         let buttonText = button.textContent;
@@ -177,7 +177,7 @@ export namespace NextButtonSelector {
     }
 
     if (lowestNodeSoFar) {
-      window.WALconsole.namedLog("findNextButton", "numeric worked");
+      HelenaConsole.namedLog("findNextButton", "numeric worked");
       return lowestNodeSoFar;
     } else {
       //see which candidate has the right text and closest xpath
@@ -193,8 +193,8 @@ export namespace NextButtonSelector {
         }
       }
       if (min_candidate === null) {
-        window.WALconsole.log("couldn't find an appropriate 'more' button");
-        window.WALconsole.log(selector.tag, selector.id,
+        HelenaConsole.log("couldn't find an appropriate 'more' button");
+        HelenaConsole.log(selector.tag, selector.id,
           next_or_more_button_text, selector.xpath);
       }
       return min_candidate;
@@ -207,7 +207,7 @@ export namespace NextButtonSelector {
    * @param selector the next button selector
    */
   export function highlightNextButton(selector: NextButtonSelector.Interface) {
-    window.WALconsole.log(selector);
+    HelenaConsole.log(selector);
     let button = findNextButton(selector);
     nextOrMoreButtonHighlight = window.Highlight.highlightNode(button,
       "#E04343", true);

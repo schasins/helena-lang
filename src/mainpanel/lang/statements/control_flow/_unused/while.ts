@@ -13,7 +13,7 @@ export class WhileStatement extends ConditionalStatement {
   constructor(bodyStatements?: HelenaLangObject[]) {
     super();
     
-    window.Revival.addRevivalLabel(this);
+    Revival.addRevivalLabel(this);
     HelenaMainpanel.setBlocklyLabel(this, "while");
     this.condition = null;
   
