@@ -1,5 +1,7 @@
 'use strict'
 
+// TODO: cjbaik: is this even used?
+
 Blockly.Blocks['scraping_for_each'] = {
   init: function() {
     this.jsonInit({

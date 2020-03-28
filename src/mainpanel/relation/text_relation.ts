@@ -7,6 +7,8 @@ import { GenericRelation } from "./generic";
 import { PageVariable } from "../variables/page_variable";
 import { RunObject } from "../lang/program";
 import { Revival } from "../revival";
+import { RelationMessage } from "../../common/messages";
+import { Environment } from "../environment";
 
 // used for relations that only have text in cells, as when user uploads the relation
 export class TextRelation extends GenericRelation {
@@ -62,7 +64,7 @@ export class TextRelation extends GenericRelation {
     return this.nodeVars;
   }
 
-  public updateNodeVariables(environment: EnvironmentPlaceholder,
+  public updateNodeVariables(environment: Environment.Frame,
       pageVar: PageVariable) {
     HelenaConsole.log("updateNodeVariables TextRelation");
     var nodeVariables = this.nodeVariables();
@@ -90,6 +92,11 @@ export class TextRelation extends GenericRelation {
         scraped: true
       });
     }
+  }
+
+  public toJSON: () => string = () => {
+    const stringifiedTextRelation = JSON.stringify(this.relation);
+    return stringifiedTextRelation;
   }
 
   public usedByStatement(statement: HelenaLangObject) {

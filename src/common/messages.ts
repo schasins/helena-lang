@@ -87,13 +87,6 @@ export interface ColumnIndexMessage {
   index: number;
 }
 
-export interface KnownRelationsMessage {
-  url: string;
-  params: {
-    url: string;
-  }
-}
-
 export interface LikelyRelationMessage {
   xpaths: string[];
   pageVarName: string;
@@ -103,53 +96,6 @@ export interface LikelyRelationMessage {
 export interface FreshRelationItemsMessage {
   type: number;
   relation: MainpanelNodeI[][];
-}
-
-export interface EventMessage {
-  additional: {
-    scrape: MainpanelNode.Interface,
-    visualization: string;
-  };
-  data: {
-    altKey: boolean;
-    ctrlKey: boolean;
-    ctrlKeyOnLinux: boolean;
-    tabId: number;
-    type: string;
-    shiftKey: boolean;
-    metaKey: boolean;
-    metaKeyOnMac: boolean;
-    url: string;
-    keyCode?: number;
-  };
-  forceReplay: boolean;
-  frame: {
-    iframeIndex: number;
-    topURL: string;
-    URL: string;
-  };
-  meta: {
-    deltas: Delta[];
-  };
-  target: {
-    snapshot: MainpanelNode.Interface;
-    xpath: string;
-  };
-  targetTimeout: number;
-  timing: {
-    ignoreWait: boolean;
-    waitTime: number;
-  };
-  type: string;
-}
-
-export interface Delta {
-  divergingProp: string;
-  changed: {
-    prop: {
-      [key: string]: any;
-    };
-  }
 }
 
 export interface EditRelationMessage {
@@ -169,7 +115,7 @@ export interface RelationMessage {
   selector_version: number;
   exclude_first: number,
   columns: ColumnSelector.Interface[],
-url: string;
+  url: string;
   next_type?: number;
   next_button_selector?: NextButtonSelector.Interface | null;
   num_rows_in_demonstration?: number;
@@ -193,14 +139,12 @@ export interface ServerSaveResponse {
   }
 }
 
-export interface RetrieveRelationsResponse {
-  pages: {
-    page_var_name: string;
-    relations: {
-      same_domain_best_relation: string;
-      same_url_best_relation: string;
-    }
-  }[];
+export interface DatasetSliceRequest {
+  nodes: string;
+  pass_start_time: number;
+  position_lists: string;
+  run_id?: number;
+  sub_run_id?: number;
 }
 
 export interface RelationResponse {

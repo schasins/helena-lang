@@ -7,7 +7,7 @@ import { LikelyRelationMessage } from "../../common/messages";
 
 import { ColumnSelector } from "./column_selector";
 
-import { NextButtonSelector } from "./next_button_selector";
+import { NextButtonSelector, NextTypes } from "./next_button_selector";
 
 import { Features } from "../utils/features";
 import GenericFeatureSet = Features.GenericFeatureSet;
@@ -20,6 +20,7 @@ import XPathList = XPath.XPathList;
 import SuffixXPathList = XPath.SuffixXPathList;
 
 import { HelenaConsole } from "../../common/utils/helena_console";
+import { MiscUtilities } from "../../common/misc_utilities";
 
 /**
  * Produce the powerset of the array.
@@ -77,7 +78,8 @@ function numMatchedXpaths(xpaths: string[], firstRow: MainpanelNodeI[]) {
  *   XPath up to the row element
  * @param candidateRowNodes candidate row nodes, or null if none found  
  */
-function getCellsInRowMatchingSuffixes(suffixes: SuffixXPathList[][],
+function getCellsInRowMatchingSuffixes(
+    suffixes: (SuffixXPathList[] | undefined)[],
     candidateRowNodes: (HTMLElement | null)[]) {
   let candidateSubitems = [];
   let rowNodeXPaths = candidateRowNodes.map((candidateRow) =>
@@ -85,6 +87,10 @@ function getCellsInRowMatchingSuffixes(suffixes: SuffixXPathList[][],
   );
   for (let j = 0; j < suffixes.length; j++){
     let suffixLs = suffixes[j];
+
+    if (!suffixLs) {
+      continue;
+    }
 
     let foundSubItem = null;
     for (let k = 0; k < suffixLs.length; k++){
@@ -139,19 +145,21 @@ function getCellsInRowMatchingSuffixes(suffixes: SuffixXPathList[][],
     for (const col of colSelectors) {
       let curSuffixes = col.suffix;
       let outputSuffixLs: SuffixXPathList[] = [];
-      for (const suffix of curSuffixes) {
-        if (suffix.selectorIndex) {
-          // it's already an object with a selector index, and we just need to
-          //   update the selectorIndex
-          suffix.selectorIndex = selectorIndex;
-          outputSuffixLs.push(suffix);
-        } else {
-          // ah, still just the old list representation of a selector.  need to
-          //   make it into a selectorIndex-labeled object
-          let newSuffix = new SuffixXPathList();
-          newSuffix.selectorIndex = selectorIndex;
-          newSuffix.suffixRepresentation = suffix;
-          outputSuffixLs.push(newSuffix);
+      if (curSuffixes) {
+        for (const suffix of curSuffixes) {
+          if (suffix.selectorIndex) {
+            // it's already an object with a selector index, and we just need to
+            //   update the selectorIndex
+            suffix.selectorIndex = selectorIndex;
+            outputSuffixLs.push(suffix);
+          } else {
+            // ah, still just the old list representation of a selector.  need to
+            //   make it into a selectorIndex-labeled object
+            let newSuffix = new SuffixXPathList();
+            newSuffix.selectorIndex = selectorIndex;
+            newSuffix.suffixRepresentation = suffix;
+            outputSuffixLs.push(newSuffix);
+          }
         }
       }
       col.suffix = outputSuffixLs;
@@ -194,6 +202,24 @@ export class RelationSelector {
       this.selector = featureSet;
       this.exclude_first = exclude_first;
       this.columns = columns;
+  }
+
+  public static fromJSON(json: object): RelationSelector {
+    // let's leave the original dictionary with it's JSONified attributes alone
+    //   by deepcopying first
+    const relation = JSON.parse(JSON.stringify(json)); // deepcopy
+    relation.selector = JSON.parse(relation.selector);
+    if (relation.next_button_selector){
+      relation.next_button_selector = JSON.parse(relation.next_button_selector);
+    } else {
+      relation.next_button_selector = null;
+    }
+    for (const column of relation.columns) {
+      // is this the best place to deal with going between our object attributes
+      //   and the server strings?
+      column.suffix = JSON.parse(column.suffix);
+    }
+    return relation;
   }
 
   /**
@@ -622,7 +648,7 @@ export class TableSelector extends ContentSelector {
       let bestTableScore = Number.POSITIVE_INFINITY;
 
       for (const t of tables) {
-        let distance = window.MiscUtilities.levenshteinDistance(
+        let distance = MiscUtilities.levenshteinDistance(
           XPath.fromNode(t), selector.xpath);
         if (distance < bestTableScore){
           bestTableScore = distance;
@@ -788,7 +814,7 @@ export class PulldownSelector extends RelationSelector {
         selector.relation_id = null;
         selector.name = "pulldown_" + (index + 1);
         // for a pulldown menu, there better be no more items
-        selector.next_type = window.NextTypes.NONE;
+        selector.next_type = NextTypes.NONE;
         selector.next_button_selector = null;
         selector.num_rows_in_demonstration = optionsRelation.length;
         featureSet.index = index;

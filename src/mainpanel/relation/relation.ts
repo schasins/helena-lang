@@ -1,11 +1,12 @@
 import * as _ from "underscore";
+import * as stringify from "json-stable-stringify";
 
 import { HelenaConsole } from "../../common/utils/helena_console";
 
 import { HelenaMainpanel, NodeSources } from "../helena_mainpanel";
 
 import { ColumnSelector } from "../../content/selector/column_selector";
-import { NextButtonSelector } from "../../content/selector/next_button_selector";
+import { NextButtonSelector, NextTypes } from "../../content/selector/next_button_selector";
 
 import { FreshRelationItemsMessage,
   NextButtonTextMessage, 
@@ -28,74 +29,18 @@ import { PageActionStatement } from "../lang/statements/page_action/page_action"
 import { PageRelation, PageVariable } from "../variables/page_variable";
 import { RunObject } from "../lang/program";
 import { Revival } from "../revival";
+import { HelenaConfig } from "../../common/config/config";
+import { MiscUtilities } from "../../common/misc_utilities";
+import { HelenaServer } from "../utils/server";
+import { Environment } from "../environment";
 
-function shortPrintString(obj: object) {
-  if (!obj) {
-    return JSON.stringify(obj);
-  }
-  else{
-    return JSON.stringify(obj).substring(0,20);
-  }
-}
-
-function domain(url: string) {
-  let domain = "";
-  // don't need http and so on
-  if (url.indexOf("://") > -1) {
-    domain = url.split('/')[2];
-  }
-  else {
-    domain = url.split('/')[0];
-  }
-  // there can be site.com:1234 and we don't want that
-  domain = domain.split(':')[0];
-  return domain;
-}
-
-function findByXpath(
-  objectList: (ColumnSelector.Interface | MainpanelNode.Interface)[],
-  xpath: string) {
-    const objs = objectList.filter((obj) => obj.xpath === xpath);
-    if (objs.length === 0) { return null; }
-    return objs[0];
-}
-
-
-function usedByPulldownStatement(statement: HelenaLangObject,
-  firstRowXPaths: string[]) {
-  if (statement instanceof PulldownInteractionStatement) {
-    const xpath = (<PulldownInteractionStatement> statement).node;
-    for (const cXpath of firstRowXPaths) {
-      // so if the xpath of the pulldown menu appears in the xpath of the first
-      //   row cell
-      if (cXpath.includes(xpath)) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
-function highestPercentOfHasXpathPerRow(relation: MainpanelNode.Interface[][],
-  limitToSearch: number) {
-  if (relation.length < limitToSearch) {
-    limitToSearch = relation.length;
-  }
-  let maxWithXpathsPercent = 0;
-  for (let i = 0; i < limitToSearch; i++) {
-    let numWithXpaths = relation[i].reduce((acc, cell) => {
-      if (cell.xpath) {
-        return acc + 1;
-      } else {
-        return acc
-      }
-    }, 0);
-    let percentWithXpaths = numWithXpaths / relation[i].length;
-    if (percentWithXpaths > maxWithXpathsPercent) {
-      maxWithXpathsPercent = percentWithXpaths;
-    }
-  }
-  return maxWithXpathsPercent;
+/**
+ * State of the current scraped relation items.
+ */
+export enum ScrapedRelationState {
+  NO_MORE_ITEMS = 1,
+  NO_NEW_ITEMS_YET,
+  NEW_ITEMS
 }
 
 export class Relation extends GenericRelation {
@@ -211,7 +156,7 @@ export class Relation extends GenericRelation {
     return this.nodeVars;
   }
 
-  public updateNodeVariables(environment: EnvironmentPlaceholder,
+  public updateNodeVariables(environment: Environment.Frame,
       pageVar: PageVariable) {
     HelenaConsole.log("updateNodeVariables Relation");
     const nodeVariables = this.nodeVariables();
@@ -373,8 +318,7 @@ export class Relation extends GenericRelation {
     //   some fresh stuff.  maybe that just didn't go through?
     let maxNextButtonAttempts = runObject.program.nextButtonAttemptsThreshold;
     if (maxNextButtonAttempts === undefined) {
-      maxNextButtonAttempts =
-        <number> window.DefaultHelenaValues.nextButtonAttemptsThreshold;
+      maxNextButtonAttempts = HelenaConfig.nextButtonAttemptsThreshold;
     }
     const prinfo = this.getPrinfo(pageVar);
     if (allowMoreNextInteractions &&
@@ -451,8 +395,8 @@ export class Relation extends GenericRelation {
         // we definitely don't want to clobber real new items with anything
         //   that's not new items, so let's make sure we don't
         if (self.relationItemsRetrieved[frameId].type ===
-              window.RelationItemsOutputs.NEWITEMS &&
-            data.type !== window.RelationItemsOutputs.NEWITEMS) {
+              ScrapedRelationState.NEW_ITEMS &&
+            data.type !== ScrapedRelationState.NEW_ITEMS) {
           return;
         }
         // we also don't want to clobber if the old data is actually longer than
@@ -460,8 +404,8 @@ export class Relation extends GenericRelation {
         // if we have long data, it's a little weird that we wouldn't just have
         //   accepted it and moved on, but it does happen...
         if (self.relationItemsRetrieved[frameId].type ===
-              window.RelationItemsOutputs.NEWITEMS &&
-            data.type === window.RelationItemsOutputs.NEWITEMS &&
+              ScrapedRelationState.NEW_ITEMS &&
+            data.type === ScrapedRelationState.NEW_ITEMS &&
             self.relationItemsRetrieved[frameId].relation.length >
               data.relation.length) {
           HelenaConsole.namedLog("getRelationItems", "The new data is " +
@@ -473,7 +417,7 @@ export class Relation extends GenericRelation {
       }
 
       HelenaConsole.log("data", data);
-      if (data.type === window.RelationItemsOutputs.NOMOREITEMS) {
+      if (data.type === ScrapedRelationState.NO_MORE_ITEMS) {
         // NOMOREITEMS -> definitively out of items.
         //   this frame says this relation is done
         // to stop us from continuing to ask for freshitems
@@ -482,14 +426,14 @@ export class Relation extends GenericRelation {
           "asking for new items for one of ",
           Object.keys(self.relationItemsRetrieved).length, " frames. frameId: ",
           frameId, self.relationItemsRetrieved, self.missesSoFar);
-      } else if (data.type === window.RelationItemsOutputs.NONEWITEMSYET ||
-        (data.type === window.RelationItemsOutputs.NEWITEMS &&
+      } else if (data.type === ScrapedRelationState.NO_NEW_ITEMS_YET ||
+        (data.type === ScrapedRelationState.NEW_ITEMS &&
           data.relation.length === 0)) {
         // todo: currently if we get data but it's only 0 rows, it goes here.  is that just an unnecessary delay?  should we just believe that that's the final answer?
         self.missesSoFar[frameId] += 1;
         HelenaConsole.namedLog("getRelationItems",
           "adding a miss to our count", frameId, self.missesSoFar[frameId]);
-      } else if (data.type === window.RelationItemsOutputs.NEWITEMS) {
+      } else if (data.type === ScrapedRelationState.NEW_ITEMS) {
         // yay, we have real data!
 
         // ok, the content script is supposed to prevent us from getting the
@@ -555,7 +499,7 @@ export class Relation extends GenericRelation {
       let stillPossibleMoreItems = false;
       for (const key in self.relationItemsRetrieved) {
         const obj = self.relationItemsRetrieved[key];
-        if (!obj || obj.type !== window.RelationItemsOutputs.NOMOREITEMS) {
+        if (!obj || obj.type !== ScrapedRelationState.NO_MORE_ITEMS) {
           // ok, there's some reason to think it might be ok, so let's actually
           //   go ahead and try again
           stillPossibleMoreItems = true;
@@ -586,7 +530,7 @@ export class Relation extends GenericRelation {
         (key) => self.relationItemsRetrieved[key]
       );
       const dataObjsFiltered = dataObjs.filter(
-        (data) => data.type === window.RelationItemsOutputs.NEWITEMS
+        (data) => data.type === ScrapedRelationState.NEW_ITEMS
       );
       
       // ok, let's see whether any is close in length to our original one.
@@ -670,7 +614,7 @@ export class Relation extends GenericRelation {
         // here's the function for sending the message until we decide we're
         //   done with the current attempt to get new rows, or until actually
         //   get the answer
-        window.MiscUtilities.repeatUntil(sendGetRelationItems, () => {
+        MiscUtilities.repeatUntil(sendGetRelationItems, () => {
           return self.doneArray[currentGetRowsCounter] ||
                  self.relationItemsRetrieved[frame];
         }, () => {}, 1000, true);
@@ -680,8 +624,7 @@ export class Relation extends GenericRelation {
       //   process whatever we have
       let desiredTimeout = runObject.program.relationFindingTimeoutThreshold;
       if (!desiredTimeout) {
-        desiredTimeout =
-          window.DefaultHelenaValues.relationFindingTimeoutThreshold;
+        desiredTimeout = HelenaConfig.relationFindingTimeoutThreshold;
       }
       // todo: this timeout should be configurable by the user, relation seconds
       //   timeout
@@ -734,7 +677,7 @@ export class Relation extends GenericRelation {
 
     const currentTabId = pageVar.currentTabId();
     if (currentTabId) {
-      window.MiscUtilities.repeatUntil(() => {
+      MiscUtilities.repeatUntil(() => {
         Messages.sendMessage("mainpanel", "content",
           "clearRelationInfo", self.messageRelationRepresentation(), undefined,
           undefined, [currentTabId]);
@@ -798,9 +741,8 @@ export class Relation extends GenericRelation {
       //   the page is if we already know. there's no next button, no way to get
       //   additional pages.  in that case, just know the loop is done and call
       //   the callback with false as the moreRows argument
-      if (this.nextType === window.NextTypes.NOMOREITEMS ||
-          (!this.nextButtonSelector &&
-            this.nextType !== window.NextTypes.SCROLLFORMORE )) {
+      if (!this.nextButtonSelector &&
+           this.nextType !== NextTypes.SCROLLFORMORE) {
         callback(false);
         return;
       }
@@ -894,7 +836,7 @@ export class Relation extends GenericRelation {
         Messages.sendMessage("mainpanel", "content",
           "runNextInteraction", msg, undefined, undefined,
           [ <number> pageVar.currentTabId() ]);};
-      window.MiscUtilities.repeatUntil(sendRunNextInteraction,
+      MiscUtilities.repeatUntil(sendRunNextInteraction,
         () => stopRequestingNext, () => {}, 17000, false);
     } else {
       // we still have local rows that we haven't used yet. just advance the
@@ -940,11 +882,101 @@ export class Relation extends GenericRelation {
   }
 
   public saveToServer() {
-    // sample: $($.post('http://localhost:3000/saverelation', { relation: {name: "test", url: "www.test2.com/test-test2", selector: "test2", selector_version: 1, num_rows_in_demonstration: 10}, columns: [{name: "col1", xpath: "a[1]/div[1]", suffix: "div[1]"}] } ));
-    
-    // note that JSONifyRelation does stable stringification
-    const rel = window.ServerTranslationUtilities.JSONifyRelation(this);
-    window.MiscUtilities.postAndRePostOnFailure(
-      helenaServerUrl + '/saverelation', { relation: rel }, () => {}, false);
+    HelenaServer.saveRelation({ relation: this.toJSON() }, () => {});
   }
+
+  public toJSON: () => RelationMessage = () => {
+    // ok, first let's get the nice dictionary-looking version that we use for
+    //   passing relations around, instead of our internal object representation
+    //   that we use in the mainpanel/program
+    const relationDict = this.messageRelationRepresentation();
+    // let's start by deep copying so that we can JSONify the selector,
+    //   next_button_selector, and column suffixes without messing up the real
+    //   object
+    const relation = JSON.parse(JSON.stringify(relationDict)); // deepcopy
+  
+    // now that it's deep copied, we can safely strip out jsog stuff that we
+    //   don't want in there, since it will interfere with our canonicalization
+    //   process
+    MiscUtilities.removeAttributeRecursive(relation, "__jsogObjectId");
+    relation.selector = stringify(relation.selector);
+    relation.next_button_selector = stringify(relation.next_button_selector);
+    for (const column of relation.columns) {
+      // is this the best place to deal with going between our object attributes
+      //   and the server strings?
+      column.suffix = stringify(column.suffix);
+    }
+    HelenaConsole.log("relation after jsonification", relation);
+    return relation;
+  }
+}
+
+
+function shortPrintString(obj: object) {
+  if (!obj) {
+    return JSON.stringify(obj);
+  }
+  else{
+    return JSON.stringify(obj).substring(0,20);
+  }
+}
+
+function domain(url: string) {
+  let domain = "";
+  // don't need http and so on
+  if (url.indexOf("://") > -1) {
+    domain = url.split('/')[2];
+  }
+  else {
+    domain = url.split('/')[0];
+  }
+  // there can be site.com:1234 and we don't want that
+  domain = domain.split(':')[0];
+  return domain;
+}
+
+function findByXpath(
+  objectList: (ColumnSelector.Interface | MainpanelNode.Interface)[],
+  xpath: string) {
+    const objs = objectList.filter((obj) => obj.xpath === xpath);
+    if (objs.length === 0) { return null; }
+    return objs[0];
+}
+
+
+function usedByPulldownStatement(statement: HelenaLangObject,
+  firstRowXPaths: string[]) {
+  if (statement instanceof PulldownInteractionStatement) {
+    const xpath = (<PulldownInteractionStatement> statement).node;
+    for (const cXpath of firstRowXPaths) {
+      // so if the xpath of the pulldown menu appears in the xpath of the first
+      //   row cell
+      if (cXpath.includes(xpath)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function highestPercentOfHasXpathPerRow(relation: MainpanelNode.Interface[][],
+  limitToSearch: number) {
+  if (relation.length < limitToSearch) {
+    limitToSearch = relation.length;
+  }
+  let maxWithXpathsPercent = 0;
+  for (let i = 0; i < limitToSearch; i++) {
+    let numWithXpaths = relation[i].reduce((acc, cell) => {
+      if (cell.xpath) {
+        return acc + 1;
+      } else {
+        return acc
+      }
+    }, 0);
+    let percentWithXpaths = numWithXpaths / relation[i].length;
+    if (percentWithXpaths > maxWithXpathsPercent) {
+      maxWithXpathsPercent = percentWithXpaths;
+    }
+  }
+  return maxWithXpathsPercent;
 }

@@ -2,11 +2,10 @@ import * as _ from "underscore";
 import * as later from "later";
 
 import { HelenaConsole } from "../../common/utils/helena_console";
+import { DOMCreation } from "../../common/utils/dom_creation";
 import { HelenaUIBase } from "./helena_ui_base";
 
-import { ContentMessage, EditRelationMessage,
-  NextButtonSelectorMessage, 
-  RelationResponse,
+import { EditRelationMessage, NextButtonSelectorMessage, RelationResponse,
   Messages} from "../../common/messages";
 
 import { ColumnSelector } from "../../content/selector/column_selector";
@@ -19,6 +18,11 @@ import { MainpanelNode } from "../../common/mainpanel_node";
 import { HelenaProgram, RunObject } from "../lang/program";
 import { LoadStatement } from "../lang/statements/browser/load";
 import { ScheduledRun } from "../../common/scheduled_run";
+import { HelenaConfig } from "../../common/config/config";
+import { NextTypes } from "../../content/selector/next_button_selector";
+import { MiscUtilities } from "../../common/misc_utilities";
+import { Dataset } from "../dataset";
+import { HelenaServer } from "../utils/server";
 
 function activateButton(div: JQuery<HTMLElement>, selector: string,
   handler: JQuery.EventHandlerBase<HTMLElement,
@@ -124,13 +128,9 @@ export class RecorderUI extends HelenaUIBase {
         Messages.sendMessage("mainpanel", "content",
           "ringerUseXpathFastMode", {use: self.ringerUseXpathFastMode})
     );
-    
-    // the UI needs to show keyboard shortcuts for scraping, so call the below
-    //   so they show the right thing for the various OSs
-    // important to do this one first, what with everything going all stringy
-    window.MiscUtilities.useCorrectScrapingConditionStrings(
-      "#scraping_instructions", "___SCRAPINGCONDITIONSTRING___",
-      "___LINKSCRAPINGCONDITIONSTRING___");
+
+    this.setScrapingInstructions("#scraping_instructions");
+
     // handle user interactions with the mainpanel
     this.setUpRecordingUI();
 
@@ -143,7 +143,30 @@ export class RecorderUI extends HelenaUIBase {
     let urlString = window.location.href;
     let url = new URL(urlString);
     let startUrl = url.searchParams.get("starturl");
-    this.startRecording(startUrl);
+    this.startRecording(startUrl? startUrl : undefined);
+  }
+
+  public setScrapingInstructions(instructionsDivSelector: string) {
+    let scrapeCond = "<kbd>ALT</kbd> + click";
+    let linkScrapeCond = "<kbd>ALT</kbd> + <kbd>SHIFT</kbd> + click";
+
+    if (window.navigator.platform.includes("Linux")) {
+      scrapeCond = "<kbd>ALT</kbd> + <kbd>CTRL</kbd> + click";
+      linkScrapeCond = "<kbd>ALT</kbd> + <kbd>CTRL</kbd> + <kbd>SHIFT</kbd>" +
+        " + click";
+    }
+
+    let innerHTML = $(instructionsDivSelector).html();
+    innerHTML = innerHTML.replace(
+      new RegExp("___SCRAPINGCONDITIONSTRING___", "g"),
+      scrapeCond
+    );
+    innerHTML = innerHTML.replace(
+      new RegExp("___LINKSCRAPINGCONDITIONSTRING___", "g"),
+      linkScrapeCond
+    );
+
+    $(instructionsDivSelector).html(innerHTML);
   }
 
   public setUpRecordingUI() {
@@ -170,16 +193,16 @@ export class RecorderUI extends HelenaUIBase {
   public showStartRecording() {
     const self = this;
     const div = $("#new_script_content");
-    window.DOMCreationUtilities.replaceContent(div, $("#about_to_record"));
+    DOMCreation.replaceContent(div, $("#about_to_record"));
     div.find("#start_recording").click(() => self.startRecording());
   }
 
-  public startRecording(specifiedUrl?: string | null) {
+  public startRecording(specifiedUrl?: string) {
     const self = this;
 
     console.log("startRecording", specifiedUrl);
     const div = $("#new_script_content");
-    window.DOMCreationUtilities.replaceContent(div, $("#recording"));
+    DOMCreation.replaceContent(div, $("#recording"));
     div.find("#stop_recording").click(this.stopRecording.bind(this));
     div.find("#cancel_recording").click(this.cancelRecording.bind(this));
 
@@ -189,7 +212,7 @@ export class RecorderUI extends HelenaUIBase {
     $div.html("<div class='scraped_items_preview_start'>" +
       "Collect the FIRST ROW of your target dataset.</div>");
 
-    window.MiscUtilities.makeNewRecordReplayWindow((windowId: number) => {
+    MiscUtilities.makeNewRecordReplayWindow((windowId: number) => {
       window.recordingWindowIds.push(windowId);
       self.currentRecordingWindow = windowId;
       window.SimpleRecord.startRecording();
@@ -236,16 +259,16 @@ export class RecorderUI extends HelenaUIBase {
   // TODO: cjbaik: not sure if this is actually called in real execution
   public setGlobalConfig(kvArgs: {[key: string]: any}) {
     if ("helenaServerUrl" in kvArgs) {
-      window.helenaServerUrl = kvArgs.helenaServerUrl;
+      HelenaConfig.helenaServerUrl = kvArgs.helenaServerUrl;
     }
     if ("numRowsToSendInOneSlice" in kvArgs) {
-      window.numRowsToSendInOneSlice = kvArgs.numRowsToSendInOneSlice;
+      HelenaConfig.numRowsToSendInOneSlice = kvArgs.numRowsToSendInOneSlice;
     }
   }
 
   public stopRecording() {
     const trace = window.SimpleRecord.stopRecording();
-    const program = window.ReplayScript.ringerTraceToHelenaProgram(trace,
+    const program = HelenaProgram.fromRingerTrace(trace,
       this.currentRecordingWindow);
     if (program.statements.length < 1) {
       // if we didn't actually see any statements worth replaying, let's assume
@@ -288,7 +311,7 @@ export class RecorderUI extends HelenaUIBase {
     HelenaConsole.log("showProgramPreview");
     const div = $("#new_script_content");
     // let's put in the script_preview node
-    window.DOMCreationUtilities.replaceContent(div, $("#script_preview"));
+    DOMCreation.replaceContent(div, $("#script_preview"));
 
     // I like it when the run button just says "Run Script" for demos
     //   nice to have a reminder that it saves stuff if we're not in demo mode,
@@ -338,7 +361,7 @@ export class RecorderUI extends HelenaUIBase {
         var d = $(troubleshootingDivs[i]);
         var controllingDiv = d.find(".troubleshooting_description");
         var childDiv = d.find(".troubleshooting_option_expansion");
-        controllingDiv.click(()=> DOMCreationUtilities.toggleDisplay(childDiv));  
+        controllingDiv.click(()=> DOMCreation.toggleDisplay(childDiv));  
       })();
     }
     */
@@ -357,8 +380,8 @@ export class RecorderUI extends HelenaUIBase {
     this.showParamVals();
   }
 
-  private updateUIForRunFinished(dataset: DatasetPlaceholder, timeScraped: number,
-    runTabId: string) {
+  private updateUIForRunFinished(dataset: Dataset, timeScraped: number,
+      runTabId: string) {
     const div = $("#" + runTabId).find("#running_script_content");
     const done_note = div.find(".done_note");
     done_note.css("display", "inline-block");
@@ -425,7 +448,7 @@ export class RecorderUI extends HelenaUIBase {
     // update the panel to show pause, resume buttons
     HelenaConsole.log("UI newRunTab");
     const div = $("#" + tabDivId).find("#running_script_content");
-    window.DOMCreationUtilities.replaceContent(div, $("#script_running"));
+    DOMCreation.replaceContent(div, $("#script_running"));
 
     activateButton(div, "#pause", () => self.pauseRun(runObject));
     activateButton(div, "#resume", () => self.resumeRun(runObject));
@@ -546,9 +569,8 @@ export class RecorderUI extends HelenaUIBase {
     const div = $("#new_script_content");
     prog.name = (<HTMLInputElement> div.find("#program_name").get(0)).value;
 
-    const serializedProg = window.ServerTranslationUtilities.JSONifyProgram(
-      prog);
-    window.DownloadUtilities.download(prog.name + ".hln", serializedProg);
+    const serializedProg = prog.toJSON();
+    downloadObject(prog.name + ".hln", serializedProg);
   }
 
   // for loading a program stored locally
@@ -575,8 +597,7 @@ export class RecorderUI extends HelenaUIBase {
 
   private loadDownloadedScriptHelper(serialized_program: string,
     continuation?: Function) {
-    const revivedProgram = window.ServerTranslationUtilities.unJSONifyProgram(
-      serialized_program);
+    const revivedProgram = HelenaProgram.fromJSON(serialized_program);
     this.setCurrentProgram(revivedProgram, null);
 
     // make that first tab (the program running tab) active again
@@ -640,7 +661,7 @@ export class RecorderUI extends HelenaUIBase {
 
     HelenaConsole.log("going to schedule later runs.");
     const div = $("#new_script_content");
-    window.DOMCreationUtilities.replaceContent(div, $("#schedule_a_run"));
+    DOMCreation.replaceContent(div, $("#schedule_a_run"));
     activateButton(div, "#schedule_a_run_done", () => {
       const scheduleText = <string> div.find("#schedule").val();
       const schedule = later.parse.text(scheduleText);
@@ -708,8 +729,8 @@ export class RecorderUI extends HelenaUIBase {
     this.loadSavedProgram(progId, () => {
       const curProg = <HelenaProgram> self.currentHelenaProgram;
       // once it's loaded, go ahead and actually run it.
-      curProg.runProgram({}, (datasetObj: DatasetPlaceholder,
-        timeToScrape: number, tabId: string) => {
+      curProg.runProgram({}, (datasetObj: Dataset, timeToScrape: number,
+          tabId: string) => {
         const curProg = <HelenaProgram> self.currentHelenaProgram;
         // and for scheduled runs we're doing something that's currently a
         //   little wacky, where we trigger an IFTTT action when the scrape has
@@ -829,7 +850,7 @@ export class RecorderUI extends HelenaUIBase {
     //   as the one we use for uploading a text relation in the first place
     HelenaConsole.log("going to upload a replacement relation.");
     const div = $("#new_script_content");
-    window.DOMCreationUtilities.replaceContent(div, $("#upload_relation"));
+    DOMCreation.replaceContent(div, $("#upload_relation"));
     
     // and let's actually process changes
     $('#upload_data').on("change", this.handleNewUploadedRelation.bind(this));
@@ -934,7 +955,7 @@ export class RecorderUI extends HelenaUIBase {
         textRelation.push(
           Array.apply(null, Array(textRelation[0].length)).map(() => "..."));
       }
-      const table = window.DOMCreationUtilities.arrayOfArraysToTable(
+      const table = DOMCreation.arrayOfArraysToTable(
         textRelation);
 
       const columns = relation.columns;
@@ -999,7 +1020,7 @@ export class RecorderUI extends HelenaUIBase {
     const self = this;
 
     const div = $("#new_script_content");
-    window.DOMCreationUtilities.replaceContent(div, $("#relation_editing"));
+    DOMCreation.replaceContent(div, $("#relation_editing"));
 
     // let's highlight the appropriate next_type
     const currNextType = relation.nextType;
@@ -1021,11 +1042,11 @@ export class RecorderUI extends HelenaUIBase {
     radioButtons.change((event: JQuery.ChangeEvent) => {
       const target = <HTMLInputElement> event.currentTarget;
       relation.nextType = parseInt(target.value);
-      if (relation.nextType === window.NextTypes.NEXTBUTTON ||
-          relation.nextType === window.NextTypes.MOREBUTTON) {
+      if (relation.nextType === NextTypes.NEXTBUTTON ||
+          relation.nextType === NextTypes.MOREBUTTON) {
         // ok, we need the user to actually show us the button
         let buttonType = "next";
-        if (relation.nextType === window.NextTypes.MOREBUTTON) {
+        if (relation.nextType === NextTypes.MOREBUTTON) {
           buttonType = "more";
         }
         const expl = div.find("#next_type_explanation");
@@ -1037,10 +1058,10 @@ export class RecorderUI extends HelenaUIBase {
           expl.html("");
         });
         Messages.sendMessage("mainpanel", "content",
-          "nextButtonSelector", null, null, null, [tabId]);
+          "nextButtonSelector", {}, undefined, undefined, [tabId]);
       } else {
         Messages.sendMessage("mainpanel", "content",
-          "clearNextButtonSelector", null, null, null, [tabId]);
+          "clearNextButtonSelector", {}, undefined, undefined, [tabId]);
       }
     });
 
@@ -1082,7 +1103,7 @@ export class RecorderUI extends HelenaUIBase {
     $relDiv.html("");
 
     const textRelation = relation.demonstrationTimeRelationText();
-    const table = window.DOMCreationUtilities.arrayOfArraysToTable(
+    const table = DOMCreation.arrayOfArraysToTable(
       textRelation);
 
     const columns = relation.columns;
@@ -1126,7 +1147,7 @@ export class RecorderUI extends HelenaUIBase {
       const col = columnLs[i].index;
       colorDiv.click(() => {
         Messages.sendMessage("mainpanel", "content",
-          "currentColumnIndex", { index: col }, null, null, [tabid]);
+          "currentColumnIndex", { index: col }, undefined, undefined, [tabid]);
       });
       $div.append(colorDiv);
     }
@@ -1138,7 +1159,7 @@ export class RecorderUI extends HelenaUIBase {
       "id='edit-relation-new-col-button'>New Col</div>");
     colorDiv.click(() => {
       Messages.sendMessage("mainpanel", "content", "currentColumnIndex",
-        {index: "newCol"}, null, null, [tabid]);
+        {index: "newCol"}, undefined, undefined, [tabid]);
       }
     );
     $div.append(separatorDiv);
@@ -1205,7 +1226,7 @@ export class RecorderUI extends HelenaUIBase {
             url + "</a>");
       }
 
-      const baseUrl = OutputHandler.downloadFullDatasetUrl(prog);
+      const baseUrl = Dataset.downloadFullDatasetUrl(prog);
       makeOrUpdateDownloadUrl($div, "download_url_1", baseUrl,
         "Download all data ever scraped by this program at");
       makeOrUpdateDownloadUrl($div, "download_url_2", baseUrl + "/24",
@@ -1230,8 +1251,7 @@ export class RecorderUI extends HelenaUIBase {
 
     for (const oneLoopData of duplicateDetectionData) {
       const loopStatement = oneLoopData.loopStatement;
-      const table = window.DOMCreationUtilities.arrayOfArraysToTable(
-        oneLoopData.displayData);
+      const table = DOMCreation.arrayOfArraysToTable(oneLoopData.displayData);
       const nodeVariables = oneLoopData.nodeVariables;
       const tr = $("<tr></tr>");
       let annotationItems: AnnotationItem[] = [];
@@ -1333,15 +1353,14 @@ export class RecorderUI extends HelenaUIBase {
       throw new ReferenceError("currentHelenaProgram not set");
     }
 
-    const defaultSeconds =
-      window.DefaultHelenaValues.relationFindingTimeoutThreshold / 1000;
-    const defaultTries = window.DefaultHelenaValues.nextButtonAttemptsThreshold;
+    const defaultSeconds = HelenaConfig.relationFindingTimeoutThreshold / 1000;
+    const defaultTries = HelenaConfig.nextButtonAttemptsThreshold;
     console.log(defaultSeconds, defaultTries);
 
     // first let's update the description text to include the correct defaults
     const $div = $("#new_script_content").find("#thresholds_container");
     $div.find(".defaultRelationTimeout").html(defaultSeconds.toString());
-    $div.find(".defaultRetriesTotal").html(defaultTries);
+    $div.find(".defaultRetriesTotal").html(defaultTries.toString());
     $div.find(".defaultRetries").html((defaultTries - 1).toString());
 
     // now let's update the text boxes to refelct the current program's custom
@@ -1427,7 +1446,7 @@ export class RecorderUI extends HelenaUIBase {
     }
     const relations = <Relation[]> prog.relations;
 
-    const defaultSeconds = window.DefaultHelenaValues.relationScrapeWait / 1000;
+    const defaultSeconds = HelenaConfig.relationScrapeWait / 1000;
 
     const $div = $("#new_script_content").find("#thresholds_container2");
 
@@ -1574,7 +1593,7 @@ export class RecorderUI extends HelenaUIBase {
       }
     } else if (l < limit) {
       HelenaConsole.log("adding output row: ", l);
-      div.append(window.DOMCreationUtilities.arrayOfTextsToTableRow(
+      div.append(DOMCreation.arrayOfTextsToTableRow(
         listOfCellTexts));
     }
     $("#" + runTabId).find("#running_script_content")
@@ -1585,7 +1604,7 @@ export class RecorderUI extends HelenaUIBase {
     const self = this;
     HelenaConsole.log("going to upload a relation.");
     const div = $("#new_script_content");
-    window.DOMCreationUtilities.replaceContent(div, $("#upload_relation"));
+    DOMCreation.replaceContent(div, $("#upload_relation"));
     // and let's actually process changes
     $('#upload_data').on("change", this.handleNewUploadedRelation.bind(this));
     
@@ -1646,7 +1665,7 @@ export class RecorderUI extends HelenaUIBase {
       } else {
         sampleData = csvData;
       }
-      const tableElement = window.DOMCreationUtilities.arrayOfArraysToTable(
+      const tableElement = DOMCreation.arrayOfArraysToTable(
         sampleData);
       $("#upload_data_table").append(tableElement);
     }
@@ -1701,8 +1720,7 @@ export class RecorderUI extends HelenaUIBase {
         const date = $.format.date(prog.date * 1000, "dd/MM/yyyy HH:mm")
         return [prog.name, date];
       });
-      const html = window.DOMCreationUtilities.arrayOfArraysToTable(
-        arrayOfArrays);
+      const html = DOMCreation.arrayOfArraysToTable(arrayOfArrays);
       const trs = html.find("tr");
       for (let i = 0; i < trs.length; i++) {
         const cI = i;
@@ -1714,9 +1732,10 @@ export class RecorderUI extends HelenaUIBase {
         });
         $(trs[i]).addClass("hoverable");
       }
-      savedScriptsDiv.html(html);
+      savedScriptsDiv.html("");
+      savedScriptsDiv.append(html);
     }
-    window.HelenaServerInteractions.loadSavedPrograms(handler);
+    HelenaServer.loadSavedPrograms(handler);
   }
 
   public loadScheduledScripts() {
@@ -1767,10 +1786,10 @@ export class RecorderUI extends HelenaUIBase {
     });
   }
 
-  public loadSavedDataset(datasetId: string) {
+  public loadSavedDataset(datasetId: number) {
     const self = this;
     HelenaConsole.log("loading dataset: ", datasetId);
-    HelenaServerInteractions.loadSavedDataset(datasetId, (progId: string) => {
+    HelenaServer.loadSavedDataset(datasetId, (progId: string) => {
       self.loadSavedProgram(progId);
     });
   }
@@ -1778,11 +1797,11 @@ export class RecorderUI extends HelenaUIBase {
   public loadSavedProgram(progId: string, continuation?: Function) {
     const self = this;
     HelenaConsole.log("loading program: ", progId);
-    HelenaServerInteractions.loadSavedProgram(progId,
+    HelenaServer.loadSavedProgram(progId,
       (resp: { program: ServerSavedProgram }) => {
         HelenaConsole.log("received program: ", resp);
-        const revivedProgram = window.ServerTranslationUtilities.
-          unJSONifyProgram(resp.program.serialized_program);
+        const revivedProgram = HelenaProgram.fromJSON(
+          resp.program.serialized_program);
         
         // if id was only assigned when it was saved, serialized_prog might not
         //   have that info yet
@@ -1810,4 +1829,20 @@ export class RecorderUI extends HelenaUIBase {
     const div = $("#" + runTabId).find("#running_script_content");
     div.find("#rows_so_far").html(num.toString());
   }
+}
+
+function downloadObject(filename: string, text: string) {
+  const element = document.createElement('a');
+  // element.setAttribute('href', 'data:text/plain;charset=utf-8,' +
+  //   encodeURIComponent(text));
+  element.setAttribute('href', URL.createObjectURL(new Blob([text], {
+                type: "application/octet-stream"})));
+  element.setAttribute('download', filename);
+
+  element.style.display = 'none';
+  document.body.appendChild(element);
+
+  element.click();
+
+  document.body.removeChild(element);
 }

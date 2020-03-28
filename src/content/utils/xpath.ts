@@ -48,10 +48,14 @@ export namespace XPath {
    * @param node node
    * @param suffixes list of suffixes
    */
-  function matchesAllSuffixes(node: Node, suffixesList: SuffixXPathList[][]){
+  function matchesAllSuffixes(node: Node,
+    suffixesList: (SuffixXPathList[] | undefined)[]){
     let elXPath = XPath.toXPathNodeList(<string> fromNode(node));
     //check whether this node has an entry for all desired suffixes
     for (const suffixes of suffixesList) {
+      if (!suffixes) {
+        continue;
+      }
       for (const suffix of suffixes) {
         let suffixXPath = XPath.toString(elXPath.concat(suffix));
         let suffixNodes = getNodes(suffixXPath);
@@ -69,7 +73,7 @@ export namespace XPath {
    * @param suffixes list of {@link SuffixXPathList}s
    */
   export function findDescendantSiblingMatchingSuffixes(element: HTMLElement,
-    suffixes: SuffixXPathList[][]) {
+    suffixes: (SuffixXPathList[] | undefined)[]) {
     let elXPath = XPath.toXPathNodeList(<string> fromNode(element));
     
     // start at the end of the xpath, move back towards root

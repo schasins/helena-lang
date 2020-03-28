@@ -1,3 +1,5 @@
+import { Messages } from "../../common/messages";
+
 /* -*- Mode: Java; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* vim: set shiftwidth=2 tabstop=2 autoindent cindent expandtab: */
 
@@ -11,8 +13,10 @@ var markTimedOut;
 var markNonExistantFeatures;
 var ringerUseXpathFastMode = false; // good for speed, bad for evolving webpages.
 
-utilities.listenForMessage("mainpanel", "content", "ringerUseXpathFastMode", function(msg){ringerUseXpathFastMode = msg.use;});
-utilities.sendMessage("content", "mainpanel", "requestRingerUseXpathFastMode", {});
+Messages.listenForMessage("mainpanel", "content", "ringerUseXpathFastMode", 
+  (msg) => { ringerUseXpathFastMode = msg.use; });
+Messages.sendMessage("content", "mainpanel", "requestRingerUseXpathFastMode",
+  {});
 
 (function() {
   var log = getLog('target');

@@ -1,6 +1,6 @@
 import * as html2canvas from "html2canvas";
 
-import { EventMessage } from "../../common/messages";
+import { TraceEvent } from "../../common/utils/trace";
 
 interface ScreenshotHTMLElement extends HTMLElement {
   html2canvasDataUrl: string;
@@ -103,17 +103,17 @@ export namespace Screenshot {
   /**
    * Take a screenshot of the referenced element.
    * @param element element
-   * @param eventMessage event message
+   * @param traceEvent event message
    */
   export function take(element: ScreenshotHTMLElement,
-    eventMessage: EventMessage) {
+    traceEvent: TraceEvent) {
     if (!window.helenaContent.currentlyRecording()) {
       // don't want to run this visualization stuff if we're in replay mode
       //   rather than recording mode, even though of course we're recording
       //   during replay
       return;
     }
-    if (eventMessage instanceof KeyboardEvent) {
+    if (traceEvent instanceof KeyboardEvent) {
       // ignore below.  this was when we were also checking if there was no
       // node.value;  but in general we're having issues with trying to
       // screenshot things for keyboard events when we really shouldn't so for
@@ -126,27 +126,27 @@ export namespace Screenshot {
       // practical.  we'll still raise the events on the right nodes, but it
       // will be easier for the user to interact with the recording phase if
       // we don't show the node may want to send a different message in future
-      // updateExistingEvent(eventMessage, "additional.visualization",
+      // updateExistingEvent(TraceEvent, "additional.visualization",
       //   "whole page");
       return "whole page";
     }
     if (element.html2canvasDataUrl) {
       // yay, we've already done the 'screenshot', need not do it again
-      // updateExistingEvent(eventMessage, "additional.visualization",
+      // updateExistingEvent(TraceEvent, "additional.visualization",
       //   node.html2canvasDataUrl);
       return element.html2canvasDataUrl;
     }
     if (element.waitingForRender) {
       setTimeout(function() {
         window.additional_recording_handlers.visualization(element,
-          eventMessage);
+          traceEvent);
       }, 100);
       return;
     }
     if (element === document.body) {
       // never want to screenshot the whole page...can really freeze the page,
       //   and we have an easier way to refer to it
-      // updateExistingEvent(eventMessage, "additional.visualization",
+      // updateExistingEvent(TraceEvent, "additional.visualization",
       //   "whole page");
       return "whole page";
     }
@@ -159,7 +159,7 @@ export namespace Screenshot {
       canvas = identifyTransparentEdges(canvas);
       let dataUrl = canvas.toDataURL();
       element.html2canvasDataUrl = dataUrl;
-      updateExistingEvent(eventMessage, "additional.visualization",
+      updateExistingEvent(traceEvent, "additional.visualization",
         dataUrl);
     });
     return null;

@@ -10,13 +10,14 @@ import { NodeVariableUse } from "../../values/node_variable_use";
 import { Concatenate } from "../../values/concatenate";
 import { HelenaString } from "../../values/string";
 import { PageActionStatement } from "./page_action";
-import { EventMessage } from "../../../../common/messages";
 import { ColumnSelector } from "../../../../content/selector/column_selector";
 import { MainpanelNode } from "../../../../common/mainpanel_node";
 import { GenericRelation } from "../../../relation/generic";
 import { PageVariable } from "../../../variables/page_variable";
 import { RunObject, RunOptions, HelenaProgram } from "../../program";
 import { Revival } from "../../../revival";
+import { TraceType, Trace, DisplayTraceEvent } from "../../../../common/utils/trace";
+import { Environment } from "../../../environment";
 
 /**
  * Statement representing a user taking the action of typing something.
@@ -24,7 +25,7 @@ import { Revival } from "../../../revival";
 export class TypeStatement extends PageActionStatement {
   public currentTypedString: HelenaString | Concatenate | NodeVariableUse | null;
   public keyCodes: number[];
-  public keyEvents: EventMessage[];
+  public keyEvents: TraceType;
   public onlyKeydowns: boolean;
   public onlyKeyups: boolean;
   public outputPageVars?: PageVariable[];
@@ -33,7 +34,7 @@ export class TypeStatement extends PageActionStatement {
   public typedStringLower?: string;
   public typedStringParameterizationRelation?: GenericRelation;
 
-  constructor(trace: EventMessage[]) {
+  constructor(trace: TraceType) {
     super();
     Revival.addRevivalLabel(this);
     this.setBlocklyLabel("type");
@@ -41,13 +42,13 @@ export class TypeStatement extends PageActionStatement {
     this.cleanTrace = HelenaMainpanel.cleanTrace(trace);
 
     // find the record-time constants that we'll turn into parameters
-    const ev = HelenaMainpanel.firstVisibleEvent(trace);
-    this.pageVar = window.EventM.getDOMInputPageVar(ev);
+    const ev = Trace.firstVisibleEvent(trace);
+    this.pageVar = Trace.getDOMInputPageVar(ev);
     this.node = ev.target.xpath;
     this.pageUrl = ev.frame.topURL;
     // var acceptableEventTypes = HelenaMainpanel.statementToEventMapping.keyboard;
     const textEntryEvents = trace.filter((ev) => {
-      const sType = HelenaMainpanel.statementType(ev);
+      const sType = Trace.statementType(ev);
       return (sType === StatementTypes.KEYBOARD);
               // || sType === StatementTypes.KEYUP);
     });
@@ -65,10 +66,17 @@ export class TypeStatement extends PageActionStatement {
     const domEvents = trace.filter((ev) => ev.type === "dom");
 
     const outputLoads = domEvents.reduce(
-      (acc, ev) => acc.concat(window.EventM.getDOMOutputLoadEvents(ev)
-    ), []);
+      (acc: TraceType, ev) => {
+        const loadEvs = Trace.getDOMOutputLoadEvents(<DisplayTraceEvent> ev);
+        if (!loadEvs) {
+          throw new ReferenceError("DOM output load events undefined");
+        }
+        acc.concat(loadEvs);
+        return acc;
+      }, []);
+
     this.outputPageVars = outputLoads.map(
-      (ev) => window.EventM.getLoadOutputPageVar(ev)
+      (ev) => Trace.getLoadOutputPageVar(<DisplayTraceEvent> ev)
     );
 
     // for now, assume the ones we saw at record time are the ones we'll want at
@@ -347,7 +355,7 @@ export class TypeStatement extends PageActionStatement {
     }
   }
 
-  public args(environment: EnvironmentPlaceholder) {
+  public args(environment: Environment.Frame) {
     const args = [];
 
     // we only want to pbv for things that must already have been extracted by

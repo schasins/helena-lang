@@ -9,12 +9,16 @@ import { HelenaLangObject } from "../../helena_lang";
 
 import { NodeVariable } from "../../../variables/node_variable";
 
-import { SkipBlockResponse } from "../../../../common/messages";
+import { SkipBlockResponse, DatasetSliceRequest } from "../../../../common/messages";
 
 import { GenericRelation } from "../../../relation/generic";
 import { StatementContainer } from "../container";
 import { RunObject, RunOptions } from "../../program";
 import { Revival } from "../../../revival";
+import { HelenaConfig } from "../../../../common/config/config";
+import { MiscUtilities } from "../../../../common/misc_utilities";
+import { HelenaServer } from "../../../utils/server";
+import { Environment } from "../../../environment";
 
 enum SkippingStrategies {
   ALWAYS = "always",
@@ -59,8 +63,8 @@ interface TransactionItem {
   val: string | null;
 }
 
-interface ServerTransaction {
-  program_run_id: string;
+export interface ServerTransaction {
+  program_run_id?: number;
   program_id: string;
   transaction_attributes: string;
   annotation_id: number;
@@ -164,8 +168,7 @@ export class SkipBlock extends StatementContainer {
         }
         for (let i = 0; i < availableAnnotationItems.length; i++) {
           const availItem = availableAnnotationItems[i];
-          let onNow = annotationItems.includes(availItem);
-          onNow = window.MiscUtilities.toBlocklyBoolString(onNow);
+          const onNow = toBlocklyBoolString(annotationItems.includes(availItem));
           let extra = "";
           if (i > 0) {
             extra = ",  ";
@@ -188,8 +191,8 @@ export class SkipBlock extends StatementContainer {
             .appendField("other entitites: ");
         }
         for (const ancestor of ancestorAnnotations) {
-          let onNow = requiredAncestorAnnotations.includes(ancestor);
-          onNow = window.MiscUtilities.toBlocklyBoolString(onNow);
+          const onNow = toBlocklyBoolString(
+            requiredAncestorAnnotations.includes(ancestor));
           fieldsSoFar = fieldsSoFar
             .appendField(ancestor.name + ":")
             .appendField(new Blockly.FieldCheckbox(onNow),
@@ -222,7 +225,7 @@ export class SkipBlock extends StatementContainer {
         const skipStratChange = (skippingStrategy: SkippingStrategies) => {
           console.log(skippingStrategy);
           if (block.getFieldValue(skippingStrategy) ===
-            window.MiscUtilities.toBlocklyBoolString(false)) {
+            toBlocklyBoolString(false)) {
             // if it's been turned off till now, it's on now, so go ahead and
             //   set the skipping strategy
             console.log("turned on", block.getFieldValue(skippingStrategy));
@@ -232,7 +235,7 @@ export class SkipBlock extends StatementContainer {
             if (checkboxName === skippingStrategy) {
               continue;
             }
-            block.setFieldValue(window.MiscUtilities.toBlocklyBoolString(false),
+            block.setFieldValue(toBlocklyBoolString(false),
               checkboxName);
           }
         }
@@ -241,8 +244,7 @@ export class SkipBlock extends StatementContainer {
           const skipOption = skippingOptions[i];
           const skipStrat = skippingStrategies[i];
 
-          let onNow = self.skippingStrategy === skipStrat;
-          onNow = window.MiscUtilities.toBlocklyBoolString(onNow);
+          let onNow = toBlocklyBoolString(self.skippingStrategy === skipStrat);
           allSkippingStrategyCheckboxes.push(skipStrat);
 
           fieldsSoFar = block.appendDummyInput().appendField(
@@ -417,22 +419,23 @@ export class SkipBlock extends StatementContainer {
 
     // this is where we should switch to checking if the current task has been
     //   locked/claimed if we're in parallel mode
-    let targetUrl = helenaServerUrl + '/transactionexists';
+    let targetUrl = HelenaConfig.helenaServerUrl + '/transactionexists';
     if (inParallelMode) {
-      targetUrl = helenaServerUrl + '/locktransaction';
+      targetUrl = HelenaConfig.helenaServerUrl + '/locktransaction';
       if (this.descendIntoLocks) {
         // this one's a weird case.  in this case, we're actually re-entering a
         //   skip block already locked by another worker because it has
         //   descendant work that we can help with and because we want good load
         //   balancing
-        targetUrl = helenaServerUrl + '/takeblockduringdescent';
+        targetUrl = HelenaConfig.helenaServerUrl + '/takeblockduringdescent';
       }
     }
 
     // you only need to talk to the server if you're actually going to act
     //   (skip) now on the knowledge of the duplicate
     const msg = this.serverTransactionRepresentationCheck(runObject);
-    window.MiscUtilities.postAndRePostOnFailure(targetUrl, msg,
+
+    HelenaServer.checkSkipBlockTransaction(targetUrl, msg,
       (resp: SkipBlockResponse) => {
         if (resp.exists || resp.task_yours === false) {
           // this is a duplicate, current loop iteration already done, so
@@ -459,7 +462,7 @@ export class SkipBlock extends StatementContainer {
             self.commit(runObject, rbbcontinuation, rbboptions);
           }, rbboptions);
         }
-    }, true, " to tell us if we should do this subtask");
+    });
   };
 
   private commit(runObject: RunObject, rbbcontinuation: Function,
@@ -471,14 +474,14 @@ export class SkipBlock extends StatementContainer {
       const transactionMsg = this.serverTransactionRepresentationCommit(
         runObject, new Date().getTime());
       const datasetSliceMsg = runObject.dataset.datasetSlice();
-      const fullMsg = _.extend(transactionMsg, datasetSliceMsg);
-      window.MiscUtilities.postAndRePostOnFailure(
-        helenaServerUrl + '/newtransactionwithdata', fullMsg, () => {}, false);
+      const fullMsg: ServerTransaction & DatasetSliceRequest =
+        _.extend(transactionMsg, datasetSliceMsg);
+      HelenaServer.newSkipBlockTransaction(fullMsg, () => {});
     }
     rbbcontinuation(rbboptions);
   }
 
-  private singleAnnotationItems(environment: EnvironmentPlaceholder) {
+  private singleAnnotationItems(environment: Environment.Frame) {
     const rep = [];
     for (const item of this.annotationItems) {
       const nodeVar = item.nodeVar;
@@ -606,6 +609,10 @@ function isThisMyWorkBasedOnHash(currentTransaction: TransactionItem[],
     return true;
   }
   return false;
+}
+
+export function toBlocklyBoolString(bool: boolean) {
+  return bool? "TRUE": "FALSE";
 }
 
 

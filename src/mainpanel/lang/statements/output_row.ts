@@ -8,7 +8,6 @@ import { HelenaMainpanel } from "../../helena_mainpanel";
 import { HelenaLangObject } from "../helena_lang";
 import { NodeVariableUse } from "../values/node_variable_use";
 import { ScrapeStatement } from "./page_action/scrape";
-import { EventMessage } from "../../../common/messages";
 import { Relation } from "../../relation/relation";
 import { TextRelation } from "../../relation/text_relation";
 import { GenericRelation } from "../../relation/generic";
@@ -16,12 +15,14 @@ import { MainpanelNode } from "../../../common/mainpanel_node";
 import { PageVariable } from "../../variables/page_variable";
 import { RunObject, HelenaProgram, RunOptions } from "../program";
 import { Revival } from "../../revival";
+import { TraceType } from "../../../common/utils/trace";
+import { Environment } from "../../environment";
 
 export class OutputRowStatement extends HelenaLangObject {
-  public cleanTrace: EventMessage[];
+  public cleanTrace: TraceType;
   public relations: GenericRelation[];
   public scrapeStatements: ScrapeStatement[];
-  public trace: EventMessage[];
+  public trace: TraceType;
   public nodeUseVariables: NodeVariableUse[];
 
   constructor(scrapeStatements: ScrapeStatement[]) {
@@ -156,7 +157,7 @@ export class OutputRowStatement extends HelenaLangObject {
     this.relations = this.relations.filter((rel) => rel !== relation);
   }
 
-  public args(environment: EnvironmentPlaceholder) {
+  public args(environment: Environment.Frame) {
     return [];
   }
 

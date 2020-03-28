@@ -1,14 +1,12 @@
 import * as _ from "underscore";
 import * as Blockly from "blockly";
 
-import { EventMessage } from "../common/messages";
 import { HelenaConsole } from "../common/utils/helena_console";
 
 import { NodeVariable } from "./variables/node_variable";
 
 import { HelenaLangObject } from "./lang/helena_lang";
 
-import { StatementTypes } from "./lang/statements/statement_types";
 import { LoadStatement } from "./lang/statements/browser/load";
 import { LoopStatement } from "./lang/statements/control_flow/loop";
 import { WaitStatement } from "./lang/statements/control_flow/wait";
@@ -31,13 +29,8 @@ import { ClickStatement } from "./lang/statements/page_action/click";
 import { PulldownInteractionStatement } from "./lang/statements/page_action/pulldown_interaction";
 import { ScrapeStatement } from "./lang/statements/page_action/scrape";
 import { OutputRowStatement } from "./lang/statements/output_row";
-
-let statementToEventMapping = {
-  mouse: ['click','dblclick','mousedown','mousemove','mouseout','mouseover',
-    'mouseup'],
-  keyboard: ['keydown','keyup','keypress','textinput','paste','input'],
-  dontcare: ['blur']
-};
+import { TraceType, TraceEvent, Trace, DisplayTraceEvent, DOMTraceEvent } from "../common/utils/trace";
+import { Environment } from "./environment";
 
 export enum NodeSources {
   RELATIONEXTRACTOR = 1,
@@ -98,7 +91,7 @@ export class HelenaMainpanel {
 
   constructor(obj: RecorderUI) {
     HelenaMainpanel.UIObject = obj;
-    window.Environment.setUIObject(obj);
+    Environment.setUIObject(obj);
 
     // time to apply labels for revival purposes
     for (const prop in HelenaMainpanel.revivable) {
@@ -144,58 +137,6 @@ export class HelenaMainpanel {
   }
   */
 
-  // helper function. returns the StatementType (see above) that we should
-  //   associate with the argument event, or null if the event is invisible
-  public static statementType(ev: EventMessage) {
-    if (ev.type === "completed" || ev.type === "manualload" ||
-        ev.type === "webnavigation") {
-      if (!window.EventM.getVisible(ev)) {
-        return null; // invisible, so we don't care where this goes
-      }
-      return StatementTypes.LOAD;
-    } else if (ev.type === "dom") {
-      if (statementToEventMapping.dontcare.indexOf(ev.data.type) > -1) {
-        return null; // who cares where blur events go
-      }
-      let lowerXPath = ev.target.xpath.toLowerCase();
-      if (lowerXPath.indexOf("/select[") > -1) {
-        // this was some kind of interaction with a pulldown, so we have something special for this
-        return StatementTypes.PULLDOWNINTERACTION;
-      } else if (statementToEventMapping.mouse.includes(ev.data.type)) {
-        if (ev.additional.scrape) {
-          if (ev.additional.scrape.linkScraping) {
-            return StatementTypes.SCRAPELINK;
-          }
-          return StatementTypes.SCRAPE;
-        }
-        return StatementTypes.MOUSE;
-      } else if (statementToEventMapping.keyboard.includes(ev.data.type)) {
-        /*
-        if (ev.data.type === "keyup") {
-          return StatementTypes.KEYUP;
-        }
-        */
-        //if ([16, 17, 18].indexOf(ev.data.keyCode) > -1) {
-        //  // this is just shift, ctrl, or alt key.  don't need to show these to the user
-        //  return null;
-        //}
-        return StatementTypes.KEYBOARD;
-      }
-    }
-    // these events don't matter to the user, so we don't care where this goes
-    return null;
-  }
-
-  public static firstVisibleEvent(trace: EventMessage[]) {
-    for (const ev of trace) {
-      const st = HelenaMainpanel.statementType(ev);
-      if (st !== null) {
-        return ev;
-      }
-    }
-    throw new ReferenceError("No visible events in trace!");
-  }
-
   public static makeOpsDropdown(ops: { [key: string]: Function}) {
     const opsDropdown = [];
     for (const key in ops) {
@@ -204,11 +145,15 @@ export class HelenaMainpanel {
     return opsDropdown;
   }
 
-  public static makeNodeVariableForTrace(trace: EventMessage[]) {
+  public static makeNodeVariableForTrace(trace: TraceType) {
     let recordTimeNodeSnapshot = null;
     let imgData = null;
-    if (trace.length > 0) { // may get 0-length trace if we're just adding a scrape statement by editing (as for a known column in a relation)
-      var ev = trace[0]; // 0 bc this is the first ev that prompted us to turn it into the given statement, so must use the right node
+    // may get 0-length trace if we're just adding a scrape statement by editing
+    //   (as for a known column in a relation)
+    if (trace.length > 0) {
+      // 0 bc this is the first ev that prompted us to turn it into the given
+      //   statement, so must use the right node
+      const ev = <DOMTraceEvent> trace[0];
       recordTimeNodeSnapshot = ev.target.snapshot;
       imgData = ev.additional.visualization;
     }
@@ -221,10 +166,10 @@ export class HelenaMainpanel {
            urlMatchSymmetryHelper(currentUrl, text);
   }
 
-  public static cleanTrace(trace: EventMessage[]) {
+  public static cleanTrace(trace: TraceType) {
     const cleanTrace = [];
     for (const event of trace) {
-      cleanTrace.push(cleanEvent(event));
+      cleanTrace.push(cleanEvent(<DisplayTraceEvent> event));
     }
     return cleanTrace;
   }
@@ -413,7 +358,7 @@ export class HelenaMainpanel {
     return helenaBlock.helena;
   }
 
-  public static firstScrapedContentEventInTrace(trace: EventMessage[]) {
+  public static firstScrapedContentEventInTrace(trace: TraceType) {
     for (const event of trace) {
       if (event.additional && event.additional.scrape &&
           event.additional.scrape.text) {
@@ -556,12 +501,12 @@ function urlMatchSymmetryHelper(t1: string, t2: string) {
   return false;
 }
 
-function cleanEvent(ev: EventMessage): EventMessage {
-  const displayData = window.EventM.getDisplayInfo(ev);
-  window.EventM.clearDisplayInfo(ev);
+function cleanEvent(ev: DisplayTraceEvent): TraceEvent {
+  const displayData = Trace.getDisplayInfo(ev);
+  Trace.clearDisplayInfo(ev);
   const cleanEvent = clone(ev);
   // now restore the true trace object
-  window.EventM.setDisplayInfo(ev, displayData);
+  Trace.setDisplayInfo(ev, displayData);
   return cleanEvent;
 }
 

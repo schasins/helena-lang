@@ -5,14 +5,16 @@ import { HelenaConsole } from "../../../../common/utils/helena_console";
 import { HelenaMainpanel, NodeSources } from "../../../helena_mainpanel";
 
 import { NodeVariable } from "../../../variables/node_variable";
-import { EventMessage } from "../../../../common/messages";
 import { PageActionStatement } from "./page_action";
 import { GenericRelation } from "../../../relation/generic";
 import { PageVariable } from "../../../variables/page_variable";
 import { HelenaProgram } from "../../program";
 import { Revival } from "../../../revival";
+import { TraceType, Trace } from "../../../../common/utils/trace";
+import { MiscUtilities } from "../../../../common/misc_utilities";
+import { Environment } from "../../../environment";
 
-function deleteAPropDelta(trace: EventMessage[], propertyName: string) {
+function deleteAPropDelta(trace: TraceType, propertyName: string) {
   for (const event of trace) {
     if (event.type !== "dom") { continue; }
     const deltas = event.meta.deltas;
@@ -27,7 +29,7 @@ function deleteAPropDelta(trace: EventMessage[], propertyName: string) {
   }
 }
 
-function firstUpdateToProp(trace: EventMessage[], propertyName: string) {
+function firstUpdateToProp(trace: TraceType, propertyName: string) {
   for (const event of trace) {
     if (event.type !== "dom") { continue; }
     const deltas = event.meta.deltas;
@@ -50,11 +52,11 @@ function firstUpdateToProp(trace: EventMessage[], propertyName: string) {
 
 export class PulldownInteractionStatement extends PageActionStatement {
   public node: string;
-  public origTrace?: EventMessage[];
-  public origCleanTrace?: EventMessage[];
+  public origTrace?: TraceType;
+  public origCleanTrace?: TraceType;
   public pageVar: PageVariable;
 
-  constructor(trace: EventMessage[]) {
+  constructor(trace: TraceType) {
     super();
     Revival.addRevivalLabel(this);
     this.setBlocklyLabel("pulldownInteraction");
@@ -62,8 +64,8 @@ export class PulldownInteractionStatement extends PageActionStatement {
     
     // find the record-time constants that we'll turn into parameters
     this.cleanTrace = HelenaMainpanel.cleanTrace(trace);
-    const ev = HelenaMainpanel.firstVisibleEvent(trace);
-    this.pageVar = window.EventM.getDOMInputPageVar(ev);
+    const ev = Trace.firstVisibleEvent(trace);
+    this.pageVar = Trace.getDOMInputPageVar(ev);
     this.node = ev.target.xpath;
     this.origNode = this.node;
     // we want the currentNode to be a nodeVariable so we have a name for the
@@ -104,7 +106,7 @@ export class PulldownInteractionStatement extends PageActionStatement {
 
       // clone it.  update it.  put the xpath in the right places. put a delta
       //   for 'selected' being true
-      const trace = window.MiscUtilities.dirtyDeepcopy(this.trace);
+      const trace = MiscUtilities.dirtyDeepcopy(this.trace);
       for (const event of trace) {
         if (event.meta) {
           event.meta.forceProp = ({ selected: true });
@@ -169,7 +171,7 @@ export class PulldownInteractionStatement extends PageActionStatement {
     return pbvs;
   }
 
-  public args(environment: EnvironmentPlaceholder) {
+  public args(environment: Environment.Frame) {
     const args = [];
     args.push({
       type: "tab",

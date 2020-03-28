@@ -3,6 +3,7 @@
 import { HelenaConsole } from "../../common/utils/helena_console";
 import { MainpanelNode } from "../../common/mainpanel_node";
 import { Revival } from "../revival";
+import { FrameData } from "../../common/utils/trace";
 
 // note that first arg should be SortedArray not just sorted array
 /*function outlier(sortedList, potentialItem) {
@@ -60,7 +61,7 @@ export class PageVariable implements Revival.Revivable {
 
   public tabId?: number;
 
-  public recordTimeFrameData: FrameDataPlaceholder;
+  public recordTimeFrameData: FrameData;
 
   constructor(name: string, recordTimeUrl: string) {
     Revival.addRevivalLabel(this);
@@ -72,7 +73,7 @@ export class PageVariable implements Revival.Revivable {
     // this.pageStats = freshPageStats();
   }
   
-  public setRecordTimeFrameData(frameData: FrameDataPlaceholder) {
+  public setRecordTimeFrameData(frameData: FrameData) {
     this.recordTimeFrameData = frameData;
   }
 
@@ -94,7 +95,7 @@ export class PageVariable implements Revival.Revivable {
           var dialogText = "Woah, this page looks very different from what we expected.  We thought we'd get a page that looked like this:";
           if (ReplayScript.prog.mostRecentRow) {
             dialogText += "<br>If it's helpful, the last row we scraped looked like this:<br>";
-            dialogText += DOMCreationUtilities.arrayOfArraysToTable([ReplayScript.prog.mostRecentRow]).html(); // todo: is this really the best way to acess the most recent row?
+            dialogText += DOMCreation.arrayOfArraysToTable([ReplayScript.prog.mostRecentRow]).html(); // todo: is this really the best way to acess the most recent row?
           }
           UIObject.addDialog("Weird Page", dialogText, 
             {"I've fixed it": function _fixedHandler() {WALconsole.log("I've fixed it."); that.setCurrentTabId(tabId, continuation);}, 

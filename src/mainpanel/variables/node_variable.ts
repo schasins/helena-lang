@@ -5,6 +5,7 @@ import { HelenaMainpanel, NodeSources } from "../helena_mainpanel";
 import { MainpanelNode } from "../../common/mainpanel_node";
 import { PageVariable } from "./page_variable";
 import { Revival } from "../revival";
+import { Environment } from "../environment";
 
 export class NodeVariable implements Revival.Revivable {
   public static counter = 0;
@@ -159,29 +160,29 @@ export class NodeVariable implements Revival.Revivable {
     return this.recordedNodeSnapshot;
   }
 
-  public setCurrentNodeRep(environment: EnvironmentPlaceholder,
+  public setCurrentNodeRep(environment: Environment.Frame,
     nodeRep: MainpanelNode.Interface | null) {
     // todo: should be a better way to get env
     HelenaConsole.log("setCurrentNodeRep", this.getName(), nodeRep);
     environment.envBind(this.getName(), nodeRep);
   };
 
-  public currentNodeRep(environment: EnvironmentPlaceholder):
+  public currentNodeRep(environment: Environment.Frame):
     MainpanelNode.Interface {
     // don't want to let someone call this and start messing with the
     //   enviornment representation, so clone
     return _.clone(environment.envLookup(this.getName()));
   }
 
-  public currentText(environment: EnvironmentPlaceholder) {
+  public currentText(environment: Environment.Frame) {
     return this.currentNodeRep(environment).text;
   }
 
-  public currentLink(environment: EnvironmentPlaceholder) {
+  public currentLink(environment: Environment.Frame) {
     return this.currentNodeRep(environment).link;
   }
 
-  public currentXPath(environment: EnvironmentPlaceholder) {
+  public currentXPath(environment: Environment.Frame) {
     return this.currentNodeRep(environment).xpath;
   }
 

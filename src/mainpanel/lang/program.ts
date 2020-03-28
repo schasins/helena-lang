@@ -1,8 +1,7 @@
 import * as Blockly from "blockly";
 import * as _ from "underscore";
 
-import { ServerSaveResponse, EventMessage, RetrieveRelationsResponse,
-  RelationResponse, 
+import { ServerSaveResponse, RelationResponse,
   Messages} from "../../common/messages";
 import { HelenaConsole } from "../../common/utils/helena_console";
 
@@ -31,6 +30,15 @@ import { ColumnSelector } from "../../content/selector/column_selector";
 import { BackStatement } from "./statements/browser/back";
 import { ClosePageStatement } from "./statements/browser/close_page";
 import { Revival } from "../revival";
+import { RelationSelector } from "../../content/selector/relation_selector";
+import { NextTypes } from "../../content/selector/next_button_selector";
+import { Trace, TraceType, DisplayTraceEvent, TraceEvent } from "../../common/utils/trace";
+import { HelenaConfig } from "../../common/config/config";
+import { MiscUtilities } from "../../common/misc_utilities";
+import { Dataset } from "../dataset";
+import { HelenaServer, RetrieveRelationsResponse } from "../utils/server";
+import { StatementTypes } from "./statements/statement_types";
+import { Environment } from "../environment";
 
 // TODO: move these somewhere safer
 let scrapingRunsCompleted = 0;
@@ -39,7 +47,7 @@ let datasetsScraped = [];
 interface LoopItem {
   loopStatement: LoopStatement;
   nodeVariables: NodeVariable[];
-  displayData: (string | undefined)[][];
+  displayData: string[][];
 }
 
 export enum TraceContributions {
@@ -48,8 +56,8 @@ export enum TraceContributions {
 }
 
 export interface RunObject {
-  dataset: DatasetPlaceholder;
-  environment: EnvironmentPlaceholder;
+  dataset: Dataset;
+  environment: Environment.Frame;
   program: HelenaProgram;
 
   resumeContinuation?: Function;
@@ -125,8 +133,6 @@ export class HelenaProgram extends StatementContainer {
   public windowHeight?: number;
   public windowWidth?: number;
 
-  
-
   constructor(statements: HelenaLangObject[], addOutputStatement = true) {
     super();
 
@@ -155,6 +161,57 @@ export class HelenaProgram extends StatementContainer {
     if (addOutputStatement && scrapeStatements.length > 0) {
       this.statements.push(new OutputRowStatement(scrapeStatements));
     }
+  }
+
+  public clone() {
+    const replacer = (key: string, value: any) => {
+      // filtering out the blockly block, which we can recreate from the rest of
+      //   the state
+      if (key === "block") {
+        return undefined;
+      }
+      return value;
+    }
+    // deepcopy
+    const programAttributes = window.JSOG.parse(
+      window.JSOG.stringify(this, replacer));
+    // copy all those fields back into a proper Program object
+    const program = Revival.revive(programAttributes);
+    return program;
+  }
+
+  public static fromRingerTrace(trace: TraceType, windowId?: number,
+      addOutputStatement?: boolean) {
+    let dispTrace = <DisplayTraceEvent[]> trace.filter((event) =>
+      // filter out stopped events
+      event.state !== "stopped" &&
+
+      // strip out events that weren't performed in the recording window
+      (event.type === "manualload" || 
+       (event.data && event.data.windowId === windowId) ||
+       (event.frame && event.frame.windowId === windowId))
+    ).map((event) =>
+      Trace.prepareForDisplay(event)
+    );
+    dispTrace = markUnnecessaryLoads(dispTrace);
+    dispTrace = associateNecessaryLoadsWithIDsAndParameterizePages(dispTrace);
+    dispTrace = addCausalLinks(dispTrace);
+    dispTrace = removeEventsBeforeFirstVisibleLoad(dispTrace);
+
+    const segmentedTrace = segment(dispTrace);
+    const prog = segmentedTraceToProgram(segmentedTrace, addOutputStatement);
+    return prog;
+  }
+
+  public static fromJSON(json: string) {
+    const programAttributes = window.JSOG.parse(json);
+
+    // copy all those fields back into a proper Program object
+    return <HelenaProgram> Revival.revive(programAttributes);
+  }
+
+  public toJSON() {
+    return window.JSOG.stringify(this.clone());
   }
 
   public setName(str: string) {
@@ -273,7 +330,7 @@ export class HelenaProgram extends StatementContainer {
   public saveToServer(afterId: Function, saveStarted: Function,
       saveDone: Function) {
     const self = this;
-    const msg = {
+    const req = {
       id: this.id,
       name: this.name,
       tool_id: HelenaMainpanel.toolId,
@@ -285,8 +342,7 @@ export class HelenaProgram extends StatementContainer {
     //   any later stuff with.  it won't actually save the program saving the
     //   program takes a long time, so we don't want other stuff to wait on it,
     //   will do it in background
-    window.MiscUtilities.postAndRePostOnFailure(
-        helenaServerUrl + '/saveprogram', msg, (resp: ServerSaveResponse) => {
+    HelenaServer.saveProgram(req, (resp: ServerSaveResponse) => {
       HelenaConsole.log("server responded to program save");
       const progId = resp.program.id;
       self.setId(progId);
@@ -298,24 +354,22 @@ export class HelenaProgram extends StatementContainer {
         // todo: in future, don't filter.  actually save textrelations too
         const relationObjsSerialized =
           self.relations.filter((rel) => rel instanceof Relation)
-                        .map(window.ServerTranslationUtilities.JSONifyRelation);
-        const serializedProg = window.ServerTranslationUtilities.JSONifyProgram(
-          self);
+                        .map((rel) => rel.toJSON());
+        const serializedProg = self.toJSON();
         // sometimes serializedProg becomes null because of errors. in those
         //   cases, we don't want to overwrite the old, good program with the
         //   bad one. so let's prevent us from saving null in place of existing
         //   thing so that user can shut it off, load the saved program, start
         //   over
         if (serializedProg) {
-          const msg = {
+          const req = {
             id: progId,
             serialized_program: serializedProg,
             relation_objects: relationObjsSerialized,
             name: self.name,
             associated_string: self.associatedString
           };
-          window.MiscUtilities.postAndRePostOnFailure(
-              helenaServerUrl + '/saveprogram', msg, () => {
+          HelenaServer.saveProgram(req, () => {
             // we've finished the save thing, so tell the user
             saveDone();
           }, true, " to save the program");
@@ -462,9 +516,9 @@ export class HelenaProgram extends StatementContainer {
         //   to make the table of values
         for (const nv of newLoopItem.nodeVariables) {
           newLoopItem.displayData[0].push(nv.getName() + " text");
-          newLoopItem.displayData[1].push(nv.recordTimeText());
+          newLoopItem.displayData[1].push(<string> nv.recordTimeText());
           newLoopItem.displayData[0].push(nv.getName() + " link");
-          newLoopItem.displayData[1].push(nv.recordTimeLink());
+          newLoopItem.displayData[1].push(<string> nv.recordTimeLink());
         }
         loopData.push(newLoopItem);
       }
@@ -486,14 +540,14 @@ export class HelenaProgram extends StatementContainer {
 
   // just for replaying the straight-line recording, primarily for debugging
   public replayOriginal() {
-    let trace: EventMessage[] = [];
+    let trace: TraceType = [];
     for (const stmt of this.statements) {
       if (stmt instanceof PageActionStatement) {
         trace = trace.concat(stmt.cleanTrace);
       }
     }
     for (const ev of trace) {
-      window.EventM.clearDisplayInfo(ev);
+      Trace.clearDisplayInfo(<DisplayTraceEvent> ev);
     }
 
     window.SimpleRecord.replay(trace, null, () => {
@@ -515,7 +569,7 @@ export class HelenaProgram extends StatementContainer {
     var smallerLength = recCompleted.length;
     if (repCompleted.length < smallerLength) { smallerLength = repCompleted.length;}
     for (var i = 0; i < smallerLength; i++) {
-      var pageVar = EventM.getLoadOutputPageVar(recCompleted[i]);
+      var pageVar = Trace.getLoadOutputPageVar(recCompleted[i]);
       if (pageVar === undefined) {
         continue;
       }
@@ -524,7 +578,7 @@ export class HelenaProgram extends StatementContainer {
   }
   */
 
-  private doTheReplay(runnableTrace: EventMessage[], config: object,
+  private doTheReplay(runnableTrace: TraceType, config: object,
       basicBlockStmts: RingerStatement[], runObject: RunObject,
       bodyStatements: HelenaLangObject[], nextBlockStartIndex: number,
       callback: Function, options: RunOptions) {
@@ -541,7 +595,7 @@ export class HelenaProgram extends StatementContainer {
 
       // based on the replay object, we need to update any pagevars involved in
       //   the trace
-      let trace: EventMessage[] = [];
+      let trace: TraceType = [];
       for (const stmt of basicBlockStmts) {
         // want the trace with display data, not the clean trace
         trace = trace.concat(stmt.trace);
@@ -609,7 +663,7 @@ export class HelenaProgram extends StatementContainer {
           callback();
         };
 
-        let trace: EventMessage[] = [];
+        let trace: TraceType = [];
         for (const stmt of basicBlockStmts) {
           // want the trace with display data, not the clean trace
           trace = trace.concat(stmt.trace);
@@ -645,7 +699,7 @@ export class HelenaProgram extends StatementContainer {
           callback();
         };
 
-        let trace: EventMessage[] = [];
+        let trace: TraceType = [];
         for (const stmt of basicBlockStmts) {
           // want the trace with display data, not the clean trace
           trace = trace.concat(stmt.trace);
@@ -932,7 +986,7 @@ export class HelenaProgram extends StatementContainer {
             // all other options should be the same, except that we shouldn't
             //   simulate the error anymore and must make sure to use the same
             //   dataset
-            options.dataset_id = runObject.dataset.id;
+            options.dataset_id = runObject.dataset.getId();
             runObject.program.runProgram(options); 
 
             // don't run any of the callbacks for this old run! we're done w/it!
@@ -974,7 +1028,9 @@ export class HelenaProgram extends StatementContainer {
           //   loop but first let's get rid of that last environment frame
           HelenaConsole.namedLog("rbb", "rbb: preparing for next loop " +
             "iteration, popping frame off environment.");
-          runObject.environment = runObject.environment.parent;
+          if (runObject.environment.parent) {
+            runObject.environment = runObject.environment.parent;
+          }
           // for the next iteration, we'll be back out of skipMode if we were in
           //   skipMode and let's run loop cleanup, since we actually ran the
           //   body statements
@@ -1094,7 +1150,7 @@ export class HelenaProgram extends StatementContainer {
       //   finishes the original continuation
       // will make a new dataset and start over. the loop forever option/start
       //   again when done option
-      fullContinuation = (dataset: DatasetPlaceholder, timeScraped: number,
+      fullContinuation = (dataset: Dataset, timeScraped: number,
           tabId: number) => {
         if (continuation) {
           continuation(dataset, timeScraped, options);
@@ -1106,12 +1162,11 @@ export class HelenaProgram extends StatementContainer {
 
     if (options.dataset_id) {
       // no need to make a new dataset
-      const dataset = <DatasetPlaceholder> new OutputHandler.Dataset(self,
-        options.dataset_id);
+      const dataset = new Dataset(self, options.dataset_id);
       runInternals(this, parameters, dataset, options, fullContinuation);
     } else {
       // ok, have to make a new dataset
-      const dataset = new OutputHandler.Dataset(self);
+      const dataset = new Dataset(self);
       // it's really annoying to go on without having an id, so let's wait till
       //   we have one
       const continueWork = () => {
@@ -1120,7 +1175,7 @@ export class HelenaProgram extends StatementContainer {
       }
 
       if (requireDataset) {
-        window.MiscUtilities.repeatUntil(
+        MiscUtilities.repeatUntil(
           () => {}, 
           () => dataset.isReady(),
           () => { continueWork(); },
@@ -1135,7 +1190,7 @@ export class HelenaProgram extends StatementContainer {
     // basically same as above, but store to the same dataset (for now, dataset
     //   id also controls which saved annotations we're looking at)
     runObjectOld.program.runProgram({
-      dataset_id: runObjectOld.dataset.id
+      dataset_id: runObjectOld.dataset.getId()
     }, continuation);
   }
 
@@ -1282,15 +1337,15 @@ export class HelenaProgram extends StatementContainer {
         frame_ids: this.pagesToFrames[pageVarName]
       });
     }
-    window.MiscUtilities.postAndRePostOnFailure(
-      helenaServerUrl + '/retrieverelations', { pages: reqList },
+    HelenaServer.retrieveRelations({ pages: reqList },
       (resp: RetrieveRelationsResponse) => {
         self.processServerRelations(resp);
-      }, true, " to tell us about any relevant tables");
+      }
+    );
   }
 
   public processServerRelations(resp: RetrieveRelationsResponse,
-      currentStartIndex = 0, tabsToCloseAfter = [], tabMapping = {},
+      currentStartIndex = 0, tabsToCloseAfter: number[] = [], tabMapping = {},
       windowId?: number, pageCount = 0) {
     const self = this;
     
@@ -1320,12 +1375,12 @@ export class HelenaProgram extends StatementContainer {
 
           // this is one of the points to which we'll have to replay
           const statementSlice = self.statements.slice(startIndex, i + 1);
-          let trace: EventMessage[] = [];
+          let trace: TraceType = [];
           for (const stmt of statementSlice) {
             trace = trace.concat((<OutputPageVarStatement> stmt).cleanTrace);
           }
           // strip the display info back out from the event objects
-          //_.each(trace, function(ev) {EventM.clearDisplayInfo(ev);});
+          //_.each(trace, function(ev) {Trace.clearDisplayInfo(ev);});
 
           HelenaConsole.log("processServerrelations program: ", self);
           HelenaConsole.log("processServerrelations trace indexes: ",
@@ -1348,13 +1403,12 @@ export class HelenaProgram extends StatementContainer {
 
             // what's the tab that now has the target page?
             const replayTrace = replayObj.record.events;
-            const lastCompletedEvent = window.TraceManipulationUtilities.
-              lastTopLevelCompletedEvent(replayTrace);
-            const lastCompletedEventTabId = window.TraceManipulationUtilities.
-              tabId(lastCompletedEvent);
+            const lastCompletedEvent = Trace.lastTopLevelCompletedEvent(
+              replayTrace);
+            const lastCompletedEventTabId = Trace.tabId(lastCompletedEvent);
             // what tabs did we make in the interaction in general?
             tabsToCloseAfter = tabsToCloseAfter.concat(
-              window.TraceManipulationUtilities.tabsInTrace(replayTrace));
+              Trace.tabsInTrace(replayTrace));
             // also sometimes it's important that we bring this tab (on which
             //   we're about to do relation finding)
             // to be focused, so that it will get loaded and we'll be able to
@@ -1372,10 +1426,29 @@ export class HelenaProgram extends StatementContainer {
 
             // and what are the server-suggested relations we want to send?
             const resps = resp.pages;
-            let suggestedRelations: string[] | null = null;
+            let suggestedRelations: (RelationSelector | null)[] | null = null;
             for (const resp of resps) {
               const pageVarName = resp.page_var_name;
               if (pageVarName === targetPageVar.name) {
+                suggestedRelations = [];
+
+                const sameDomainRelSel = resp.relations.same_domain_best_relation;
+                if (sameDomainRelSel !== null) {
+                  suggestedRelations.push(
+                    RelationSelector.fromJSON(sameDomainRelSel));
+                } else {
+                  suggestedRelations.push(sameDomainRelSel);
+                }
+
+                const sameUrlRelSel = resp.relations.same_url_best_relation;
+                if (sameUrlRelSel !== null) {
+                  suggestedRelations.push(
+                    RelationSelector.fromJSON(sameUrlRelSel));
+                } else {
+                  suggestedRelations.push(sameUrlRelSel);
+                }
+
+                /*
                 suggestedRelations = [
                   resp.relations.same_domain_best_relation,
                   resp.relations.same_url_best_relation
@@ -1386,11 +1459,12 @@ export class HelenaProgram extends StatementContainer {
                   }
                   // is this the best place to deal with going between our
                   //   object attributes and the server strings?
-                  suggestedRelations[j] = window.ServerTranslationUtilities.
-                    unJSONifyRelation(suggestedRelations[j]);
-                }
+                  suggestedRelations[j] = RelationSelector.fromJSON(
+                    suggestedRelations[j]);
+                }*/
               }
             }
+
             if (suggestedRelations === null) {
               HelenaConsole.log("Panic!  We found a page in our " +
                 "outputPageVars that wasn't in our request to the server for " +
@@ -1622,10 +1696,10 @@ export class HelenaProgram extends StatementContainer {
       if (self.windowWidth) {
         var width = self.windowWidth;
         var height = self.windowHeight;
-        window.MiscUtilities.makeNewRecordReplayWindow(
+        MiscUtilities.makeNewRecordReplayWindow(
           runRelationFindingInNewWindow, undefined, width, height);
       } else {
-        window.MiscUtilities.makeNewRecordReplayWindow(
+        MiscUtilities.makeNewRecordReplayWindow(
           runRelationFindingInNewWindow);
       }
     } else {
@@ -1651,7 +1725,7 @@ export class HelenaProgram extends StatementContainer {
     this.pagesProcessed[data.page_var_name] = true;
 
     if (data.num_rows_in_demonstration < 2 &&
-        data.next_type === window.NextTypes.NONE) {
+        data.next_type === NextTypes.NONE) {
       // what's the point of showing a relation with only one row?
     } else {
       // if we have a normal selector, let's add that to our set of relations
@@ -1869,22 +1943,22 @@ function removeStatementAndFollowing(stmts: HelenaLangObject[],
   return null;
 }
 
-function alignCompletedEvents(recordTrace: EventMessage[],
-    replayTrace: EventMessage[]) {
+function alignCompletedEvents(recordTrace: TraceType,
+    replayTrace: TraceType) {
   // we should see corresponding 'completed' events in the traces
   // todo: should we remove http?
   // now only doing this for top-level completed events.  will see if this is
   //   sufficient
   const recCompleted = recordTrace.filter((ev) =>
-    window.TraceManipulationUtilities.completedEventType(ev) &&
-    ev.data.url.indexOf(helenaServerUrl) < 0
+    Trace.completedEventType(ev) &&
+    !ev.data.url.includes(HelenaConfig.helenaServerUrl)
   );
 
   // have to check for kaofang presence, because otherwise user can screw it up
   //   by downloading data in the middle or something like that
   const repCompleted = replayTrace.filter((ev) =>
-    window.TraceManipulationUtilities.completedEventType(ev) &&
-    ev.data.url.indexOf(helenaServerUrl) < 0
+    Trace.completedEventType(ev) &&
+    !ev.data.url.indexOf(HelenaConfig.helenaServerUrl)
   );
 
   HelenaConsole.log(recCompleted, repCompleted);
@@ -1906,8 +1980,8 @@ function alignCompletedEvents(recordTrace: EventMessage[],
   ];
 }
 
-function updatePageVars(recordTrace: EventMessage[],
-    replayTrace: EventMessage[], continuation: Function) {
+function updatePageVars(recordTrace: TraceType,
+    replayTrace: TraceType, continuation: Function) {
   // HelenaConsole.log("updatePageVars", recordTimeTrace, replayTimeTrace);
   const alignedTraces = alignCompletedEvents(recordTrace, replayTrace);
   const alignedRecord = alignedTraces[0];
@@ -1916,12 +1990,13 @@ function updatePageVars(recordTrace: EventMessage[],
   updatePageVarsHelper(alignedRecord, alignedReplay, 0, continuation);
 }
 
-function updatePageVarsHelper(recordTrace: EventMessage[],
-    replayTrace: EventMessage[], index: number, continuation: Function) {
+function updatePageVarsHelper(recordTrace: TraceType,
+    replayTrace: TraceType, index: number, continuation: Function) {
   if (index >= recordTrace.length) {
     continuation();
   } else {
-    const pageVar = window.EventM.getLoadOutputPageVar(recordTrace[index]);
+    const pageVar = Trace.getLoadOutputPageVar(
+      <DisplayTraceEvent> recordTrace[index]);
     if (pageVar === undefined) {
       updatePageVarsHelper(recordTrace, replayTrace, index + 1, continuation);
       return;
@@ -1933,8 +2008,8 @@ function updatePageVarsHelper(recordTrace: EventMessage[],
   }
 }
 
-function tabMappingFromTraces(recordTrace: EventMessage[],
-    replayTrace: EventMessage[]) {
+function tabMappingFromTraces(recordTrace: TraceType,
+    replayTrace: TraceType) {
   const alignedTraces = alignCompletedEvents(recordTrace, replayTrace);
   const alignedRecord = alignedTraces[0];
   const alignedReplay = alignedTraces[1];
@@ -1987,7 +2062,7 @@ function selectBasicBlockStatements(bodyStmts: HelenaLangObject[],
 }
 
 function makeTraceFromStatements(stmts: RingerStatement[]) {
-  let trace: EventMessage[] = [];
+  let trace: TraceType = [];
   
   // label each trace item with the basicBlock statement being used
   let withinScrapeSection = false;
@@ -2017,7 +2092,7 @@ function makeTraceFromStatements(stmts: RingerStatement[]) {
     }
 
     for (const ev of cleanTrace) {
-      window.EventM.setTemporaryStatementIdentifier(ev, i);
+      Trace.setTemporaryStatementIdentifier(ev, i);
     }
 
     // ok, now let's deal with speeding up the trace based on knowing that
@@ -2048,7 +2123,7 @@ function makeTraceFromStatements(stmts: RingerStatement[]) {
           if (ev.data.metaKey) {
             ev.data.ctrlKeyOnLinux = true;
           }
-          window.EventM.setTemporaryStatementIdentifier(ev, i);
+          Trace.setTemporaryStatementIdentifier(ev, i);
         }
       }
     } else if (osString.indexOf("Mac") > -1) {
@@ -2060,7 +2135,7 @@ function makeTraceFromStatements(stmts: RingerStatement[]) {
           if (ev.data.ctrlKey) {
             ev.data.metaKeyOnMac = true;
           }
-          window.EventM.setTemporaryStatementIdentifier(ev, i);
+          Trace.setTemporaryStatementIdentifier(ev, i);
         }
       }
     }
@@ -2080,7 +2155,7 @@ function shortPrintString(obj: object) {
 }
 
 function runInternals(program: HelenaProgram, parameters: Parameters,
-    dataset: DatasetPlaceholder, options: RunOptions, continuation?: Function) {
+    dataset: Dataset, options: RunOptions, continuation?: Function) {
   // first let's make the runObject that we'll use for all the rest
   // for now the below is commented out to save memory, since only running one
   //   per instance
@@ -2133,7 +2208,7 @@ function runInternals(program: HelenaProgram, parameters: Parameters,
       runObject.window = windowId;
       window.currentReplayWindowId = windowId;
     }
-    datasetsScraped.push(runObject.dataset.id);
+    datasetsScraped.push(runObject.dataset.getId());
     runObject.program.runBasicBlock(runObject,
       runObject.program.bodyStatements, () => {
 
@@ -2197,7 +2272,7 @@ function runInternals(program: HelenaProgram, parameters: Parameters,
         HelenaConsole.log("Done with script execution.");
         const timeScraped = (new Date()).getTime() -
           parseInt(dataset.pass_start_time.toString());
-        console.log(runObject.dataset.id, timeScraped);
+        console.log(runObject.dataset.getId(), timeScraped);
 
         if (windowId) {
           // take that window back out of the allowable recording set
@@ -2226,10 +2301,10 @@ function runInternals(program: HelenaProgram, parameters: Parameters,
     if (runObject.program.windowWidth) {
       const width = runObject.program.windowWidth;
       const height = runObject.program.windowHeight;
-      window.MiscUtilities.makeNewRecordReplayWindow(runProgFunc, undefined,
+      MiscUtilities.makeNewRecordReplayWindow(runProgFunc, undefined,
         width, height);
     } else {
-      window.MiscUtilities.makeNewRecordReplayWindow(runProgFunc);
+      MiscUtilities.makeNewRecordReplayWindow(runProgFunc);
     }
   } else {
     // no need to make a new window (there are no load statements in the
@@ -2238,8 +2313,7 @@ function runInternals(program: HelenaProgram, parameters: Parameters,
   }
 }
 
-function adjustDatasetNameForOptions(dataset: DatasetPlaceholder,
-    options: RunOptions) {
+function adjustDatasetNameForOptions(dataset: Dataset, options: RunOptions) {
   if (options.ignoreEntityScope) {
     dataset.appendToName("_ignoreEntityScope");
   }
@@ -2261,7 +2335,7 @@ function paramName(stmtIndex: number, paramType: string) {
  * @param trace 
  * @param stmts 
  */
-function pbv(trace: EventMessage[], stmts: RingerStatement[]) {
+function pbv(trace: TraceType, stmts: RingerStatement[]) {
   const pTrace = new ParameterizedTrace(trace);
 
   for (let i = 0; i < stmts.length; i++) {
@@ -2336,7 +2410,7 @@ function parameterizeWrapperNodes(pTrace: ParameterizedTrace, origXpath: string,
 }
 
 function passArguments(pTrace: ParameterizedTrace, stmts: RingerStatement[],
-    environment: EnvironmentPlaceholder) {
+    environment: Environment.Frame) {
   for (let i = 0; i < stmts.length; i++) {
     const stmt = stmts[i];
     const args = stmt.args(environment);
@@ -2440,7 +2514,7 @@ function sameNodeIsNextUsed(stmt: PageActionStatement,
 }
 
 function doWeHaveRealRelationNodesWhereNecessary(stmts: HelenaLangObject[],
-    environment: EnvironmentPlaceholder) {
+    environment: Environment.Frame) {
   for (const stmt of stmts) {
     if (stmt.hasOutputPageVars()) {
       // ok, this is an interaction where we should be opening a new page based on the statement
@@ -2740,7 +2814,382 @@ function removeLoopsForRelation(bodyStmts: HelenaLangObject[],
   return outputStatements;
 }
 
+/**
+ * Filter out load events that load URLs whose associated DOM trees the user
+ *   never actually uses.
+ * @param trace
+ */
+function markUnnecessaryLoads(trace: DisplayTraceEvent[]) {
+  const domEvents =  trace.filter((ev) => ev.type === "dom");
+  const domEventURLs = [...new Set(domEvents.map((ev) => Trace.getDOMURL(ev)))];
+
+  // ok, now first let's mark all the loads that are top-level and used, so we
+  //   need them for introducing page variables (even if they'll ultimately be
+  //   invisible/not load events/not forced to replay)
+  //_.each(trace, function(ev){if (ev.type === "completed" &&
+  //  ev.data.type === "main_frame" &&
+  //  domEventURLs.indexOf(EventM.getLoadURL(ev)) > -1){
+  //    EventM.setVisible(ev, true);}});
+  
+  // all right.  now we want to figure out (based on how the new page was
+  //   reached, based on whether we saw a manualload event) which completed
+  //   events are manual and shouldn't be made invisible/associated with prior
+  //   dom event later
+
+  // ok, manual load events are weird, because they sometimes actually happen
+  //   after the completed events, and what we really want is to just go back
+  //   and make sure we run completed events like normal but mark them visible
+  //   if they include the url we want for the manual load so we'll find the
+  //   nearest completed event with the correct url and we'll mark that one
+  const urlsToCompletedEvents: {
+    [key: string]: any
+  } = {};
+  for (let i = 0; i < trace.length; i++){
+    const ev = trace[i];
+    if (Trace.completedEventType(ev)) {
+      const url = trimSlashes(Trace.getLoadURL(ev));
+      if (url in urlsToCompletedEvents){
+        urlsToCompletedEvents[url].push([i, ev]);
+      } else {
+        urlsToCompletedEvents[url] = [[i, ev]];
+      }
+    }
+  }
+  for (let i = 0; i < trace.length; i++){
+    const ev = trace[i];
+    if (ev.type === "manualload") {
+      // ok, we found that this was actually a manual load one, so we better
+      //   mark an event as visible
+      const url = trimSlashes(ev.data.url);
+      const completedEvs = urlsToCompletedEvents[url];
+      if (!completedEvs || completedEvs.length < 1) {
+        console.log("bad bad bad, we couldn't find a completed event for a " +
+          "manual load:", ev);
+        continue;
+      }
+      let minDistance = Number.MAX_SAFE_INTEGER;
+      let preferredCe = null;
+      for (let j = 0; j < completedEvs.length; j++){
+        const ceIndex = completedEvs[j][0];
+        const ce = completedEvs[j][1];
+        const diff = Math.abs(ceIndex - i);
+        if (diff < minDistance){
+          minDistance = diff;
+          preferredCe = ce;
+        }
+      }
+      // go ahead and mark the closest completed event as the one that's
+      //   visible/must be replayed
+      Trace.setVisible(preferredCe, true);
+
+      // go ahead and mark the closest completed event as the one that's
+      //   visible/must be replayed
+      Trace.setManual(preferredCe, true);
+    }
+  }
+  return trace;
+}
+
+function trimSlashes(url: string) {
+  return url.replace(/\/+$/g, ''); // trim slashes from the end
+}
+
+function associateNecessaryLoadsWithIDsAndParameterizePages(trace:
+    DisplayTraceEvent[]) {
+  let idCounter = 1; // blockly says not to count from 0
+
+  // ok, unfortunately urls (our keys for frametopagevarid) aren't sufficient to
+  //   distinguish all the different pagevariables, because sometimes pages load
+  //   a new top-level/main_frame page without actually changing the url
+  // so we'll need to actually keep track of the ports as well. any ports that
+  //   appear with the target url before the creation of the next page var with
+  //   the same url, we'll use those for the first page var, and so on
+
+  const urlsToMostRecentPageVar: {
+    [key: string]: PageVariable;
+  } = {};
+
+  const portsToPageVars: {
+    [key: number]: PageVariable;
+  } = {};
+
+  // people do redirects!  to track it, let's track the url that was actually
+  //   loaded into a given tab last
+  const tabToCanonicalUrl: {
+    [key: number]: string;
+  } = {};
+
+  // people do redirects. let's track which tab each url is in. shame we can't
+  //   just get the tab.  whatever
+  const urlToTab: {
+    [key: string]: number;
+  } = {};
+
+  let lastURL = null;
+  for (let i = 0; i < trace.length; i++){
+    const ev = trace[i];
+    const newPageVar = newTopLevelUrlLoadedEvent(ev, lastURL);
+
+    // any time we complete making a new page in the top level, we want to intro
+    //   a new pagevar
+    if (newPageVar) {
+      const url = Trace.getLoadURL(ev);
+      if (url === lastURL) {
+        // sometimes the same URL appears to load twice in a single logical load
+        //   if we see the same url twice in a row, just ignore the second
+        trace[i].mayBeSkippable = true;
+        continue;
+      }
+      const p = new PageVariable("page" + idCounter, url);
+      Trace.setLoadOutputPageVar(ev, p);
+      urlsToMostRecentPageVar[url] = p;
+      idCounter += 1;
+      const tab = Trace.getTabId(ev);
+
+      // this is the complete-time urls, so go ahead and put it in there
+      tabToCanonicalUrl[tab] = url;
+
+      urlToTab[url] = tab;
+      // for now, anything that loads a new page var should be visible. later
+      //   we'll take away any that shouldn't be
+      // but for now it means just that it's top-level and thus needs to be
+      //   taken care of
+      Trace.setVisible(ev, true);
+      lastURL = url;
+    } else if (ev.type === "webnavigation") {
+      // fortunately webnavigation events look at redirects, so we can put in that a redirect happend in a given tab
+      // so that we can use the tab to get the canonical/complete-time url, then use that to get the relevant page var
+      const url = Trace.getLoadURL(ev);
+      if (!(url in urlToTab)){
+        urlToTab[url] = Trace.getTabId(ev);
+      }
+    } else if (ev.type === "dom") {
+      const port = Trace.getDOMPort(ev);
+      let pageVar = null;
+      if (port in portsToPageVars) {
+        // we already know the port, and that's a great way to do the mapping
+        pageVar = portsToPageVars[port];
+      } else {
+        // ok, have to look it up by url
+        const url = Trace.getDOMURL(ev);
+        let correctUrl = null;
+        if (url in urlsToMostRecentPageVar) {
+          // great, this dom event already uses the canonical complete-time url
+          //   (no redirects)
+          correctUrl = url;
+        } else {
+          // there was a redirect.  but we tracked it via webnavigation events,
+          //   so let's go find it
+          const tabId = urlToTab[url];
+          correctUrl = tabToCanonicalUrl[tabId];
+        }
+        pageVar = urlsToMostRecentPageVar[correctUrl];
+        if (!pageVar){
+          HelenaConsole.warn("Woah woah woah, real bad, why did we try to " +
+            "associate a dom event with a page var, but we didn't know a page" +
+            " var for the dom it happened on????");
+        }
+        // from now on we'll associate this port with this pagevar, even if
+        //   another pagevar later becomes associated with the url
+        portsToPageVars[port] = pageVar;
+      }
+      Trace.setDOMInputPageVar(ev, pageVar); 
+      pageVar.setRecordTimeFrameData(ev.frame);
+    }
+  }
+  return trace;
+}
+
+function newTopLevelUrlLoadedEvent(ev: TraceEvent, lastURL: string | null) {
+  // any time we complete making a new page in the top level, we want to intro
+  //   a new pagevar
+  return Trace.completedEventType(ev);
+}
+
+
+function addCausalLinks(trace: DisplayTraceEvent[]) {
+  let lastDOMEvent = null;
+  for (const ev of trace) {
+    if (ev.type === "dom"){
+      lastDOMEvent = ev;
+      Trace.setDOMOutputLoadEvents(ev, []);
+    } else if (lastDOMEvent !== null && Trace.completedEventType(ev) &&
+      Trace.getVisible(ev) && !Trace.getManual(ev)) {
+      // events should be invisible if they're not top-level or if they're
+      //   caused by prior dom events instead of a url-bar load
+      // if they're visible right now but not manual, that means they're caused
+      //   by a dom event, so let's add the causal link and remove their
+      //   visibility
+      Trace.setLoadCausedBy(ev, lastDOMEvent);
+      Trace.addDOMOutputLoadEvent(lastDOMEvent, ev);
+      // now that we have a cause for the load event, we can make it invisible
+      Trace.setVisible(ev, false);
+    }
+  }
+  return trace;
+}
+
+function removeEventsBeforeFirstVisibleLoad(trace: DisplayTraceEvent[]) {
+  for (let i = 0; i < trace.length; i++){
+    const ev = trace[i];
+    if (Trace.getVisible(ev)) {
+      // we've found the first visible event
+      return trace.slice(i, trace.length);
+    }
+  }
+  throw new ReferenceError("First visible load not found");
+}
+
+function segment(trace: DisplayTraceEvent[]) {
+  const allSegments = [];
+  let currentSegment: DisplayTraceEvent[] = [];
+  // an event that should be shown to the user and thus determines the type of
+  //   the statement
+  let currentSegmentVisibleEvent = null;
+  for (const ev of trace) {
+    if (allowedInSameSegment(currentSegmentVisibleEvent, ev)) {
+      if (Trace.statementType(ev) !== null) {
+        HelenaConsole.log("stype(ev)", ev, Trace.statementType(ev),
+          currentSegmentVisibleEvent);
+      }
+      currentSegment.push(ev);
+
+      // only relevant to first segment
+      if (currentSegmentVisibleEvent === null &&
+          Trace.statementType(ev) !== null) {
+        currentSegmentVisibleEvent = ev;
+      }
+    } else {
+      // the current event isn't allowed in last segment -- maybe it's on a new
+      //   node or a new type of action.  need a new segment
+      HelenaConsole.log("making a new segment", currentSegmentVisibleEvent, ev,
+        currentSegment, currentSegment.length);
+      allSegments.push(currentSegment);
+      currentSegment = [ev];
+
+      // if this were an invisible event, we wouldn't have needed to start a new
+      //   block, so it's always ok to put this in for the current segment's
+      //   visible event
+      currentSegmentVisibleEvent = ev;
+    }
+  }
+  allSegments.push(currentSegment); // put in that last segment
+
+  // for now rather than this func, we'll try an alternative where we just show
+  //   ctrl, alt, shift keypresses in a simpler way
+  // allSegments = postSegmentationInvisibilityDetectionAndMerging(allSegments);
+
+  HelenaConsole.log("allSegments", allSegments, allSegments.length);
+  return allSegments;
+}
+
+ /**
+  * Returns true if two trace events should be allowed in the same statement,
+  *   based on visibility, statement type, statement page, statement target.
+  * @param e1 
+  * @param e2 
+  */
+ function allowedInSameSegment(e1: DisplayTraceEvent | null,
+    e2: DisplayTraceEvent | null) {
+  // if either of them is null (as when we do not yet have a current visible
+  //   event), anything goes
+  if (e1 === null || e2 === null) {
+    return true;
+  }
+  const e1type = Trace.statementType(e1);
+  const e2type = Trace.statementType(e2);
+  HelenaConsole.log("allowedInSameSegment?", e1type, e2type, e1, e2);
+  // if either is invisible, can be together, because an invisible event allowed
+  //   anywhere
+  if (e1type === null || e2type === null) {
+    return true;
+  }
+  // now we know they're both visible
+  // visible load events aren't allowed to share with any other visible events
+  if (e1type === StatementTypes.LOAD || e2type === StatementTypes.LOAD){
+    return false;
+  }
+  // now we know they're both visible and both dom events
+  // if they're both visible, but have the same type and called on the same node, they're allowed together
+  if (e1type === e2type) {
+    const e1page = Trace.getDOMInputPageVar(e1);
+    const e2page = Trace.getDOMInputPageVar(e2);
+    if (e1page === e2page) {
+      const e1node = e1.target.xpath;
+      const e2node = e2.target.xpath;
+      if (e1node === e2node) {
+        return true;
+      }
+      // we also have a special case where keyup events allowed in text, but
+      //   text not allowed in keyup
+      // this is because text segments that start with keyups get a special
+      //   treatment, since those are the ctrl, alt, shift type cases
+      // if (e1type === StatementTypes.KEYBOARD &&
+      //     e2type === StatementTypes.KEYUP) {
+      //   return true;
+      // }
+    }
+  }
+  return false;
+}
+
+function segmentedTraceToProgram(segmentedTrace: DisplayTraceEvent[][],
+    addOutputStatement?: boolean) {
+  const statements = [];
+  for (const seg of segmentedTrace) {
+    let sType = null;
+    for (let i = 0; i < seg.length; i++){
+      const ev = seg[i];
+      const st = Trace.statementType(ev);
+      if (st !== null){
+        sType = st;
+        if (sType === StatementTypes.LOAD){
+          statements.push(new LoadStatement(seg));
+        } else if (sType === StatementTypes.MOUSE) {
+          statements.push(new ClickStatement(seg));
+        } else if (sType === StatementTypes.SCRAPE ||
+                   sType === StatementTypes.SCRAPELINK) {
+          statements.push(new ScrapeStatement(seg));
+        } else if (sType === StatementTypes.KEYBOARD ||
+                   sType === StatementTypes.KEYUP) {
+          statements.push(new TypeStatement(seg));
+        } else if (sType === StatementTypes.PULLDOWNINTERACTION) {
+          statements.push(new PulldownInteractionStatement(seg));
+        }
+        break;
+      }
+    }
+  }
+  return new HelenaProgram(statements, addOutputStatement);
+}
+
 /*
+function postSegmentationInvisibilityDetectionAndMerging(segments){
+  // noticed that we see cases of users doing stray keypresses while over non-targets (as when about to scrape, must hold keys), then get confused when there are screenshots of whole page (or other node) in the control panel
+  // so this merging isn't essential or especially foundational, but this detects the cases that are usually just keypresses that won't be parameterized or changed, and it can make the experience less confusing for users if we don't show them
+  var outputSegments = [];
+  for (var i = 0; i < segments.length; i++){
+    var segment = segments[i];
+    var merge = false;
+    if (HelenaMainpanel.statementType(segment[0]) === StatementTypes.KEYBOARD){
+      // ok, it's keyboard events
+      WALconsole.log(segment[0].target);
+      if (segment[0].target.snapshot.value === undefined && segment.length < 20){
+        // yeah, the user probably doesn't want to see this...
+        merge = true;
+      }
+    }
+    var currentOutputLength = outputSegments.length;
+    if (merge && currentOutputLength > 0){
+      outputSegments[currentOutputLength - 1] = outputSegments[currentOutputLength - 1].concat(segments[i]);
+    }
+    else{
+      outputSegments.push(segments[i]);
+    }
+  }
+  return outputSegments;
+}
+
 function insertArrayAt(array, index, arrayToInsert) {
   Array.prototype.splice.apply(array, [index, 0].concat(arrayToInsert));
 }

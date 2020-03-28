@@ -2,6 +2,18 @@ import { RelationFinder } from "./relation_finding";
 import { XPath } from "../utils/xpath";
 import { NextButtonSelectorMessage, Messages } from "../../common/messages";
 import { HelenaConsole } from "../../common/utils/helena_console";
+import { Highlight } from "../ui/highlight";
+import { MiscUtilities } from "../../common/misc_utilities";
+
+/**
+ * Types of next or more buttons.
+ */
+export enum NextTypes {
+  NONE = 1,
+  NEXTBUTTON,
+  MOREBUTTON,
+  SCROLLFORMORE
+}
 
 /**
  * Methods for selecting a next/pagination button on a page.
@@ -185,7 +197,7 @@ export namespace NextButtonSelector {
       let min_candidate = null;
       for (const candButton of candButtons) {
         let candXPath = XPath.fromNode(candButton);
-        let distance = window.MiscUtilities.levenshteinDistance(candXPath,
+        let distance = MiscUtilities.levenshteinDistance(candXPath,
           selector.xpath);
         if (distance < min_distance){
           min_distance = distance;
@@ -201,7 +213,7 @@ export namespace NextButtonSelector {
     }
   }
 
-  let nextOrMoreButtonHighlight: JQuery<HTMLElement> | null = null;
+  let nextOrMoreButtonHighlight: JQuery<HTMLElement> | undefined = undefined;
   /**
    * Highlights the next button given by the selector.
    * @param selector the next button selector
@@ -209,16 +221,18 @@ export namespace NextButtonSelector {
   export function highlightNextButton(selector: NextButtonSelector.Interface) {
     HelenaConsole.log(selector);
     let button = findNextButton(selector);
-    nextOrMoreButtonHighlight = window.Highlight.highlightNode(button,
-      "#E04343", true);
+    if (button) {
+      nextOrMoreButtonHighlight = Highlight.highlightNode(button, "#E04343",
+        true);
+    }
   }
 
   /**
    * Clears highlighted next button, if any.
    */
   export function unhighlightNextButton() {
-    if (nextOrMoreButtonHighlight !== null) {
-      window.Highlight.clearHighlight(nextOrMoreButtonHighlight);
+    if (nextOrMoreButtonHighlight !== undefined) {
+      Highlight.clearHighlight(nextOrMoreButtonHighlight);
     }
   }
 }

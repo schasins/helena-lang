@@ -20,6 +20,7 @@ import { PageVariable } from "../../../variables/page_variable";
 import { StatementContainer } from "../container";
 import { HelenaProgram } from "../../program";
 import { Revival } from "../../../revival";
+import { Environment } from "../../../environment";
 
 /**
  * Loop statements not executed by run method, although may ultimately want to refactor to that
@@ -313,7 +314,7 @@ export class LoopStatement extends StatementContainer {
     return this.relation.nodeVariables();
   }
 
-  public updateRelationNodeVariables(environment: EnvironmentPlaceholder) {
+  public updateRelationNodeVariables(environment: Environment.Frame) {
     HelenaConsole.log("updateRelationNodeVariables");
     this.relation.updateNodeVariables(environment, this.pageVar);
   }

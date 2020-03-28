@@ -7,6 +7,11 @@ import { HelenaLangObject } from "../lang/helena_lang";
 import { PageVariable } from "../variables/page_variable";
 import { RunObject } from "../lang/program";
 import { Revival } from "../revival";
+import { RelationMessage } from "../../common/messages";
+import { TextRelation } from "./text_relation";
+import { Relation } from "./relation";
+import { RelationSelector } from "../../content/selector/relation_selector";
+import { Environment } from "../environment";
 
 export class GenericRelation implements Revival.Revivable {
   public ___revivalLabel___: string;
@@ -90,7 +95,9 @@ export class GenericRelation implements Revival.Revivable {
     HelenaMainpanel.UIObject.updateDisplayedScript();
   }
 
-  public updateNodeVariables(environment: EnvironmentPlaceholder,
+  public toJSON: () => RelationMessage | string;
+
+  public updateNodeVariables(environment: Environment.Frame,
     pageVar: PageVariable) {
       return;
   }

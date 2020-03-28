@@ -2,10 +2,9 @@ import { MainpanelNode } from "../../common/mainpanel_node";
 
 /**
  * Extend Element to allow tooltips to be attached.
- * TODO: cjbaik: combine with any other Element extensions in codebase.
  */
-interface ElementWithTooltip extends Element {
-  scrapingTooltip: ScrapingTooltip;
+interface TooltipAdded {
+  scrapingTooltip?: ScrapingTooltip;
 }
 
 /**
@@ -21,7 +20,7 @@ export class ScrapingTooltip {
    * @param element element to create tooltip for
    * @param tooltipColor color of tooltip
    */
-  constructor(element: ElementWithTooltip,
+  constructor(element: HTMLElement,
       tooltipColor = ScrapingTooltip.DEFAULT_TOOLTIP_COLOR) {
     let nodeText = MainpanelNode.getNodeText(element);
     if (nodeText) {
@@ -52,7 +51,7 @@ export class ScrapingTooltip {
     $(document.body).append(newDiv);
 
     this.tooltipElement = newDiv;
-    element.scrapingTooltip = this;
+    (<HTMLElement & TooltipAdded> element).scrapingTooltip = this;
   }
 
   /**
@@ -64,9 +63,8 @@ export class ScrapingTooltip {
 
   /**
    * Remove scraping tooltip from the element.
-   * @param element element to remove scraping tooltip from
    */
-  public static destroy(element: ElementWithTooltip) {
+  public static destroy(element: HTMLElement & TooltipAdded) {
     if (element.scrapingTooltip) {
       element.scrapingTooltip.destroy();
     }

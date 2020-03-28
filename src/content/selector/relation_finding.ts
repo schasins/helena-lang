@@ -8,7 +8,7 @@ import { PulldownSelector, ContentSelector, ComparisonSelector,
 import { ColumnSelector } from "./column_selector";
 import ColumnSelectorI = ColumnSelector.Interface;
 
-import { NextButtonSelector } from "./next_button_selector";
+import { NextButtonSelector, NextTypes } from "./next_button_selector";
 
 import { MainpanelNode } from "../../common/mainpanel_node";
 import MainpanelNodeI = MainpanelNode.Interface;
@@ -20,6 +20,9 @@ import { EditRelationMessage, LikelyRelationMessage,
   FreshRelationItemsMessage } from "../../common/messages";
 
 import { HelenaConsole } from "../../common/utils/helena_console";
+import { HelenaConfig } from "../../common/config/config";
+import { Highlight } from "../ui/highlight";
+import { ScrapedRelationState } from "../../mainpanel/relation/relation";
 
 export interface ScrapedElement extends HTMLElement {
   ___relationFinderId___?: number;
@@ -196,7 +199,7 @@ export namespace RelationFinder {
       resultSelector.name = null;
       // we always guess that there are no more items (no more pages), and user
       //   has to correct it if this is not the case
-      resultSelector.next_type = window.NextTypes.NONE;
+      resultSelector.next_type = NextTypes.NONE;
       resultSelector.next_button_selector = null;
     } else {
       resultSelector.relation_id = curBestSelector.id;
@@ -286,8 +289,8 @@ export namespace RelationFinder {
       ];
       selector.negative_nodes = [];
       sendEditedSelectorToMainpanel(contentSelector);
-      if (selector.next_type === window.NextTypes.NEXTBUTTON ||
-          selector.next_type === window.NextTypes.MOREBUTTON) {
+      if (selector.next_type === NextTypes.NEXTBUTTON ||
+          selector.next_type === NextTypes.MOREBUTTON) {
         NextButtonSelector.highlightNextButton(
           <NextButtonSelector.Interface> selector.next_button_selector);
       }
@@ -329,7 +332,7 @@ export namespace RelationFinder {
     currentSelectorToEdit.editingClickColumnIndex = index;
   }
 
-  let currentHoverHighlight: JQuery<HTMLElement> | null = null;
+  let currentHoverHighlight: JQuery<HTMLElement> | undefined = undefined;
   function highlightHovered(event: Event) {
     let prevHoverHighlight = currentHoverHighlight;
     let color = "#9D00FF";
@@ -338,9 +341,11 @@ export namespace RelationFinder {
     }
     if (prevHoverHighlight) {
       prevHoverHighlight.remove();
-      prevHoverHighlight = null;
+      prevHoverHighlight = undefined;
     }
-    currentHoverHighlight = window.Highlight.highlightNode(event.target, color);
+    if (event.target && event.target instanceof HTMLElement) {
+      currentHoverHighlight = Highlight.highlightNode(event.target, color);
+    }
   }
 
   let currentSelectorHighlightNodes: JQuery<HTMLElement>[] = [];
@@ -383,7 +388,7 @@ export namespace RelationFinder {
 
   export function clearCurrentSelectorHighlight(){
     for (var i = 0; i < currentSelectorHighlightNodes.length; i++) {
-      window.Highlight.clearHighlight(currentSelectorHighlightNodes[i]);
+      Highlight.clearHighlight(currentSelectorHighlightNodes[i]);
     }
     currentSelectorHighlightNodes = [];
   };
@@ -457,13 +462,13 @@ export namespace RelationFinder {
 
     let removalClick = false;
     // it's only a removal click if the clicked item is a highlight
-    if (window.Highlight.isHighlight(target)) {
+    if (Highlight.isHighlight(target)) {
       removalClick = true;
       // actual target is the one associated with the highlight
-      target = window.Highlight.getHighligthedNodeFromHighlightNode(target);
+      const hiliteEl = Highlight.getHighlightedElement(target);
       // recall the target itself may be the positive example, as when there's
       //   only one column
-      let nodeToRemove = target; 
+      let nodeToRemove = hiliteEl; 
       if (!currentSelectorToEdit.positive_nodes.includes(target)) {
         // ok it's not the actual node, better check the parents
         let parents = $(target).parents(); 
@@ -479,17 +484,19 @@ export namespace RelationFinder {
           }
         }
       }
-      // actually remove the node from positive, add to negative
-      let ind = currentSelectorToEdit.positive_nodes.indexOf(nodeToRemove);
-      currentSelectorToEdit.positive_nodes.splice(ind, 1);
-      if (!currentSelectorToEdit.negative_nodes){
-        currentSelectorToEdit.negative_nodes = [];
+      if (nodeToRemove) {
+        // actually remove the node from positive, add to negative
+        let ind = currentSelectorToEdit.positive_nodes.indexOf(nodeToRemove);
+        currentSelectorToEdit.positive_nodes.splice(ind, 1);
+        if (!currentSelectorToEdit.negative_nodes){
+          currentSelectorToEdit.negative_nodes = [];
+        }
+        currentSelectorToEdit.negative_nodes.push(nodeToRemove);
       }
-      currentSelectorToEdit.negative_nodes.push(nodeToRemove);
     }
     // we've done all our highlight stuff, know we no longer need that
     // dehighlight our old list
-    currentSelectorHighlightNodes.forEach(window.Highlight.clearHighlight);
+    currentSelectorHighlightNodes.forEach(Highlight.clearHighlight);
 
     if (!removalClick) {
       // ok, so we're trying to add a node.  is the node another cell in an
@@ -670,6 +677,9 @@ export namespace RelationFinder {
       let row = relation[i];
       for (let j = 0; j < row.length; j++){
         let elem = row[j];
+        if (!elem.xpath) {
+          continue;
+        }
         let elemNodes = <HTMLElement[]> XPath.getNodes(elem.xpath);
         if (elemNodes.length > 0){
           let elemNode = elemNodes[0];
@@ -752,17 +762,17 @@ export namespace RelationFinder {
 
     let nextButtonType = selector.next_type;
 
-    if (nextButtonType === window.NextTypes.SCROLLFORMORE) {
+    if (nextButtonType === NextTypes.SCROLLFORMORE) {
       HelenaConsole.namedLog("nextInteraction", "scrolling for more");
       let crd = currentRelationData[sid];
       scrollThroughRowsOrSpace(crd);
-    } else if (nextButtonType === window.NextTypes.MOREBUTTON ||
-      nextButtonType === window.NextTypes.NEXTBUTTON) {
+    } else if (nextButtonType === NextTypes.MOREBUTTON ||
+      nextButtonType === NextTypes.NEXTBUTTON) {
       HelenaConsole.namedLog("nextInteraction", "msg.next_button_selector",
         selector.next_button_selector);
 
       let crd = currentRelationData[sid];
-      if (nextButtonType === window.NextTypes.MOREBUTTON) {
+      if (nextButtonType === NextTypes.MOREBUTTON) {
         // for user understanding what's happening, it's convenient if we're using the more button for us to actually scroll through the elements
         // this isn't critical, but probably can't hurt
         scrollThroughRowsOrSpace(crd);
@@ -783,7 +793,7 @@ export namespace RelationFinder {
           "next or more button was null");
         noMoreItemsAvailable[sid] = true;
       }
-    } else if (nextButtonType === window.NextTypes.NONE) {
+    } else if (nextButtonType === NextTypes.NONE) {
       // there's no next button, so it's usually safe to assume there are no
       //   more items exception is when we have, for instance, a dropdown that
       //   gets updated because of other dropdowns when that happens, don't want
@@ -860,7 +870,7 @@ export namespace RelationFinder {
       // that's it, we're done.  last use of the next interaction revealed there's nothing left
       HelenaConsole.log("no more items at all, because noMoreItemsAvailable was set.");
       continuation({
-        type: window.RelationItemsOutputs.NOMOREITEMS,
+        type: ScrapedRelationState.NO_MORE_ITEMS,
         relation: null
       });
     }
@@ -939,9 +949,9 @@ export namespace RelationFinder {
     }
     // if there's supposed to be a next button or more button, or scroll for
     //   more, we have to do some special processing
-    if (selector.next_type === window.NextTypes.NEXTBUTTON ||
-        selector.next_type === window.NextTypes.MOREBUTTON ||
-        selector.next_type === window.NextTypes.SCROLLFORMORE) {
+    if (selector.next_type === NextTypes.NEXTBUTTON ||
+        selector.next_type === NextTypes.MOREBUTTON ||
+        selector.next_type === NextTypes.SCROLLFORMORE) {
       // retrieve the list of ids we've already scraped
       let alreadySeenRelationNodeIds = currentRelationSeenNodes[sid];
       // figure out if the new rows include nodes that were already scraped
@@ -967,7 +977,7 @@ export namespace RelationFinder {
 
       // ok, now that we know which rows are actually new, what do we want to do
       //   with that information?
-      if (selector.next_type === window.NextTypes.NEXTBUTTON) {
+      if (selector.next_type === NextTypes.NEXTBUTTON) {
         // this is a next interaction, so we should never have overlap.
         //   wait until everything is new
         if (relationNodes.length !== newRows.length) {
@@ -980,7 +990,7 @@ export namespace RelationFinder {
           // looks like some of our rows weren't new, so next button hasn't happened yet
 
           HelenaConsole.log("newRows", newRows);
-          continuation({type: window.RelationItemsOutputs.NONEWITEMSYET, relation: null});
+          continuation({type: ScrapedRelationState.NO_NEW_ITEMS_YET, relation: null});
         }
         // otherwise we can just carry on, since the relationNodes has the right set
       } else {
@@ -1003,7 +1013,7 @@ export namespace RelationFinder {
       waitingOnPriorGetFreshRelationItemsHelper = true;
       let wait = selector.relation_scrape_wait;
       if (!wait) {
-        wait = window.DefaultHelenaValues.relationScrapeWait;
+        wait = HelenaConfig.relationScrapeWait;
       }
       console.log("wait time", wait);
       setTimeout(function(){
@@ -1024,7 +1034,7 @@ export namespace RelationFinder {
         HelenaConsole.log("No new items yet because the data is actualy equal");
         HelenaConsole.log(crd, relationData);
         continuation({
-          type: window.RelationItemsOutputs.NONEWITEMSYET,
+          type: ScrapedRelationState.NO_NEW_ITEMS_YET,
           relation: null
         });
       }
@@ -1058,7 +1068,7 @@ export namespace RelationFinder {
           (nodeId) => nodeId);
         HelenaConsole.log("actual new items", newItems);
         continuation({
-          type: window.RelationItemsOutputs.NEWITEMS,
+          type: ScrapedRelationState.NEW_ITEMS,
           relation: newItems
         });
       }

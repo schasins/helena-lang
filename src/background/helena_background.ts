@@ -1,9 +1,11 @@
-import * as $ from "jquery";
 import * as later from "later";
 
-import { Messages, KnownRelationsMessage } from "../common/messages";
+import { Messages } from "../common/messages";
 import { HelenaConsole } from "../common/utils/helena_console";
 import { ScheduledRun } from "../common/scheduled_run";
+import { MiscUtilities } from "../common/misc_utilities";
+import { HelenaServer, KnownRelationRequest,
+  KnownRelationResponse } from "../mainpanel/utils/server";
 
 export class HelenaBackground {
   private alreadyScheduled: {
@@ -32,11 +34,11 @@ export class HelenaBackground {
 
     // one of our background services is also running http requests for content
     //   scripts because modern chrome doesn't allow https pages to do it directly
-    Messages.listenForMessage("content", "background", "postForMe",
-        (msg: KnownRelationsMessage & Messages.MessageContentWithTab) => {
-      $.post(msg.url, msg.params, (resp) => { 
+    Messages.listenForMessage("content", "background", "getKnownRelations",
+        (msg: KnownRelationRequest & Messages.MessageContentWithTab) => {
+      HelenaServer.getKnownRelations(msg, (resp: KnownRelationResponse) => { 
         HelenaConsole.log("resp:", resp);
-        Messages.sendMessage("background", "content", "postForMe", resp,
+        Messages.sendMessage("background", "content", "getKnownRelations", resp,
           undefined, undefined, [ msg.tab_id ]);
       });
     });
@@ -179,7 +181,7 @@ export class HelenaBackground {
                 Messages.sendMessage("background", "mainpanel",
                   "runScheduledScript", { progId: id });
               };
-              window.MiscUtilities.repeatUntil(sendRunRequest,
+              MiscUtilities.repeatUntil(sendRunRequest,
                 () => runRequestReceived,
                 () => {
                   HelenaConsole.log("mainpanel received run request");
@@ -193,7 +195,7 @@ export class HelenaBackground {
       Messages.sendMessage("background", "mainpanel", "pleasePrepareForRefresh",
         {});
     };
-    window.MiscUtilities.repeatUntil(sendRefreshRequest, () => readyForRefresh,
+    MiscUtilities.repeatUntil(sendRefreshRequest, () => readyForRefresh,
       () => {}, 500, true);
   }
 }

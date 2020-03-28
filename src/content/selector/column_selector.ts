@@ -1,6 +1,7 @@
 import { XPath } from "../utils/xpath";
 import SuffixXPathList = XPath.SuffixXPathList;
 import { ColumnSelectorMessage } from "../../common/messages";
+import { MiscUtilities } from "../../common/misc_utilities";
 
 /**
   * A selector describing how to extract a column of a relation with respect to
@@ -24,7 +25,7 @@ export namespace ColumnSelector {
     let result: Interface[] = [];
 
     for (const msgCol of msgCols) {
-      if (window.MiscUtilities.depthOf(msgCol.suffix) < 3) {
+      if (MiscUtilities.depthOf(msgCol.suffix) < 3) {
         result.push({
           xpath: msgCol.xpath,
           suffix: [<SuffixXPathList> msgCol.suffix],

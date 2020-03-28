@@ -1,232 +1,67 @@
+import * as stringify from "json-stable-stringify";
+
 import { HelenaConsole } from "./utils/helena_console";
 
-import { Relation } from "../mainpanel/relation/relation";
+export namespace MiscUtilities {
+  let currentResponseRequested: {
+    [key: string]: boolean
+  } = {};
+  let currentResponseHandler: {
+    [key: string]: Function
+  } = {};
 
-var DOMCreationUtilities = (function _DOMCreationUtilities() { var pub = {};
-
-  pub.replaceContent = function _replaceContent(div1, div2){
-    var div2clone = div2.clone();
-    div1.html(div2clone.html());
-  };
-
-  pub.arrayOfTextsToTableRow = function _arrayOfTextsToTableRow(array){
-      var $tr = $("<tr></tr>");
-      for (var j= 0; j< array.length; j++){
-        var $td = $("<td></td>");
-        $td.html(_.escape(array[j]).replace(/\n/g,"<br>"));
-        $tr.append($td);
-      }
-      return $tr;
-    };
-
-  pub.arrayOfArraysToTable = function _arrayOfArraysToTable(arrayOfArrays){
-      var $table = $("<table></table>");
-      for (var i = 0; i< arrayOfArrays.length; i++){
-        var array = arrayOfArrays[i];
-        $tr = DOMCreationUtilities.arrayOfTextsToTableRow(array);
-        $table.append($tr);
-      }
-      return $table;
-    };
-
-  pub.toggleDisplay = function _toggleDisplay(node){
-    console.log(node);
-    if (node.css("display") === "none"){
-      node.css("display", "inline");
-    }
-    else{
-      node.css("display", "none");
-    }
-  };
-
-return pub; }());
-
-var Clone = (function _Clone() { var pub = {};
-
-  pub.cloneProgram = function _cloneProgram(origProgram){
-    function replacer(key, value) {
-      // filtering out the blockly block, which we can recreate from the rest of the state
-      if (key === "block") {
-        return undefined;
-      }
-      return value;
-    }
-    var programAttributes = JSOG.parse(JSOG.stringify(origProgram, replacer)); // deepcopy
-    var program = Revival.revive(programAttributes);  // copy all those fields back into a proper Program object
-    return program;
-  };
-
-return pub; }());
-
-var ServerTranslationUtilities = (function _ServerTranslationUtilities() { var pub = {};
-
-  // for when we want to send a relation object to the server
-  pub.JSONifyRelation = function _JSONifyRelation(origRelation){
-    if (origRelation instanceof Relation){
-      // ok, first let's get the nice dictionary-looking version that we use for passing relations around, instead of our internal object representation that we use in the mainpanel/program
-      var relationDict = origRelation.messageRelationRepresentation();
-      // let's start by deep copying so that we can JSONify the selector, next_button_selector, and column suffixes without messing up the real object
-      relation = JSON.parse(JSON.stringify(relationDict)); // deepcopy
-      // now that it's deep copied, we can safely strip out jsog stuff that we don't want in there, since it will
-      // interfere with our canonicalization process
-      MiscUtilities.removeAttributeRecursive(relation, "__jsogObjectId");
-      relation.selector = StableStringify.stringify(relation.selector);
-      relation.next_button_selector = StableStringify.stringify(relation.next_button_selector);
-      for (var k = 0; k < relation.columns.length; k++){
-        relation.columns[k].suffix = StableStringify.stringify(relation.columns[k].suffix); // is this the best place to deal with going between our object attributes and the server strings?
-      }
-      HelenaConsole.log("relation after jsonification", relation);
-      return relation;
-    }
-    else if (origRelation instanceof TextRelation){
-      var stringifiedTextRelation = JSON.stringify(origRelation.relation);
-      return stringifiedTextRelation;
-    }
-  };
-
-  // for when we get a relation back from the server
-  pub.unJSONifyRelation = function _unJSONifyRelation(relationDict){
-    // let's leave the original dictionary with it's JSONified attributes alone by deepcopying first
-    relation = JSON.parse(JSON.stringify(relationDict)); // deepcopy
-    relation.selector = JSON.parse(relation.selector);
-    if (relation.next_button_selector){
-      relation.next_button_selector = JSON.parse(relation.next_button_selector);
-    }
-    else{
-      relation.next_button_selector = null;
-    }
-    for (var k = 0; k < relation.columns.length; k++){
-      relation.columns[k].suffix = JSON.parse(relation.columns[k].suffix); // is this the best place to deal with going between our object attributes and the server strings?
-    }
-    return relation;
-  };
-
-  pub.JSONifyProgram = function _JSONifyProgram(origProgram){
-    // let's start by deep copying so that we can delete stuff and mess around without messing up the real object
-    var program = Clone.cloneProgram(origProgram);
-    // relations aren't part of a JSONified program, because this is just the string part that will be going into a single db column
-    // we want interesting info like what relations it uses to be stored in a structured way so we can reason about it, do interesting stuff with it
-    // so blank out relations
-
-    // for now, even though we are separately saving proper representations of the relations involved
-    // let's also save these relation associated with the current prog, so user doesn't get any surprises
-    // can later allow them to update from server if it's failing...
-    /*
-    program.traverse(function(statement){
-      if (statement instanceof LoopStatement){
-        HelenaConsole.log(program.relations.indexOf(statement.relation));
-        statement.relation = program.relations.indexOf(statement.relation); // note this means we must have the relations in same order from server that we have them here
-      }
-    });
-    delete program.relations;
-    */
-    return JSOG.stringify(program);
-  };
-
-  pub.unJSONifyProgram = function _unJSONifyProgram(stringifiedProg){
-    var programAttributes = JSOG.parse(stringifiedProg);
-    var program = Revival.revive(programAttributes); // copy all those fields back into a proper Program object
-    return program;
-  };
-
-return pub; }());
-
-var MiscUtilities = (function _MiscUtilities() { var pub = {};
-
-  pub.scrapeConditionString = "<kbd>ALT</kbd> + click";
-  pub.scrapeConditionLinkString = "<kbd>ALT</kbd> + <kbd>SHIFT</kbd> + click";
-  var osString = window.navigator.platform;
-  if (osString.indexOf("Linux") > -1){
-    // there's a weird thing where just ALT + click doesn't raise events in Linux Chrome
-    // pressing CTRL at the same time causes the events to be raised without (at the moment, apparently) messing up other stuff
-    pub.scrapeConditionString = "<kbd>ALT</kbd> + <kbd>CTRL</kbd> + click";
-    pub.scrapeConditionLinkString = "<kbd>ALT</kbd> + <kbd>CTRL</kbd> + <kbd>SHIFT</kbd> + click";
-  }
-
-  // this is silly, but it does seem the easiest way to deal with this
-  pub.useCorrectScrapingConditionStrings = function _useCorrectScrapingConditionStrings(selectorstring, normalScrapeStringToReplace, linkScrapeStringToReplace){
-    $(selectorstring).html($(selectorstring).html().replace(new RegExp(normalScrapeStringToReplace,"g"), pub.scrapeConditionString));
-    $(selectorstring).html($(selectorstring).html().replace(new RegExp(linkScrapeStringToReplace,"g"), pub.scrapeConditionLinkString));
-  }
-
-  pub.sendAndReSendInternals = function _sendAndReSendInternals(func, url, msg, successHandler, showThatWereWaiting=true, extraText=""){
-    // only ever call this from the mainpanel!  otherwise we might disturb the dom structure of content pages.
-    // alternatively, pass in false for showThatWereWaiting if you really need this from a content script
-    var currentWait = 5000;
-    console.log("waiting for request", url);
-
-    var successHandlerWrapped = successHandler;
-    if (showThatWereWaiting){
-      var waitingForServerAlert = $("<div class='waiting_for_server'><img style='margin-right:7px' src='../icons/ajax-loader2.gif' height='10px'><span id='extra'></span>Waiting for the server"+extraText+"...</div>");
-      $("body").append(waitingForServerAlert);
-      var successHandlerWrapped = function(param){
-        waitingForServerAlert.remove();
-        successHandler(param);
-      }
-    }
-    var sendHelper = function _sendHelper(){
-      func(url, 
-        msg, 
-        successHandlerWrapped).fail(function(jqxhr, settings, ex){
-          console.log(jqxhr, settings, ex);
-          setTimeout(function(){sendHelper(msg);}, currentWait); // if we failed, need to be sure to send again...
-          currentWait = currentWait * 2; // doing a little bit of backoff, but should probably do this in a cleaner way
-          if (showThatWereWaiting){
-            // this was a failure, so say we're trying again
-            waitingForServerAlert.find("#extra").html("Trying again.  Is the server down?  Is your Internet connection slow?  ");
-            var additional = $("<div>"+settings+"</div>");
-            waitingForServerAlert.append(additional);
-            setTimeout(function(){additional.remove()}, 10000);
-          }
-        });
-    };
-    sendHelper(msg);
-  }
-
-  pub.getAndReGetOnFailure = function _getAndReGetOnFailure(url, msg, successHandler, showThatWereWaiting=true, extraText=""){
-    pub.sendAndReSendInternals($.get, url, msg, successHandler, showThatWereWaiting, extraText);
-  }
-
-  pub.postAndRePostOnFailure = function _postAndRePostOnFailure(url, msg, successHandler, showThatWereWaiting=true, extraText=""){
-    pub.sendAndReSendInternals($.post, url, msg, successHandler, showThatWereWaiting, extraText);
-  };
-
-  pub.makeNewRecordReplayWindow = function _makeNewRecordReplayWindow(cont, specifiedUrl=false, winWidth=false, winHeight=false){
-    chrome.windows.getCurrent(function (currWindowInfo){
-      var right = currWindowInfo.left + currWindowInfo.width;
-      var width = null;
-      var height = null;
+  export function makeNewRecordReplayWindow(cont: Function,
+      specifiedUrl?: string, winWidth?: number, winHeight?: number) {
+    chrome.windows.getCurrent((curWindow) => {
+      const right = <number> curWindow.left + <number> curWindow.width;
+      let width = null;
+      let height = null;
       chrome.system.display.getInfo(function(displayInfoLs){
         for (var i = 0; i < displayInfoLs.length; i++){
-          var bounds = displayInfoLs[i].bounds;
-          bounds.right = bounds.left + bounds.width;
+          const bounds = displayInfoLs[i].bounds;
+          const rightBound = bounds.left + bounds.width;
           HelenaConsole.log(bounds);
-          if (bounds.left <= right && bounds.right >= right){
+          if (bounds.left <= right && rightBound >= right){
             // we've found the right display
-            var top = currWindowInfo.top - 40; // - 40 because it doesn't seem to count the menu bar and I'm not looking for a more accurate solution at the moment
+            // - 40 because it doesn't seem to count the menu bar and I'm not
+            //   looking for a more accurate solution at the moment
+            var top = <number> curWindow.top - 40;
             var left = right; // let's have it adjacent to the control panel
-            console.log(bounds.right - right, bounds.top + bounds.height - top);
+            console.log(rightBound - right, bounds.top + bounds.height - top);
             if (!winWidth || !winHeight){
-              width = bounds.right - right;
+              width = rightBound - right;
               height = bounds.top + bounds.height - top;
-            }
-            else{
+            } else {
               width = winWidth;
               height = winHeight;
             }
 
-            // for now let's actually make width and height fixed for stability across different ways of running (diff machines, diff panel sizes at start)
+            // for now let's actually make width and height fixed for stability
+            //   across different ways of running (diff machines, diff panel
+            //   sizes at start)
             // 1419 1185
-           //var width = 1419;
-           //var height = 1185;
-            var url = specifiedUrl;
-            if (!url || ((typeof url) !== "string")){
+            //var width = 1419;
+            //var height = 1185;
+            let url = specifiedUrl;
+            if (!url) {
               url = "pages/newRecordingWindow.html"
             }
-            chrome.windows.create({url: url, focused: true, left: left, top: top, width: width, height: height}, function(win){
+            chrome.windows.create({
+              url: url,
+              focused: true,
+              left: left,
+              top: top,
+              width: width,
+              height: height
+            }, (win) => {
               HelenaConsole.log("new record/replay window created.");
-              //pub.sendCurrentRecordingWindow(); // todo: should probably still send this for some cases
-              cont(win.id);
+            
+              // todo: should probably still send this for some cases
+              //pub.sendCurrentRecordingWindow();
+
+              if (win) {
+                cont(win.id);
+              }
             });
           }
         }
@@ -234,43 +69,26 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
     });
   };
 
-  pub.currentDateString = function _currentDateString(){
-    return pub.basicDateString(new Date());
-  };
+  export function levenshteinDistance(a: string, b: string) {
+    if (a.length === 0) return b.length; 
+    if (b.length === 0) return a.length; 
 
-  pub.basicDateString = function _basicDateString(d){
-    return d.getFullYear() + "-" + (d.getMonth()+1) + "-" + d.getDate() + "-" + d.getHours() + ":" + d.getMinutes();
-  };
-
-  pub.toBlocklyBoolString = function _toBlocklyBoolString(bool){
-    if (bool){
-      return 'TRUE';
-    }
-    return 'FALSE';
-  };
-
-  pub.levenshteinDistance = function _levenshteinDistance(a, b) {
-    if(a.length === 0) return b.length; 
-    if(b.length === 0) return a.length; 
-
-    var matrix = [];
+    const matrix = [];
 
     // increment along the first column of each row
-    var i;
-    for(i = 0; i <= b.length; i++){
+    for(let i = 0; i <= b.length; i++){
       matrix[i] = [i];
     }
 
     // increment each column in the first row
-    var j;
-    for(j = 0; j <= a.length; j++){
+    for(let j = 0; j <= a.length; j++){
       matrix[0][j] = j;
     }
 
     // Fill in the rest of the matrix
-    for(i = 1; i <= b.length; i++){
-      for(j = 1; j <= a.length; j++){
-        if(b.charAt(i-1) === a.charAt(j-1)){
+    for(let i = 1; i <= b.length; i++){
+      for(let j = 1; j <= a.length; j++){
+        if (b.charAt(i-1) === a.charAt(j-1)) {
           matrix[i][j] = matrix[i-1][j-1];
         } else {
           matrix[i][j] = Math.min(matrix[i-1][j-1] + 1, // substitution
@@ -281,316 +99,114 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
     }
 
     return matrix[b.length][a.length];
-  };
-
-  pub.targetFromEvent = function _targetFromEvent(event){
-    return event.target; // this used to be fancier.  unclear if this will always be necessary
   }
 
-  pub.depthOf = function _depthOf(object) {
-    var level = 1;
-    var key;
-    for(key in object) {
-        if (!object.hasOwnProperty(key)) continue;
+  export function depthOf(object: { [key: string]: any }) {
+    let level = 1;
+    for (const key in object) {
+      if (!object.hasOwnProperty(key)) continue;
 
-        if(typeof object[key] == 'object'){
-            var depth = pub.depthOf(object[key]) + 1;
-            level = Math.max(depth, level);
-        }
+      if(typeof object[key] === 'object'){
+        const depth = depthOf(object[key]) + 1;
+        level = Math.max(depth, level);
+      }
     }
     return level;
   }
 
   // note that this does not handle cyclic objects!
-  pub.removeAttributeRecursive = function _removeAttributeRecursive(obj, attribute){
+  export function removeAttributeRecursive(obj: { [key: string]: any },
+    attribute: string) {
     if (typeof obj !== "object" || obj === null){ 
       return; // nothing to do here
-    }
-    else{
+    } else {
       // ok, it's an object
-      if (attribute in obj){
+      if (attribute in obj) {
         // ok, we actually want to remove
         delete obj[attribute];
       }
       // time to descend
-      for (var prop in obj){
-        pub.removeAttributeRecursive(obj[prop], attribute);
+      for (const prop in obj) {
+        removeAttributeRecursive(obj[prop], attribute);
       }
     }
-  };
+  }
 
-  pub.repeatUntil = function _repeatUntil(repeatFunction, untilFunction, afterFunction, interval, grow){
-    if (grow === undefined){ grow = false;}
+  export function repeatUntil(repeatFunction: Function, untilFunction: Function,
+    afterFunction: Function, interval: number, grow = false) {
     if (untilFunction()){
       afterFunction();
       return;
     }
     repeatFunction();
-    var nextInterval = interval;
-    if (grow){
-      nextInterval = nextInterval * 2; // is this really how we want to grow it?  should it be a strategy passed in?
+    let nextInterval = interval;
+    if (grow) {
+      // is this really how we want to grow it? should a strategy be passed in?
+      nextInterval = nextInterval * 2;
     }
     HelenaConsole.log("grow", grow);
     HelenaConsole.log("interval", nextInterval);
-    setTimeout(function(){pub.repeatUntil(repeatFunction, untilFunction, afterFunction, nextInterval, grow);}, interval);
-  };
-
-  /* there are some messages that we send repeatedly from the mainpanel because we don't know whether the 
-  content script has actually received them.  but for most of these, we don't actually want a dozen answers, 
-  we just want to get one answer with the current, most up-to-date answer, and if we later decide we want 
-  another, we'll send another later.  for these cases, rather than build up an enormous backlog of messages 
-  (and it can get enormous and even crash everything), better to just register that we want the current 
-  response, then let us send the one */
-  // note that if we have *anything* changing about the message, this is currently a bad way to handle
-  // so if we have something like a counter in the message telling how many times it's been sent, this approach won't help
-
-  function sub(a, limit){
-    if (a.length <= limit){
-      return a;
-    }
-    return a.slice(0, limit);
+    setTimeout(() => {
+      repeatUntil(repeatFunction, untilFunction, afterFunction, nextInterval,
+        grow);
+    }, interval);
   }
 
-  var currentResponseRequested = {};
-  var currentResponseHandler = {};
-
-  function handleRegisterCurrentResponseRequested(message){
-    var key = StableStringify.stringify(message);
-    if (currentResponseRequested[key]){
-      currentResponseRequested[key] = false;
-      // now call the actual function
-      currentResponseHandler[key](message);
-      HelenaConsole.namedLog("getRelationItems","we successfully did handleRegisterCurrentResponseRequested for key", sub(key, 40));
-    }
-    else{
-      HelenaConsole.namedLog("getRelationItems","we tried to do handleRegisterCurrentResponseRequested for key", sub(key, 40), "but there was nothing registered.  throwing it out.");
-    }
-    // else nothing to do.  yay!
-  };
-
-  pub.registerCurrentResponseRequested = function _registerCurrentResponseRequested(message, functionToHandleMessage){
-    var key = StableStringify.stringify(message);
-    HelenaConsole.namedLog("getRelationItems", "registering new handler for key", sub(key, 40));
-    var newFunctionToHandleMessage = function(msg){
-      HelenaConsole.namedLog("getRelationItems", "running the current handler for key:", sub(key, 40));
-      functionToHandleMessage(msg);
-    }
+  /**
+   * Get the current, most up-to-date response from a message sent from the
+   *   mainpanel to content script, to avoid having a backlog of repeated
+   *   messages sent.
+   * Caveat: If anything changes about the message, this is a bad way to handle
+   *   it; e.g. if we have a counter in the message saying how many times it's
+   *   been sent.
+   * @param message message to send
+   * @param handler handler for response
+   */
+  export function registerCurrentResponseRequested(message: object,
+      handler: Function) {
+    const key = stringify(message);
+    HelenaConsole.namedLog("getRelationItems",
+      "registering new handler for key", key.slice(0, 40));
     currentResponseRequested[key] = true;
-    currentResponseHandler[key] = newFunctionToHandleMessage;
-    setTimeout(
-      function(){handleRegisterCurrentResponseRequested(message);},
-      0);
-    // so it does get called immediately if there's no backup, but just goes in its place at the back of the queue 
-    // if there is a backup right now, and then we can get a bunch of them backed up but we'll still 
-    // only run it the first time.  must have a separate dictionary for the function, because you 
-    // want to attach the current handler, not run an old handler.  For instance, we might send the same message to 
-    // request a new fresh set of relation items, but have a different mainpanel response handler, and we want to 
-    // send it to the current handler, not the old one.
+    currentResponseHandler[key] = (msg: object) => {
+      HelenaConsole.namedLog("getRelationItems",
+        "running the current handler for key:", key.slice(0, 40));
+      handler(msg);
+    };
 
-    // basically what's happening is this function (registerCurrentResponseRequested) updates the handler
-    // but then we push any requests to actually run that handler into the queue, and then we'll only run
-    // one of those requests (a handleRegisterCurrentResponseRequested call), and we'll ignore later ones
-    // unless we get another of the same message (same input to registerCurrentResponseRquested), 
-    // which prompts us to do the process over again
-  };
+    // Add to end of message queue, such that each message is responded to only
+    //   once, and any additional calls are ignored.
+    setTimeout(() => {
+      const key = stringify(message);
+      if (currentResponseRequested[key]) {
+        currentResponseRequested[key] = false;
+        // now call the actual function
+        currentResponseHandler[key](message);
+        HelenaConsole.namedLog("getRelationItems",
+          "we successfully did handleRegisterCurrentResponseRequested for key",
+          key.slice(0, 40));
+      } else {
+        HelenaConsole.namedLog("getRelationItems",
+          "we tried to do handleRegisterCurrentResponseRequested for key",
+          key.slice(0, 40),
+          "but there was nothing registered.  throwing it out.");
+      }
+      // handleRegisterCurrentResponseRequested(message);
+    }, 0);
+  }
 
-  // for now, if there's no favicon url and if the title of the page is actually just a segment of the url, go ahead and assume it didn't manage to load
-  pub.looksLikeLoadingFailure = function _looksLikeLoadingFailure(tabInfo){
-    if (!tabInfo.favIconUrl && tabInfo.url.indexOf(tabInfo.title) > -1){
-      return true;
-    }
-    return false;
-  };
-
-  pub.truncateDictionaryStrings = function _truncateDictionaryStrings(dict, stringLengthLimit, keysToSkip){
-    for (var key in dict){
-      var val = dict[key];
-      if (keysToSkip.indexOf(key) < 0 && typeof val === 'string' && val.length > stringLengthLimit){
+  export function truncateDictionaryStrings(dict: { [key: string]: any },
+      stringLengthLimit: number, keysToSkip: string[]) {
+    for (const key in dict){
+      const val = dict[key];
+      if (!keysToSkip.includes(key) && typeof val === 'string' &&
+           val.length > stringLengthLimit){
         dict[key] = val.slice(0, stringLengthLimit);
       }
     }
-  };
+  }
 
-  pub.dirtyDeepcopy = function _dirtyDeepcopy(obj){
+  export function dirtyDeepcopy(obj: object) {
     return JSON.parse(JSON.stringify(obj));
-  };
-
-return pub; }());
-
-
-var Highlight = (function _Highlight() { var pub = {};
-
-  var highlightCount = 0;
-  var highlights = [];
-  pub.highlightNode = function _highlightNode(target, color, display, pointerEvents) {
-    if (!target){
-      HelenaConsole.log("Woah woah woah, why were you trying to highlight a null or undefined thing?");
-      return $('<div/>');
-    }
-    if (display === undefined){ display = true;}
-    if (pointerEvents === undefined){ pointerEvents = false;}
-    highlightCount +=1;
-    $target = $(target);
-    var offset = $target.offset();
-    if (!target.getBoundingClientRect){
-      // document sometimes gets hovered, and there's no getboundingclientrect for it
-      return;
-    }
-    var boundingBox = target.getBoundingClientRect();
-    var newDiv = $('<div/>');
-    var idName = 'vpbd-hightlight-' + highlightCount;
-    newDiv.attr('id', idName);
-    newDiv.css('width', boundingBox.width);
-    newDiv.css('height', boundingBox.height);
-    newDiv.css('top', offset.top);
-    newDiv.css('left', offset.left);
-    newDiv.css('position', 'absolute');
-    newDiv.css('z-index', 2147483640);
-    newDiv.css('background-color', color);
-    newDiv.css('opacity', .4);
-    if (display === false){
-      newDiv.css('display', 'none');
-    }
-    if (pointerEvents === false){
-      newDiv.css('pointer-events', 'none');
-    }
-    $(document.body).append(newDiv);
-    highlights.push(newDiv);
-    newDiv.highlightedNode = target;
-    return newDiv;
-  };
-
-  pub.isHighlight = function _isHighlight(node){
-    var id = $(node).attr("id");
-    return (id !== null && id !== undefined && id.indexOf("vpbd-hightlight") > -1);
-  };
-
-  pub.getHighligthedNodeFromHighlightNode = function _getHighligthedNodeFromHighlightNode(highlightNode){
-    return highlightNode.highlightedNode;
   }
-
-  pub.clearHighlight = function _clearHighlight(highlightNode){
-    if (!highlightNode){
-      return;
-    }
-    highlights = _.without(highlights, highlightNode);
-    highlightNode.remove();
-  }
-
-  pub.clearAllHighlights = function _clearAllHighlights(){
-    _.each(highlights, function(highlight){highlight.remove()});
-    highlights = [];
-  }
-
-return pub; }());
-
-var NextTypes = {
-  NONE: 1,
-  NEXTBUTTON: 2,
-  MOREBUTTON: 3,
-  SCROLLFORMORE: 4
-};
-
-var RelationItemsOutputs = {
-  NOMOREITEMS: 1,
-  NONEWITEMSYET: 2,
-  NEWITEMS: 3
-};
-
-var TraceManipulationUtilities = (function _TraceManipulationUtilities() { var pub = {};
-
-  pub.completedEventType = function _completedEventType(ev){
-            return ((ev.type === "completed" && ev.data.type === "main_frame")
-              ||
-              (ev.type === "webnavigation" && ev.data.type === "onCompleted" && ev.data.parentFrameId === -1));
-          };
-
-  pub.lastTopLevelCompletedEvent = function _lastTopLevelCompletedEvent(trace){
-    for (var i = trace.length - 1; i >= 0; i--){
-      var ev = trace[i];
-      if (pub.completedEventType(ev)){
-        return ev;
-      }
-    }
-    return null; // bad!
-  }
-
-  pub.tabId = function _tabId(ev){
-    return ev.data.tabId;
-  };
-  pub.frameId = function _frameId(ev){
-    return ev.data.frameId;
-  };
-
-  pub.lastTopLevelCompletedEventTabId = function _lastTopLevelCompletedEventTabId(trace){
-    var ev = pub.lastTopLevelCompletedEvent(trace);
-    return ev.data.tabId;
-  }
-
-  pub.tabsInTrace = function _tabsInTrace(trace){
-    var tabs = [];
-    for (var i = 0; i < trace.length; i++){
-      var ev = trace[i];
-      if (pub.completedEventType(ev)){
-        if (tabs.indexOf(ev.data.tabId) === -1){
-          tabs.push(ev.data.tabId);
-        }
-      }
-    }
-    return tabs;
-  }
-
-return pub; }());
-
-var XMLBuilder = (function _XMLBuilder() { var pub = {};
-
-  pub.newNode = function _newNode(name, options, content){
-    if (content === null || content === undefined){
-      console.log("no content, returning");
-      return ""; // assuming we don't actually want this?
-    }
-    var optionsStrs = [];
-    if ("type" in options){
-      // we have to do type first, if it's in here
-      optionsStrs.push("type=\""+options["type"]+"\"");
-    }
-    for (var prop in options){
-      if (prop === "type"){
-        continue;
-      }
-      optionsStrs.push(prop + "=\"" + options[prop] + "\"");
-    }
-    var optionsStr = optionsStrs.join(" ");
-    return "<" + name + " " + optionsStr + ">" + content + "</" + name + ">";
-  }
-
-return pub; }());
-
-var DefaultHelenaValues = (function _DefaultHelenaValues() { var pub = {};
-
-  pub.nextButtonAttemptsThreshold = 4;
-  pub.relationFindingTimeoutThreshold = 15000;
-  pub.relationScrapeWait = 1000;
-
-return pub; }());
-
-var DownloadUtilities = (function _DownloadUtilities() { var pub = {};
-
-  pub.download = function _download(filename, text) {
-    var element = document.createElement('a');
-    //element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
-    element.setAttribute('href', URL.createObjectURL(new Blob([text], {
-                  type: "application/octet-stream"})));
-    element.setAttribute('download', filename);
-
-    element.style.display = 'none';
-    document.body.appendChild(element);
-
-    element.click();
-
-    document.body.removeChild(element);
-  }
-
-return pub; }());
-
-
+}

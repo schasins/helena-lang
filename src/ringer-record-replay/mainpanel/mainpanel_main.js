@@ -1,3 +1,5 @@
+import { Trace } from "../../common/utils/trace";
+
 /* -*- Mode: Java; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* vim: set shiftwidth=2 tabstop=2 autoindent cindent expandtab: */
 
@@ -933,7 +935,7 @@ var Replay = (function ReplayClosure() {
         for (var i = currEventIndex-1; i >= 0; i--){
           var e = recordTimeEvents[i];
           var completedCounter = 0;
-          if (TraceManipulationUtilities.completedEventType(e)){
+          if (Trace.completedEventType(e)){
             completedCounter++;
             if (e.data.url === currEventURL && e.data.tabId === currEventTabID){
               /* there's a record-time load event with the same url and tab id as 
@@ -942,7 +944,7 @@ var Replay = (function ReplayClosure() {
               var completedCounterReplay = 0;
               for (var j = replayTimeEventsSoFar.length - 1; j >= 0; j--){
                 var e2 = replayTimeEventsSoFar[j];
-                if (TraceManipulationUtilities.completedEventType(e2)){
+                if (Trace.completedEventType(e2)){
                   completedCounterReplay++;
                   if (completedCounter === completedCounterReplay){
                     //this is the replay-time completed event that lines up with e
@@ -1159,7 +1161,7 @@ var Replay = (function ReplayClosure() {
       replayFunction.call(this, e);
     },
     openTabSequenceFromTrace: function _openTabSequenceFromTrace(trace){
-      var completed_events = _.filter(trace, function(event){return TraceManipulationUtilities.completedEventType(event);});
+      var completed_events = _.filter(trace, function(event){return Trace.completedEventType(event);});
       //console.log(completed_events);
       var eventIds = _.map(completed_events, function(event){return event.meta.id});
       return eventIds;
@@ -1182,7 +1184,7 @@ var Replay = (function ReplayClosure() {
       // commented out the above because for now we just do it via forced completed events (with forceReplay); may want to change this in future
     },
     simulateWebNavigationEvent: function _simulateWebNavigationEvent(e){
-      if (TraceManipulationUtilities.completedEventType(e)){
+      if (Trace.completedEventType(e)){
         // unfortunately chrome has changed so that sometimes these webnavigation oncompleted events
         // are the only way we know a page load completion has happened
         // (no completed event gets raised), so we need to treat this is a a completed event
@@ -1217,7 +1219,7 @@ var Replay = (function ReplayClosure() {
         // this.index ++;
         // this.setNextTimeout(0);
 
-        if (!TraceManipulationUtilities.completedEventType(e)){
+        if (!Trace.completedEventType(e)){
           // don't need to do anything; not a top-level load, so assume we can ignore it
           this.index ++;
           this.currentCompletedObservationFailures = 0;
@@ -1261,7 +1263,7 @@ var Replay = (function ReplayClosure() {
             // we've found the last dom event
             domIndex = i;
           }
-          else if (domIndex === null && TraceManipulationUtilities.completedEventType(ev)){
+          else if (domIndex === null && Trace.completedEventType(ev)){
             // we've found a completed top-level after the last dom event
             completedAfterLastDom = true;
             // don't add this index to matchedCompletedEvents yet, because we might find something
@@ -1271,7 +1273,7 @@ var Replay = (function ReplayClosure() {
             //this.matchedCompletedEvents.push(i);
             bestBetMatchedIndex = i;
           }
-          else if (domIndex !== null && TraceManipulationUtilities.completedEventType(ev)){
+          else if (domIndex !== null && Trace.completedEventType(ev)){
             // since we're still going, but we've found the domIndex already, this is a completed event before the last dom event
             completedWithinWindowBeforeDom = true;
             this.matchedCompletedEvents.push(i);
@@ -1327,7 +1329,7 @@ var Replay = (function ReplayClosure() {
             
             for (var i = tabs.length - 1; i >= 0; i--){
               (function(tab){
-                if (MiscUtilities.looksLikeLoadingFailure(tab)){
+                if (looksLikeLoadingFailure(tab)){
                   // let's make sure once it's reloaded we're ready to try again
                   /*
                   var checkUntilComplete = function _checkUntilComplete(){
@@ -1890,3 +1892,13 @@ function printReplayEvents() {
   bgLog.log(text);
 }
 */
+
+
+// for now, if there's no favicon url and if the title of the page is actually
+//   just a segment of the url, go ahead and assume it didn't manage to load
+function looksLikeLoadingFailure(tabInfo) {
+  if (!tabInfo.favIconUrl && tabInfo.url.indexOf(tabInfo.title) > -1){
+    return true;
+  }
+  return false;
+}

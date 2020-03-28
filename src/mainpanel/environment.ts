@@ -1,55 +1,65 @@
-'use strict'
+import { RecorderUI } from "./ui/recorder_ui";
 
-var Environment = (function _Environment() { var pub = {};
+export namespace Environment {
+  let UIObject: RecorderUI | null = null;
 
-  var UIObject = null;
-  pub.setUIObject = function _setUIObject(obj){
-    if (obj){
+  export function setUIObject(obj: RecorderUI) {
+    if (obj) {
       UIObject = obj;
     }
-  };
+  }
 
-  pub.Frame = function _Frame(parent){
-    this.parent = parent;
-    this.map = {};
+  export class Frame {
+    public parent: Frame | null;
+    public map: {
+      [key: string]: any;
+    };
+
+    constructor(parent: Frame | null) {
+      this.parent = parent;
+      this.map = {};
+    }
 
     /* Extends the environment. */
-    this.envExtend = function _envExtend(parent) {
-      return new pub.Frame(this); // current frame is the parent of the new frame
-    };
+    public envExtend() {
+      return new Frame(this); // current frame is the parent of the new frame
+    }
 
-    /* Binds a new value to the top frame. */
-    this.envBind = function _envBind(name, value) {
+    /**
+     * Binds a new value to the top frame.
+     */
+    public envBind(name: string, value: any) {
       if (name in this.map) {
         // Don't bind names twice --- you should never be doing this.
-        // alert("The variable " + name + " was defined twice.  Please rename one.");
-        // throw new ExecError(name + ' is already declared');
-        console.log("WARNING: The variable " + name + " was defined twice.  Please rename one.");
+        console.log("WARNING: The variable " + name + " was defined twice." +
+          " Please rename one.");
       }
       this.map[name] = value;
-    };
+    }
 
-    /* Looks up the value of a variable. */
-    this.envLookup = function _envLookup(name) {
+    /**
+     * Looks up the value of a variable.
+     */
+    public envLookup(name: string): any {
       if (this.map.hasOwnProperty(name)) {
         return this.map[name];
       } else {
         if (this.parent) {
           return this.parent.envLookup(name);
         } else {
-          UIObject.addDialog("Couldn't find item", "Tried to use something called " + name + ", but we don't know anything about it.")
-          throw new ExecError(name + ' is not declared');
+          UIObject?.addDialog("Couldn't find item", "Tried to use something " +
+            "called " + name + ", but we don't know anything about it.", {});
+          throw new ReferenceError(name + ' is not declared');
         }
       }
-    };
-
-  };
+    }
+  }
 
   /* Creates a root environment. */
-  pub.envRoot = function _envRoot() {
+  export function envRoot() {
     // The root doesn't have a parent.
-    return new pub.Frame(null);
-  };
+    return new Frame(null);
+  }
 
   /* Updates the value binding of a variable. */
   /* currently only way to create a variable is to scrape it from a relation, and shouldn't do that twice for same variable, so we'll leave this out for now */
@@ -74,5 +84,4 @@ var Environment = (function _Environment() { var pub = {};
     }
   };
   */
-
-return pub; }());
+}

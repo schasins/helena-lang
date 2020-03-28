@@ -7,6 +7,7 @@ import { TabDetailsMessage, WindowsMessage,
 import { RecordingModeFilters } from "./filters/recording_mode_filters";
 import { RelationHighlighter } from "./ui/relation_highlighter";
 import { Screenshot } from "./utils/screenshot";
+import { MiscUtilities } from "../common/misc_utilities";
 
 /**
  * Stores Helena's global state variables for the content scripts.
@@ -158,7 +159,7 @@ export class HelenaContent {
      * TODO: cjbaik: also, the ordering of these matters; requestTabID has to
      *   happen first...
      */
-    window.MiscUtilities.repeatUntil(
+    MiscUtilities.repeatUntil(
       function() {
           Messages.sendMessage("content", "background",
               "requestTabID", {});
@@ -169,7 +170,7 @@ export class HelenaContent {
       function() {},
       1000, true);
 
-    window.MiscUtilities.repeatUntil(
+    MiscUtilities.repeatUntil(
       function () {
           Messages.sendMessage("content", "mainpanel",
               "requestCurrentRecordingWindows", {});
@@ -180,7 +181,7 @@ export class HelenaContent {
       function () {},
       1000, true);
 
-    window.MiscUtilities.repeatUntil(
+    MiscUtilities.repeatUntil(
       function () {
           Messages.sendMessage("content", "mainpanel",
               "currentReplayWindowId", {});

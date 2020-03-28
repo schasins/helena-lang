@@ -1,6 +1,9 @@
-import { EventMessage, Messages } from "../../common/messages";
+import { Messages } from "../../common/messages";
 import { MainpanelNode } from "../../common/mainpanel_node";
 import MainpanelNodeI = MainpanelNode.Interface;
+import { Highlight } from "../ui/highlight";
+import { TraceEvent } from "../../common/utils/trace";
+import { MiscUtilities } from "../../common/misc_utilities";
 
 /**
  * Handlers during "scrape mode" when scraping is activated (e.g. when the Alt
@@ -12,13 +15,12 @@ export namespace ScrapeModeHandlers {
    *   after the Ringer content script runs so that the
    *   additional_recording_handlers object exists.
    */
-  export function sendScrapedDataToMainpanel(node: Node,
-    eventMessage: EventMessage) {
+  export function sendScrapedDataToMainpanel(node: Node, ev: TraceEvent) {
     let data: MainpanelNodeI = MainpanelNode.fromDOMNode(node);
     // convention is SHIFT means we want to scrape the link, not the text 
-    let linkScraping = eventMessage.data.shiftKey || eventMessage.data.metaKey;
+    let linkScraping = ev.data.shiftKey || ev.data.metaKey;
     data.linkScraping = linkScraping;
-    if (eventMessage.data.type === "click") {
+    if (ev.data.type === "click") {
       Messages.sendMessage("content", "mainpanel", "scrapedData", data);
     } // send it to the mainpanel for visualization
     return data;
@@ -43,9 +45,9 @@ export namespace ScrapeModeHandlers {
       //   during replay
       return;
     }
-    window.Highlight.clearHighlight(window.helenaContent.highlightedElement);
-    window.helenaContent.highlightedElement = window.Highlight.highlightNode(
-      window.MiscUtilities.targetFromEvent(event), "#E04343", true, false);
+    Highlight.clearHighlight(window.helenaContent.highlightedElement);
+    window.helenaContent.highlightedElement = Highlight.highlightNode(
+      <HTMLElement> event.target, "#E04343", true, false);
   }
 
   /**
@@ -53,7 +55,7 @@ export namespace ScrapeModeHandlers {
    * @param event mouseout event
    */
   export function unhighlightMouseoutElement(event: Event) {
-    window.Highlight.clearHighlight(window.helenaContent.highlightedElement);
+    Highlight.clearHighlight(window.helenaContent.highlightedElement);
   }
 
   /**

@@ -4,6 +4,8 @@ import { ScrapeModeHandlers } from "./scrape_mode_handlers";
 import { ScrapingTooltip } from "../ui/scraping_tooltip";
 
 import { HelenaConsole } from "../../common/utils/helena_console";
+import { Highlight } from "../ui/highlight";
+import { MiscUtilities } from "../../common/misc_utilities";
 
 /** 
  * Handlers for user events on the content side while recording.
@@ -35,9 +37,9 @@ export namespace RecordingModeHandlers {
      */
     export function mouseoverHandler(event: MouseEvent) {
       if (window.helenaContent.currentlyRecording()) {
-        new ScrapingTooltip(window.MiscUtilities.targetFromEvent(event));
+        new ScrapingTooltip(<HTMLElement> event.target);
         window.helenaContent.highlightRelevantRelation(
-            window.MiscUtilities.targetFromEvent(event));
+          <HTMLElement> event.target);
       }
       // just a backup in case the checks on keydown and keyup fail to run, as
       //   seems to happen sometimes with focus issues
@@ -54,7 +56,7 @@ export namespace RecordingModeHandlers {
      */
     export function mouseoutHandler(event: MouseEvent) {
       if (window.helenaContent.currentlyRecording()) {
-        ScrapingTooltip.destroy(window.MiscUtilities.targetFromEvent(event));
+        ScrapingTooltip.destroy(<HTMLElement> event.target);
         window.helenaContent.unhighlightRelation();
       }
       // just a backup in case the checks on keydown and keyup fail to run, as
@@ -93,9 +95,11 @@ export namespace RecordingModeHandlers {
           return;
         }
         // want highlight shown now, want clicks to fall through
-        window.helenaContent.highlightedElement = window.Highlight.highlightNode(
-          window.helenaContent.mostRecentMousemoveTarget, "#E04343", true,
-          false);
+        if (window.helenaContent.mostRecentMousemoveTarget) {
+          window.helenaContent.highlightedElement = Highlight.highlightNode(
+            <HTMLElement> window.helenaContent.mostRecentMousemoveTarget,
+            "#E04343", true, false);
+        }
       }
     };
   
@@ -103,7 +107,7 @@ export namespace RecordingModeHandlers {
       if (window.helenaContent.currentlyScraping() &&
           window.helenaContent.currentlyRecording() && !(altDown)) {
         window.helenaContent.disableScrapeMode();  
-        window.Highlight.clearHighlight(window.helenaContent.highlightedElement);
+        Highlight.clearHighlight(window.helenaContent.highlightedElement);
       }
     };
   

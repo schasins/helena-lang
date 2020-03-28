@@ -4,12 +4,13 @@ import { HelenaMainpanel, NodeSources } from "../../../helena_mainpanel";
 
 import { NodeVariable } from "../../../variables/node_variable";
 import { PageActionStatement } from "./page_action";
-import { EventMessage } from "../../../../common/messages";
 import { ColumnSelector } from "../../../../content/selector/column_selector";
 import { GenericRelation } from "../../../relation/generic";
 import { PageVariable } from "../../../variables/page_variable";
 import { HelenaProgram } from "../../program";
 import { Revival } from "../../../revival";
+import { TraceType, Trace, DisplayTraceEvent } from "../../../../common/utils/trace";
+import { Environment } from "../../../environment";
 
 export class ClickStatement extends PageActionStatement {
   public static maxDim = 50;
@@ -21,7 +22,7 @@ export class ClickStatement extends PageActionStatement {
   public pageVar: PageVariable;
   public relation: GenericRelation;
 
-  constructor(trace: EventMessage[]) {
+  constructor(trace: TraceType) {
     super();
     Revival.addRevivalLabel(this);
     this.setBlocklyLabel("click");
@@ -29,8 +30,8 @@ export class ClickStatement extends PageActionStatement {
     this.trace = trace;
 
     // find the record-time constants that we'll turn into parameters
-    const ev = HelenaMainpanel.firstVisibleEvent(trace);
-    this.pageVar = window.EventM.getDOMInputPageVar(ev);
+    const ev = Trace.firstVisibleEvent(trace);
+    this.pageVar = Trace.getDOMInputPageVar(ev);
     this.pageUrl = ev.frame.topURL;
     this.node = ev.target.xpath;
 
@@ -38,11 +39,17 @@ export class ClickStatement extends PageActionStatement {
     const domEvents = trace.filter((ev) => ev.type === "dom");
 
     const outputLoads = domEvents.reduce(
-      (acc, ev) => acc.concat(window.EventM.getDOMOutputLoadEvents(ev)
-    ), []);
+      (acc: TraceType, ev) => {
+        const loadEvs = Trace.getDOMOutputLoadEvents(<DisplayTraceEvent> ev);
+        if (!loadEvs) {
+          throw new ReferenceError("DOM output load events undefined");
+        }
+        acc.concat(loadEvs);
+        return acc;
+      }, []);
+
     this.outputPageVars = outputLoads.map(
-      (ev) => window.EventM.getLoadOutputPageVar(ev)
-    );
+      (ev) => Trace.getLoadOutputPageVar(<DisplayTraceEvent> ev));
 
     // for now, assume the ones we saw at record time are the ones we'll want at
     //   replay
@@ -219,7 +226,7 @@ export class ClickStatement extends PageActionStatement {
     this.unParameterizeNodeWithRelation(relation);
   }
 
-  public args(environment: EnvironmentPlaceholder) {
+  public args(environment: Environment.Frame) {
     const args = [];
     args.push({
       type: "tab",
@@ -255,7 +262,7 @@ export class ClickStatement extends PageActionStatement {
 function proposeCtrlAdditions(statement) {
   if (statement.outputPageVars.length > 0) {
     var counter = 0;
-    var lastIndex = _.reduce(statement.trace, function(acc, ev) {counter += 1; if (EventM.getDOMOutputLoadEvents(ev).length > 0) {return counter;} else {return acc;}}, 0);
+    var lastIndex = _.reduce(statement.trace, function(acc, ev) {counter += 1; if (Trace.getDOMOutputLoadEvents(ev).length > 0) {return counter;} else {return acc;}}, 0);
 
     var ctrlKeyDataFeatures = {altKey: false, bubbles: true, cancelable: true, charCode: 0, ctrlKey: true, keyCode: 17, keyIdentifier: "U+00A2", keyLocation: 1, metaKey: false, shiftKey: false, timeStamp: 1466118461375, type: "keydown"};
 

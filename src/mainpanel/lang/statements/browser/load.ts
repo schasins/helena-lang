@@ -10,25 +10,26 @@ import { HelenaLangObject } from "../../helena_lang";
 import { HelenaString } from "../../values/string";
 import { Concatenate } from "../../values/concatenate";
 
-import { EventMessage } from "../../../../common/messages";
 import { GenericRelation } from "../../../relation/generic";
 import { PageVariable } from "../../../variables/page_variable";
 import { RunObject, HelenaProgram, RunOptions,
   TraceContributions } from "../../program";
 import { Revival } from "../../../revival";
+import { TraceType, Trace, DisplayTraceEvent } from "../../../../common/utils/trace";
+import { Environment } from "../../../environment";
 
 export class LoadStatement extends HelenaLangObject {
-  public cleanTrace: EventMessage[];
+  public cleanTrace: TraceType;
   public contributesTrace?: TraceContributions;
   public currentUrl: string | HelenaString | NodeVariable | NodeVariableUse |
     Concatenate | null;
   public outputPageVar: PageVariable;
   public outputPageVars: PageVariable[];
   public relation: GenericRelation | null;
-  public trace: EventMessage[];
+  public trace: TraceType;
   public url: string;
 
-  constructor(trace: EventMessage[]) {
+  constructor(trace: TraceType) {
     super();
     Revival.addRevivalLabel(this);
     this.setBlocklyLabel("load");
@@ -36,9 +37,9 @@ export class LoadStatement extends HelenaLangObject {
     this.trace = trace;
 
     // find the record-time constants that we'll turn into parameters
-    const ev = HelenaMainpanel.firstVisibleEvent(trace);
+    const ev = Trace.firstVisibleEvent(trace);
     this.url = ev.data.url;
-    this.outputPageVar = window.EventM.getLoadOutputPageVar(ev);
+    this.outputPageVar = Trace.getLoadOutputPageVar(<DisplayTraceEvent> ev);
 
     // this will make it easier to work with for other parts of the code
     this.outputPageVars = [ this.outputPageVar ];
@@ -65,7 +66,7 @@ export class LoadStatement extends HelenaLangObject {
     }
   }
 
-  public cUrl(environment?: EnvironmentPlaceholder) {
+  public cUrl(environment?: Environment.Frame) {
     if (this.currentUrl instanceof NodeVariable) {
       // todo: hmmmm, really should have nodevariableuse, not node variable
       //   here.  test with text relation uploads
@@ -250,14 +251,14 @@ export class LoadStatement extends HelenaLangObject {
     return;
   }
 
-  public args(environment: EnvironmentPlaceholder) {
+  public args(environment: Environment.Frame) {
     const args = [];
     const currentUrl = this.cUrl(environment);
     args.push({ type:"url", value: currentUrl.trim() });
     return args;
   }
 
-  public postReplayProcessing(runObject: RunObject, trace: EventMessage[],
+  public postReplayProcessing(runObject: RunObject, trace: TraceType,
     temporaryStatementIdentifier: number) {
       return;
   };

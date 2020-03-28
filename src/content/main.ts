@@ -6,6 +6,7 @@ import { RelationSelector } from "./selector/relation_selector";
 import { HelenaContent } from "./helena_content";
 import { NextButtonSelector } from "./selector/next_button_selector";
 import { HelenaConsole } from "../common/utils/helena_console";
+import { MiscUtilities } from "../common/misc_utilities";
 
 // TODO: cjbaik: is there a way of avoiding using these as globals?
 declare global {
@@ -32,10 +33,6 @@ declare global {
 		// TODO: cjbaik: modularize all these later, remove `window` calls
 		MiscUtilities: any; // TODO: modularize later
 		Highlight: any; // TODO: modularize later
-		NextTypes: any; // TODO: modularize later
-		ServerTranslationUtilities: any; // TODO: modularize later
-		RelationItemsOutputs: any; // TODO: modularize later
-		DefaultHelenaValues: any; // TODO: modularize later
 	}
 }
 
@@ -104,7 +101,7 @@ Messages.listenForMessage("mainpanel", "content", "clearRelationInfo",
 
 Messages.listenForFrameSpecificMessage("mainpanel", "content",
 "likelyRelation", (msg: object, sendResponse: Function) => {
-		window.MiscUtilities.registerCurrentResponseRequested(msg,
+		MiscUtilities.registerCurrentResponseRequested(msg,
 			(m: LikelyRelationMessage) => {
 				let likelyRel = RelationFinder.likelyRelation(m);
 				console.log('likelyRel', likelyRel);
@@ -118,7 +115,7 @@ Messages.listenForFrameSpecificMessage("mainpanel", "content",
 
 Messages.listenForFrameSpecificMessage("mainpanel", "content",
 	"getFreshRelationItems", (msg: object, sendResponse: Function) => {
-		window.MiscUtilities.registerCurrentResponseRequested(msg, 
+		MiscUtilities.registerCurrentResponseRequested(msg, 
 			(selector: RelationSelector) => {
 				// let selector = RelationSelector.fromMessage(m);
 				RelationFinder.getFreshRelationItemsHelper(selector,

@@ -1,6 +1,5 @@
 import { HelenaConsole } from "../../../../common/utils/helena_console";
 import { HelenaLangObject, StatementParameter } from "../../helena_lang";
-import { EventMessage } from "../../../../common/messages";
 import { NodeVariable } from "../../../variables/node_variable";
 import { PageVariable } from "../../../variables/page_variable";
 import { TraceContributions, RunObject } from "../../program";
@@ -10,9 +9,11 @@ import { TextRelation } from "../../../relation/text_relation";
 import { Relation } from "../../../relation/relation";
 import { PulldownInteractionStatement } from "./pulldown_interaction";
 import { ColumnSelector } from "../../../../content/selector/column_selector";
+import { TraceType } from "../../../../common/utils/trace";
+import { Environment } from "../../../environment";
 
 export class PageActionStatement extends HelenaLangObject {
-  public cleanTrace: EventMessage[];
+  public cleanTrace: TraceType;
   public columnObj?: ColumnSelector.Interface;
   public contributesTrace?: TraceContributions;
   public currentNode: NodeVariable;
@@ -20,13 +21,13 @@ export class PageActionStatement extends HelenaLangObject {
   public origNode?: string;
   public pageVar?: PageVariable;
   public relation?: GenericRelation;
-  public trace: EventMessage[];
+  public trace: TraceType;
 
-  public args(environment: EnvironmentPlaceholder): StatementParameter[] {
+  public args(environment: Environment.Frame): StatementParameter[] {
     return [];
   }
 
-  public currentNodeXpath(environment: EnvironmentPlaceholder) {
+  public currentNodeXpath(environment: Environment.Frame) {
     if (this.currentNode instanceof NodeVariable) {
       return this.currentNode.currentXPath(environment);
     }
@@ -143,7 +144,7 @@ export class PageActionStatement extends HelenaLangObject {
     return null;
   }
   
-  public postReplayProcessing(runObject: RunObject, trace: EventMessage[],
+  public postReplayProcessing(runObject: RunObject, trace: TraceType,
       temporaryStatementIdentifier: number) {
     return;
   }

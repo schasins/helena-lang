@@ -6,18 +6,17 @@ import { HelenaMainpanel, NodeSources } from "../../../helena_mainpanel";
 
 import { NodeVariable } from "../../../variables/node_variable";
 
-import { EventMessage } from "../../../../common/messages";
-
 import { OutputRowStatement } from "../output_row";
 
 import { MainpanelNode } from "../../../../common/mainpanel_node";
 
-import { ColumnSelector } from "../../../../content/selector/column_selector";
 import { PageActionStatement } from "./page_action";
 import { GenericRelation } from "../../../relation/generic";
 import { PageVariable } from "../../../variables/page_variable";
 import { HelenaProgram, RunObject } from "../../program";
 import { Revival } from "../../../revival";
+import { TraceType, Trace } from "../../../../common/utils/trace";
+import { Environment } from "../../../environment";
 
 export class ScrapeStatement extends PageActionStatement {
   public static maxDim = 50;
@@ -31,7 +30,7 @@ export class ScrapeStatement extends PageActionStatement {
   public scrapeLink?: boolean;    // true if scraping link, not just text
   public xpaths: string[];
 
-  constructor(trace: EventMessage[]) {
+  constructor(trace: TraceType) {
     super();
     Revival.addRevivalLabel(this);
     this.setBlocklyLabel("scrape");
@@ -47,8 +46,8 @@ export class ScrapeStatement extends PageActionStatement {
     //   (as for a known column in a relation)
     if (trace.length > 0) {
       // find the record-time constants that we'll turn into parameters
-      const ev = HelenaMainpanel.firstVisibleEvent(trace);
-      this.pageVar = window.EventM.getDOMInputPageVar(ev);
+      const ev = Trace.firstVisibleEvent(trace);
+      this.pageVar = Trace.getDOMInputPageVar(ev);
       this.node = ev.target.xpath;
       this.pageUrl = ev.frame.topURL;
       // for now, assume the ones we saw at record time are the ones we'll want
@@ -301,7 +300,7 @@ export class ScrapeStatement extends PageActionStatement {
     this.cleanTrace = HelenaMainpanel.cleanTrace(this.trace);
   }
 
-  public args(environment: EnvironmentPlaceholder) {
+  public args(environment: Environment.Frame) {
     const args = [];
     // no need to make pbvs based on this statement's parameterization if it
     //   doesn't have any events to parameterize anyway...
@@ -328,7 +327,7 @@ export class ScrapeStatement extends PageActionStatement {
     return args;
   }
 
-  public postReplayProcessing(runObject: RunObject, trace: EventMessage[],
+  public postReplayProcessing(runObject: RunObject, trace: TraceType,
       temporaryStatementIdentifier: number) {
     if (!this.scrapingRelationItem()) {
       // ok, this was a ringer-run scrape statement, so we have to grab the
@@ -339,7 +338,7 @@ export class ScrapeStatement extends PageActionStatement {
       // find the scrape that corresponds to this scrape statement based on
       //   temporarystatementidentifier
       const stmtTraceSegment = trace.filter(
-        (ev) => window.EventM.getTemporaryStatementIdentifier(ev) ===
+        (ev) => Trace.getTemporaryStatementIdentifier(ev) ===
           temporaryStatementIdentifier);
       const scrapedContentEvent =
         HelenaMainpanel.firstScrapedContentEventInTrace(stmtTraceSegment);

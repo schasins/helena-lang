@@ -6,10 +6,9 @@ import { RecorderUI } from "./ui/recorder_ui";
 
 import { NodeVariable } from "./variables/node_variable";
 import { HelenaLangObject } from "./lang/helena_lang";
-import { GenericRelation } from "./relation/generic";
-import { PageVariable } from "./variables/page_variable";
-import { EventMessage, Messages } from "../common/messages";
+import { Messages } from "../common/messages";
 import { RunObject } from "./lang/program";
+import { TraceType } from "../common/utils/trace";
 
 // TODO: cjbaik: is there a way of avoiding using these as globals?
 declare global {
@@ -18,25 +17,12 @@ declare global {
     currentReplayWindowId: number | null;
     recordingWindowIds: number[];
     currentRunObjects: RunObject[];
-    helenaServerUrl: string;
     demoMode: boolean;
 
     // TODO: cjbaik: modularize all these later, remove `window` calls
     SimpleRecord: SimpleRecordPlaceholder;
-    DOMCreationUtilities: any;
-    ReplayScript: any;
-    DownloadUtilities: any;
-		// MiscUtilities: any; // TODO: modularize later
-		// Highlight: any; // TODO: modularize later
-		NextTypes: any; // TODO: modularize later
-		ServerTranslationUtilities: any; // TODO: modularize later
-		RelationItemsOutputs: any; // TODO: modularize later
-    DefaultHelenaValues: any; // TODO: modularize later
-    HelenaServerInteractions: any; // TODO: modularize later
-    EventM: any; // TODO: modularize later
-    Environment: any; // TODO: modularize later
+    JSOG: any;
     ReplayTraceManipulation: any; // TODO: modularize later
-    TraceManipulationUtilities: any; // TODO: modularize later
   }
   
   // TODO: factor out these JQuery libraries
@@ -49,35 +35,10 @@ declare global {
     }
   }
 
-  interface EnvironmentPlaceholder {
-    envBind: Function;
-    envExtend: Function;
-    envLookup: Function;
-    parent: EnvironmentPlaceholder;
-  }
-
   interface HashBasedParallel {
     on: boolean;
     numThreads: number;
     thisThreadIndex: number;
-  }
-
-  // TODO: cjbaik: placeholder objects until we can get the real imports
-  interface DatasetPlaceholder {
-    id?: number;
-    fullDatasetLength: number;
-    pass_start_time: number;
-
-    addRow: Function;
-    appendToName: Function;
-    getId: Function;
-    closeDataset: Function;
-    downloadUrl: Function;
-    downloadFullDatasetUrl: Function;
-    downloadDataset: Function;
-    downloadFullDataset: Function;
-    closeDatasetWithCont: Function;
-    datasetSlice: Function;
   }
 
   // TODO: cjbaik: placeholder objects until we can get the real imports
@@ -91,11 +52,6 @@ declare global {
     name: string;
     serialized_program: string;
   }
-
-  interface FrameDataPlaceholder {
-    tab: any;     // TODO: what type?
-  }
-
   interface HelenaBlock extends Blockly.Block {
     helena: HelenaLangObject;
   }
@@ -114,7 +70,7 @@ declare global {
 
   interface ReplayObjectPlaceholder {
     record: {
-      events: EventMessage[];
+      events: TraceType;
     }
   }
 
