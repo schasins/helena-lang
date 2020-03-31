@@ -3,7 +3,8 @@ import { RecordingModeHandlers } from "./handlers/recording_mode_handlers";
 import { ScrapeModeHandlers } from "./handlers/scrape_mode_handlers";
 import { TabDetailsMessage, WindowsMessage,
   WindowIdMessage, 
-  Messages} from "../common/messages";
+  Messages,
+  FastModeMessage} from "../common/messages";
 import { RecordingModeFilters } from "./filters/recording_mode_filters";
 import { RelationHighlighter } from "./ui/relation_highlighter";
 import { Screenshot } from "./utils/screenshot";
@@ -50,11 +51,17 @@ export class HelenaContent {
 
   relationHighlighter: RelationHighlighter;
 
+
+  /**
+   * Fast mode: good for speed, bad for evolving webpages.
+   */
+  ringerUseXpathFastMode = false;
+
   public currentlyRecording() {
     // `recording` is defined in scripts/lib/record-replay/content_script.js,
     //   tells whether r+r layer currently recording
     // TODO: cjbaik: move `recording` to this class
-    return window.recording === RecordState.RECORDING
+    return window.ringerContent.recording === RecordState.RECORDING
       && this.windowId && this.currentRecordingWindows
       && this.currentRecordingWindows.indexOf(this.windowId) > -1;
   }
@@ -94,7 +101,7 @@ export class HelenaContent {
    * Highlights relevant relation to element.
    * @param element element
    */
-  public highlightRelevantRelation(element: Element) {
+  public highlightRelevantRelation(element: HTMLElement) {
     this.relationHighlighter.highlightRelevantRelation(element);
   }
 
@@ -152,6 +159,9 @@ export class HelenaContent {
         RecordingModeHandlers.applyReplayOverlayIfAppropriate(msg.window);
     });
 
+    Messages.listenForMessage("mainpanel", "content", "ringerUseXpathFastMode", 
+      (msg: FastModeMessage) => { self.ringerUseXpathFastMode = msg.use; });
+
     /*
      * 2. Poll mainpanel and background.
      * TODO: cjbaik: switch this pattern to a port connection rather than
@@ -192,13 +202,15 @@ export class HelenaContent {
       function () {},
       1000, true);
     
+    Messages.sendMessage("content", "mainpanel",
+      "requestRingerUseXpathFastMode", {});
   }
   
   /**
    * Initialize hooks for when recording starts.
    */
   private initializeStartRecordingHooks() {
-    window.addonStartRecording.push(
+    window.ringerContent.addonStartRecording.push(
       // Without the `bind` call, `getKnownRelations` seems to reference the
       //   wrong `this` object.
       this.relationHighlighter.getKnownRelations.bind(

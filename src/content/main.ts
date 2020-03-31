@@ -8,7 +8,6 @@ import { NextButtonSelector } from "./selector/next_button_selector";
 import { HelenaConsole } from "../common/utils/helena_console";
 import { MiscUtilities } from "../common/misc_utilities";
 
-// TODO: cjbaik: is there a way of avoiding using these as globals?
 declare global {
 	interface Window {
 		helenaContent: HelenaContent;
@@ -29,10 +28,6 @@ declare global {
 			ignoreExtraCtrlAlt: boolean;
 			ignoreExtraKeydowns: boolean;
 		}
-
-		// TODO: cjbaik: modularize all these later, remove `window` calls
-		MiscUtilities: any; // TODO: modularize later
-		Highlight: any; // TODO: modularize later
 	}
 }
 

@@ -23,7 +23,7 @@ export namespace NextButtonSelector {
     id: string;
     class: string;
     src: string | null;
-    frame_id: string | null;
+    frame_id?: number;
     tag: string;
     text: string | null;
     xpath: string;
@@ -65,7 +65,7 @@ export namespace NextButtonSelector {
       class: nextOrMoreButton.className,
       src: nextOrMoreButton.getAttribute('src'),
       xpath: <string> XPath.fromNode(nextOrMoreButton),
-      frame_id: SimpleRecord.getFrameId()
+      frame_id: window.ringerContent.frameId
     }
     
     const msg: NextButtonSelectorMessage = { selector: data };

@@ -159,8 +159,8 @@ export namespace Screenshot {
       canvas = identifyTransparentEdges(canvas);
       let dataUrl = canvas.toDataURL();
       element.html2canvasDataUrl = dataUrl;
-      updateExistingEvent(traceEvent, "additional.visualization",
-        dataUrl);
+      window.ringerContent.updateExistingEvent(traceEvent,
+        "additional.visualization", dataUrl);
     });
     return null;
   };

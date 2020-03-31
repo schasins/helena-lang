@@ -165,7 +165,7 @@ export class NodeVariable implements Revival.Revivable {
     // todo: should be a better way to get env
     HelenaConsole.log("setCurrentNodeRep", this.getName(), nodeRep);
     environment.envBind(this.getName(), nodeRep);
-  };
+  }
 
   public currentNodeRep(environment: Environment.Frame):
     MainpanelNode.Interface {

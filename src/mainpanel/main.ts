@@ -18,6 +18,7 @@ declare global {
     recordingWindowIds: number[];
     currentRunObjects: RunObject[];
     demoMode: boolean;
+    ports: any;     // TODO: ringer ports manager
 
     // TODO: cjbaik: modularize all these later, remove `window` calls
     SimpleRecord: SimpleRecordPlaceholder;

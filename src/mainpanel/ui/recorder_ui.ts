@@ -106,6 +106,10 @@ export class RecorderUI extends HelenaUIBase {
       "background-image": 7
     };
 
+    $(this.init.bind(this));
+  }
+
+  public init() {
     const self = this;
     // messages received by this component
     // Messages.listenForMessage("content", "mainpanel", "selectorAndListData",
@@ -129,8 +133,6 @@ export class RecorderUI extends HelenaUIBase {
           "ringerUseXpathFastMode", {use: self.ringerUseXpathFastMode})
     );
 
-    this.setScrapingInstructions("#scraping_instructions");
-
     // handle user interactions with the mainpanel
     this.setUpRecordingUI();
 
@@ -144,6 +146,8 @@ export class RecorderUI extends HelenaUIBase {
     let url = new URL(urlString);
     let startUrl = url.searchParams.get("starturl");
     this.startRecording(startUrl? startUrl : undefined);
+    this.setScrapingInstructions("#scraping_instructions");
+
   }
 
   public setScrapingInstructions(instructionsDivSelector: string) {

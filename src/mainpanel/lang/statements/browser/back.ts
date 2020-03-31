@@ -61,8 +61,8 @@ export class BackStatement extends HelenaLangObject {
     });
 
     // send a back message to pageVarCurr
-    Messages.sendMessage("mainpanel", "content", "backButton", {}, null,
-      null, [pageVarTabId]);
+    Messages.sendMessage("mainpanel", "content", "backButton", {}, undefined,
+      undefined, [ <number> pageVarTabId ]);
     // todo: is it enough to just send this message and hope all goes well, or
     //   do we need some kind of acknowledgement?
     // update pageVarBack to make sure it has the right tab associated

@@ -12,9 +12,10 @@
  * This is required to get key events working on some pages.
  */
 
+ /*
 (function() {
 
-  /* event we are waiting for */
+  // event we are waiting for
   var scriptEvent = null;
 
   function setEventProp(e, prop, value) {
@@ -42,7 +43,7 @@
     }
   }
 
-  /* These are the only properties we will update */
+  // These are the only properties we will update
   var whiteListProps = {
     relatedTarget: true,
     keyCode: true,
@@ -53,7 +54,7 @@
     layerY: true
   };
 
-  /* check if the event handler object is correct */
+  // check if the event handler object is correct
   function checkEvent(event) {
 
     if (scriptEvent && event.type == scriptEvent.type) {
@@ -84,7 +85,7 @@
     return true;
   };
 
-  /* Attach the event handlers to their respective events */
+  // Attach the event handlers to their respective events
   function addListenersForRecording() {
     var events = params.events;
     for (var eventType in events) {
@@ -98,7 +99,7 @@
   };
   addListenersForRecording();
 
-  /* event handler for messages from the content script */
+  // event handler for messages from the content script
   function contentScriptUpdate(request) {
     scriptEvent = request.detail;
 
@@ -111,4 +112,4 @@
   }
 
   document.addEventListener('webscript', contentScriptUpdate, true);
-})();
+})();*/

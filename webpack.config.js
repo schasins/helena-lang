@@ -1,5 +1,6 @@
 const CopyPlugin = require('copy-webpack-plugin');
 const path = require('path');
+const webpack = require('webpack');
 
 module.exports = {
     entry: {
@@ -15,7 +16,7 @@ module.exports = {
     mode: "development",
 
     // Enable sourcemaps for debugging webpack's output.
-    devtool: "eval-source-map",
+    devtool: "cheap-module-source-map",
 
     resolve: {
         extensions: [".ts", ".js"]
@@ -47,7 +48,11 @@ module.exports = {
                 context: './src',
                 from: '**/*.js'
             }
-        ])
+        ]),
+        // to fix problem with `later` node module loading
+        new webpack.DefinePlugin({
+            'process.env': { LATER_COV: false }
+        }),
     ],
 
     // When importing a module whose path matches one of the following, just

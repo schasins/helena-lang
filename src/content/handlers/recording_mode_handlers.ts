@@ -5,7 +5,6 @@ import { ScrapingTooltip } from "../ui/scraping_tooltip";
 
 import { HelenaConsole } from "../../common/utils/helena_console";
 import { Highlight } from "../ui/highlight";
-import { MiscUtilities } from "../../common/misc_utilities";
 
 /** 
  * Handlers for user events on the content side while recording.

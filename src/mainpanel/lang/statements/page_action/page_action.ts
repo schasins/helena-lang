@@ -5,12 +5,11 @@ import { PageVariable } from "../../../variables/page_variable";
 import { TraceContributions, RunObject } from "../../program";
 import { NodeSources, HelenaMainpanel } from "../../../helena_mainpanel";
 import { GenericRelation } from "../../../relation/generic";
-import { TextRelation } from "../../../relation/text_relation";
-import { Relation } from "../../../relation/relation";
-import { PulldownInteractionStatement } from "./pulldown_interaction";
 import { ColumnSelector } from "../../../../content/selector/column_selector";
 import { TraceType } from "../../../../common/utils/trace";
 import { Environment } from "../../../environment";
+import { TextRelation } from "../../../relation/text_relation";
+import { Relation } from "../../../relation/relation";
 
 export class PageActionStatement extends HelenaLangObject {
   public cleanTrace: TraceType;
@@ -58,14 +57,14 @@ export class PageActionStatement extends HelenaLangObject {
       }
       return nodeRep;
     }
-    if (this.trace[0].additional.visualization === "whole page") {
+    if (this.trace[0].additional?.visualization === "whole page") {
       return "whole page";
     }
     if (linkScraping) {
       // we don't have a better way to visualize links than just giving text
-      return <string> this.trace[0].additional.scrape.link;
+      return <string> this.trace[0].additional?.scrape.link;
     }
-    return `<img src='${this.trace[0].additional.visualization}'` +
+    return `<img src='${this.trace[0].additional?.visualization}'` +
       " style='max-height: 150px; max-width: 350px;'>";
   }
 
@@ -100,9 +99,7 @@ export class PageActionStatement extends HelenaLangObject {
 
     for (let i = 0; i < relation.firstRowXPaths.length; i++) {
       const firstRowXpath = relation.firstRowXPaths[i];
-      if (firstRowXpath === this.origNode || 
-          (this instanceof PulldownInteractionStatement &&
-            this.origNode && firstRowXpath.includes(this.origNode))) {
+      if (firstRowXpath === this.origNode) {
         this.relation = relation;
         const name = relation.columns[i].name;
         const nodeRep = nodeRepresentations[i];

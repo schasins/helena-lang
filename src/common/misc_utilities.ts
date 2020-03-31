@@ -195,17 +195,6 @@ export namespace MiscUtilities {
     }, 0);
   }
 
-  export function truncateDictionaryStrings(dict: { [key: string]: any },
-      stringLengthLimit: number, keysToSkip: string[]) {
-    for (const key in dict){
-      const val = dict[key];
-      if (!keysToSkip.includes(key) && typeof val === 'string' &&
-           val.length > stringLengthLimit){
-        dict[key] = val.slice(0, stringLengthLimit);
-      }
-    }
-  }
-
   export function dirtyDeepcopy(obj: object) {
     return JSON.parse(JSON.stringify(obj));
   }

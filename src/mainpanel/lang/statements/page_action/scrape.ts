@@ -345,8 +345,12 @@ export class ScrapeStatement extends PageActionStatement {
       if (scrapedContentEvent) {
         // for now, all scrape statements have a NodeVariable as currentNode, so
         //   can call setCurrentNodeRep to bind name in current environment
-        this.currentNode.setCurrentNodeRep(runObject.environment,
-          scrapedContentEvent.additional.scrape);  
+        let node: MainpanelNode.Interface | null | undefined =
+          scrapedContentEvent.additional?.scrape;
+        if (!node) {
+          node = null
+        }
+        this.currentNode.setCurrentNodeRep(runObject.environment, node);  
       } else {
         this.currentNode.setCurrentNodeRep(runObject.environment, null);
       }

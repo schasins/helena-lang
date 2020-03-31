@@ -2,17 +2,9 @@ import { MainpanelNode } from "../mainpanel_node";
 import { HelenaConsole } from "./helena_console";
 import { PageVariable } from "../../mainpanel/variables/page_variable";
 import { StatementTypes } from "../../mainpanel/lang/statements/statement_types";
+import { Delta } from "../../ringer-record-replay/content/snapshot";
 
 export type TraceType = TraceEvent[];
-
-export interface Delta {
-  divergingProp: string;
-  changed: {
-    prop: {
-      [key: string]: any;
-    };
-  }
-}
 
 interface DisplayInfo {
   causedBy?: TraceEvent;

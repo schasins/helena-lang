@@ -21,54 +21,6 @@ export interface ColumnSelectorMessage {
   index?: string;
 }
 
-/*
-export interface XPathNodeMessage {
-  nodeName: string;
-  index: string;
-  iterable: boolean;
-}*/
-
-/*
-export interface FeatureCriteriaMessage {
-  pos: boolean;
-  values: (string | XPathNodeMessage[])[];
-}*/
-
-/*
-export interface FeatureSetMessage {
-  [key: string]: FeatureCriteriaMessage;
-} */
-
-/**
- * A generic selector describing how to extract a relation from a page.
- * TODO: cjbaik: a lot of strange properties to edit here.
- */
-/*
-export interface SelectorMessage {
-  selector_version: number;
-  selector: FeatureSetMessage | FeatureSetMessage[] | TableFeatureSet;
-  name?: string | null;
-  exclude_first: number;
-  id?: number;
-  columns: ColumnSelectorMessage[];
-  num_rows_in_demonstration?: number;
-  next_type?: number;
-  prior_next_button_text?: string;
-  next_button_selector?: NextButtonSelector.Interface | null;
-  url?: string;
-
-  positive_nodes?: HTMLElement[];
-  negative_nodes?: HTMLElement[];
-
-  relation?: ((HTMLElement | MainpanelNodeI | null)[][]) | null;
-  page_var_name?: string;
-  relation_id?: number | null;
-  first_page_relation?: (HTMLElement | MainpanelNodeI | null)[][];
-  pulldown_relations?: SelectorMessage[];
-
-  relation_scrape_wait?: number;
-}*/
-
 export interface TabDetailsMessage {
   tab_id: number;
   window_id: number;
@@ -125,6 +77,10 @@ export interface RelationMessage {
 
 export interface NextButtonTextMessage {
   text: string;
+}
+
+export interface FastModeMessage {
+  use: boolean;
 }
 
 // TODO: cjbaik: not sure if name is correct
@@ -261,9 +217,10 @@ export namespace Messages {
       // HelenaConsole.log("content listener", key, subject);
       listeners[key] = (msg: Message, sender: Sender) => {
         // HelenaConsole.log(msg, sender);
-        
-        // TODO: cjbaik: I *think* these frames are numbers?
-        const frame_id = <number> <unknown> SimpleRecord.getFrameId();
+        const frame_id = window.ringerContent.frameId;
+        if (!frame_id) {
+          throw new ReferenceError("frameId not set!");
+        }
         if (msg.frame_ids_include &&
             !msg.frame_ids_include.includes(frame_id)){
           HelenaConsole.log("Msg for frames with ids "+ msg.frame_ids_include +

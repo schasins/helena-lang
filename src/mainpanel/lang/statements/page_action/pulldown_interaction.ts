@@ -13,6 +13,8 @@ import { Revival } from "../../../revival";
 import { TraceType, Trace } from "../../../../common/utils/trace";
 import { MiscUtilities } from "../../../../common/misc_utilities";
 import { Environment } from "../../../environment";
+import { TextRelation } from "../../../relation/text_relation";
+import { Relation } from "../../../relation/relation";
 
 function deleteAPropDelta(trace: TraceType, propertyName: string) {
   for (const event of trace) {
@@ -92,6 +94,77 @@ export class PulldownInteractionStatement extends PageActionStatement {
         this.setColour(280);
       }
     };
+  }
+
+  public parameterizeNodeWithRelation(genericRelation: GenericRelation,
+      pageVar: PageVariable) {
+    // note: may be tempting to use the columns' xpath attributes to decide
+    //   this, but this is not ok!  now that we can have mutliple suffixes
+    //   associated with a column, that xpath is not always correct but we're
+    //   in luck because we know the selector has just been applied to the
+    //   relevant page (to produce relation.demonstrationTimeRelation and from
+    //   that relation.firstRowXpaths) so we can learn from those attributes
+    //   which xpaths are relevant right now, and thus which ones the user would
+    //   have produced in the current demo
+    
+    // if the relation is a text relation, we actually don't want to do the
+    //   below, because it doesn't represent nodes, only texts
+    if (genericRelation instanceof TextRelation) {
+      return null;
+    }
+
+    let relation = <Relation> genericRelation;
+
+    // hey, this better be in the same order as relation.columns and
+    //   relation.firstRowXpaths!
+    // todo: maybe add some helper functions to get rid of this necessity? since
+    //   it may not be clear in there...
+    const nodeRepresentations = relation.firstRowNodeRepresentations();
+
+    for (let i = 0; i < relation.firstRowXPaths.length; i++) {
+      const firstRowXpath = relation.firstRowXPaths[i];
+      if (firstRowXpath === this.origNode || 
+          (this instanceof PulldownInteractionStatement &&
+            this.origNode && firstRowXpath.includes(this.origNode))) {
+        this.relation = relation;
+        const name = relation.columns[i].name;
+        const nodeRep = nodeRepresentations[i];
+
+        // not ok to just overwrite currentNode, because there may be multiple
+        //   statements using the old currentNode, and becuase we're interested
+        //   in keeping naming consistent, they should keep using it so...just
+        //   overwrite some things
+        if (!this.currentNode) {
+          // have to check if there's a current node because if we're dealing
+          //   with pulldown menu there won't be
+          this.currentNode = new NodeVariable();
+        }
+        if (name) {
+          this.currentNode.setName(name);
+        }
+        this.currentNode.nodeRep = nodeRep;
+        this.currentNode.setSource(NodeSources.RELATIONEXTRACTOR);
+        // statement.currentNode = new NodeVariable(name, nodeRep, null, null,
+        //   NodeSources.RELATIONEXTRACTOR); // note that this means the
+        //   elements in the firstRowXPaths and the elements in columns must be
+        //   aligned!
+        // ps. in theory the above commented out line should have just worked
+        //   because we could search all prior nodes to see if any is the same
+        //   but we just extracted the relation from a fresh run of the script,
+        //   so any of the attributes we use (xpath, text, or even in some cases
+        //   url) could have changed, and we'd try to make a new node, and mess
+        //   it up since we know we want to treat this as the same as a prior
+        //   one, better to just do this
+
+        // the statement should track whether it's currently parameterized for a
+        //   given relation and column obj
+        this.relation = relation;
+        this.columnObj = relation.columns[i];
+
+        return relation.columns[i]; 
+      }
+    }
+    return null;
   }
 
   public parameterizeForRelation(relation: GenericRelation) {
