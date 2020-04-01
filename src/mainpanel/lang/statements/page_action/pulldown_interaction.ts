@@ -10,13 +10,13 @@ import { GenericRelation } from "../../../relation/generic";
 import { PageVariable } from "../../../variables/page_variable";
 import { HelenaProgram } from "../../program";
 import { Revival } from "../../../revival";
-import { TraceType, Trace } from "../../../../common/utils/trace";
+import { Trace, Traces } from "../../../../common/utils/trace";
 import { MiscUtilities } from "../../../../common/misc_utilities";
 import { Environment } from "../../../environment";
 import { TextRelation } from "../../../relation/text_relation";
 import { Relation } from "../../../relation/relation";
 
-function deleteAPropDelta(trace: TraceType, propertyName: string) {
+function deleteAPropDelta(trace: Trace, propertyName: string) {
   for (const event of trace) {
     if (event.type !== "dom") { continue; }
     const deltas = event.meta.deltas;
@@ -31,14 +31,14 @@ function deleteAPropDelta(trace: TraceType, propertyName: string) {
   }
 }
 
-function firstUpdateToProp(trace: TraceType, propertyName: string) {
+function firstUpdateToProp(trace: Trace, propertyName: string) {
   for (const event of trace) {
     if (event.type !== "dom") { continue; }
     const deltas = event.meta.deltas;
     if (deltas) {
       for (let j = 0; j < deltas.length; j++) {
         const delta = deltas[j];
-        if (delta.divergingProp === propertyName) {
+        if (delta.divergingProp === propertyName && delta.changed) {
           for (const key in delta.changed.prop) {
             if (key === propertyName) {
               // phew, finally found it.  grab it from the changed, not the
@@ -54,11 +54,11 @@ function firstUpdateToProp(trace: TraceType, propertyName: string) {
 
 export class PulldownInteractionStatement extends PageActionStatement {
   public node: string;
-  public origTrace?: TraceType;
-  public origCleanTrace?: TraceType;
+  public origTrace?: Trace;
+  public origCleanTrace?: Trace;
   public pageVar: PageVariable;
 
-  constructor(trace: TraceType) {
+  constructor(trace: Trace) {
     super();
     Revival.addRevivalLabel(this);
     this.setBlocklyLabel("pulldownInteraction");
@@ -66,8 +66,8 @@ export class PulldownInteractionStatement extends PageActionStatement {
     
     // find the record-time constants that we'll turn into parameters
     this.cleanTrace = HelenaMainpanel.cleanTrace(trace);
-    const ev = Trace.firstVisibleEvent(trace);
-    this.pageVar = Trace.getDOMInputPageVar(ev);
+    const ev = Traces.firstVisibleEvent(trace);
+    this.pageVar = Traces.getDOMInputPageVar(ev);
     this.node = ev.target.xpath;
     this.origNode = this.node;
     // we want the currentNode to be a nodeVariable so we have a name for the

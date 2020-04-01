@@ -4,6 +4,8 @@ import { Indexable } from "../common/utils";
 import { Snapshot, Delta, NodeSnapshot, PropertyDifferentDelta } from "./snapshot";
 import { Target, TargetInfo, TargetStatus } from "./target";
 import { DOMUtils } from "./dom_utils";
+import { RingerMessage, PortInfo, ReplayAckStatus, RecordState } from "../common/messages";
+import { RingerEvent, RecordedRingerEvent, DOMRingerEvent } from "../common/event";
 
 declare global {
   interface Window {
@@ -55,46 +57,6 @@ interface RecordingFiltersToggle {
   [key: string]: boolean;
 }
 
-interface TimeoutInfo {
-  startTime: number;
-  startIndex: number;
-  events: RingerEventMessage[] | null;
-}
-
-// TODO: cjbaik: extend TraceEvent on Helena trace.ts from this
-interface RingerEventMessage {
-  additional: {
-    [key: string]: any;
-  }
-  data: {
-    [key: string]: any;
-  },
-  deltas?: Delta[];
-  frame: {
-    innerHeight: number;
-    innerWidth: number;
-    outerHeight: number;
-    outerWidth: number;
-    URL: string;
-  },
-  meta: {
-    deltas?: Delta[];
-    dispatchType: string;
-    forceProp?: { [key: string]: boolean }; // TODO: cjbaik: check type?
-    id?: number;
-    nodeName: string;
-    pageEventId: number;
-    recordId?: number;
-    recordState: string;
-  },
-  relatedTarget?: TargetInfo;
-  replayed?: boolean;
-  target: TargetInfo;
-  targetTimeout?: number;
-  timing: {};
-  type: string;
-}
-
 interface RingerSnapshot {
   before?: NodeSnapshot;
   after?: NodeSnapshot;
@@ -106,13 +68,14 @@ interface RingerParams {
   events: { [key: string]: string };
 }
 
-interface RingerMessage {
-  type: string;
-  value: any;
+export interface TimeoutInfo {
+  startTime: number;
+  startIndex: number;
+  events: RingerEvent[] | null;
 }
 
 export class RingerContent {
-  public recording: string;
+  public recording: RecordState;
   public frameId?: number;
   public port: chrome.runtime.Port;
 
@@ -120,7 +83,7 @@ export class RingerContent {
    * Record variables
    */
   public pageEventId: number; // counter to give each event on page a unique id
-  public lastRecordEvent: RingerEventMessage | null;  // last event recorded
+  public lastRecordEvent: DOMRingerEvent | null;  // last event recorded
 
   // snapshot (before and after) for last event
   public lastRecordSnapshot?: RingerSnapshot;
@@ -137,7 +100,7 @@ export class RingerContent {
   /**
    * Replay variables
    */
-  public lastReplayEvent: RingerEventMessage;    // last event replayed
+  public lastReplayEvent: RingerEvent;    // last event replayed
   public lastReplayTarget: HTMLElement;
 
   // snapshot taken before the event is replayed
@@ -150,7 +113,7 @@ export class RingerContent {
   public retryTimeout: number | null; // ID to callback for retrying
 
   // current events we need are trying to dispatch
-  public simulatedEvents: RingerEventMessage[] | null;
+  public simulatedEvents: RingerEvent[] | null;
 
   public simulatedEventsIdx: number;
   public timeoutInfo: TimeoutInfo;
@@ -162,11 +125,11 @@ export class RingerContent {
   public addonStartRecording: (() => void)[];
   public addonPreRecord: ((ev: Event) => boolean)[];
   public addonPostRecord:
-    ((ev: Event, msg: RingerEventMessage) => boolean)[];
-  public addonPreReplay: ((target: Node, ev: Event, msg: RingerEventMessage,
-    events: RingerEventMessage[]) => boolean)[];
-  public addonPreTarget: ((ev: RingerEventMessage) => boolean)[];
-  public addonTarget: ((ev: RingerEventMessage) => Node)[];
+    ((ev: Event, msg: RingerEvent) => boolean)[];
+  public addonPreReplay: ((target: Node, ev: Event, msg: RingerEvent,
+    events: RingerEvent[]) => boolean)[];
+  public addonPreTarget: ((ev: RingerEvent) => boolean)[];
+  public addonTarget: ((ev: RingerEvent) => Node)[];
 
   /**
    * Loggers
@@ -219,7 +182,7 @@ export class RingerContent {
     this.addListenersForRecording();
 
     // Need to check if we are in an iframe
-    const value = {
+    const value: PortInfo = {
       top: (window === window.top),
       URL: document.URL
     };
@@ -291,7 +254,7 @@ export class RingerContent {
    *     replayed.
    * @returns {boolean} True if timeout has occured
    */
-  public checkTimeout(events: RingerEventMessage[], startIndex: number) {
+  public checkTimeout(events: RingerEvent[], startIndex: number) {
     let timeout = window.params.replay.targetTimeout;
     if (events[startIndex] && events[startIndex].targetTimeout){
       timeout = events[startIndex].targetTimeout;
@@ -428,13 +391,13 @@ export class RingerContent {
       return null;
     }
 
-    if (this.simulatedEvents == null ||
+    if (this.simulatedEvents === null ||
         this.simulatedEventsIdx >= this.simulatedEvents.length) {
       return null;
     }
 
-    var eventObject = this.simulatedEvents[this.simulatedEventsIdx];
-    if (eventObject.data.type == eventData.type) {
+    const eventObject = this.simulatedEvents[this.simulatedEventsIdx];
+    if (eventObject.data.type === eventData.type) {
       return eventObject;
     }
 
@@ -600,9 +563,12 @@ export class RingerContent {
     const target = <HTMLElement> eventData.target;
     const nodeName = target.nodeName.toLowerCase();
 
-    const eventMessage: RingerEventMessage = {
+    const eventMessage: DOMRingerEvent = {
       additional: {},
-      data: {},
+      data: {
+        timeStamp: 0,  // will be set below
+        type: ''       // will be set below
+      },
       frame: {
         innerHeight: window.innerHeight,
         innerWidth: window.innerWidth,
@@ -626,7 +592,7 @@ export class RingerContent {
     };
 
     /* deal with all the replay mess that we can't do in simulate */
-    if (this.recording == RecordState.REPLAYING) {
+    if (this.recording === RecordState.REPLAYING) {
       this.replayUpdateDeltas(eventData, eventMessage);
     }
 
@@ -646,8 +612,8 @@ export class RingerContent {
         try {
           const value = eventData[prop];
           const t = typeof(value);
-          if (t == 'number' || t == 'boolean' || t == 'string' || 
-              t == 'undefined') {
+          if (t === 'number' || t === 'boolean' || t === 'string' || 
+              t === 'undefined') {
             eventMessage.data[prop] = value;
           }
         } catch (err) {
@@ -658,8 +624,9 @@ export class RingerContent {
     } else {
       /* only record the default event properties */
       for (const prop in properties) {
-        if (prop in eventData)
+        if (prop in eventData) {
           eventMessage.data[prop] = eventData[prop];
+        }
       }
     }
 
@@ -737,22 +704,21 @@ export class RingerContent {
   /**
    * Fix deltas that did not occur during replay.
    */
-  public replayUpdateDeltas(eventData: Event,
-      eventMessage: RingerEventMessage) {
+  public replayUpdateDeltas(eventData: Event, eventMessage: DOMRingerEvent) {
     const replayEvent = this.getMatchingEvent(eventData);
     if (replayEvent) {
       this.incrementMatchedEventIndex();
         
       replayEvent.replayed = true;
 
-      eventMessage.meta.recordId = replayEvent.meta.id;
+      eventMessage.meta.recordId = replayEvent.meta?.id;
       const target = <HTMLElement> eventData.target;
       this.snapshotReplay(target);
 
       /* make sure the deltas from the last event actually happened */
       if (window.params.compensation.enabled && this.lastReplayEvent) {
-        let recordDeltas = this.lastReplayEvent.meta.deltas;
-        if (typeof recordDeltas == 'undefined') {
+        let recordDeltas = this.lastReplayEvent.meta?.deltas;
+        if (recordDeltas === undefined) {
           this.recordLog.error('no deltas found for last event:',
             this.lastReplayEvent);
           recordDeltas = [];
@@ -841,7 +807,7 @@ export class RingerContent {
    * @param startIndex
    * @param timeout time until retry
    */
-  public setRetry(events: RingerEventMessage[], startIndex: number,
+  public setRetry(events: RecordedRingerEvent[], startIndex: number,
       timeout: number) {
     const self = this;
     this.retryTimeout = setTimeout(() => {
@@ -856,7 +822,7 @@ export class RingerContent {
    * @param startIndex The index into {@link events} which needs to be
    *     replayed.
    */
-  public simulate(events: RingerEventMessage[], startIndex: number) {
+  public simulate(events: RecordedRingerEvent[], startIndex: number) {
     /* since we are simulating new events, lets clear out any retries from
     * the last request */
     this.clearRetry();
@@ -865,13 +831,13 @@ export class RingerContent {
     this.simulatedEventsIdx = 0;
 
     for (let i = startIndex; i < events.length; ++i) {
-      const eventRecord = events[i];
-
       /* Should not replay non-dom events here */
-      if (eventRecord.type !== 'dom') {
+      if (events[i].type !== 'dom') {
         this.replayLog.error('Simulating unknown event type');
-        throw 'Unknown event type';
+        throw new ReferenceError('Unknown event type');
       }
+      
+      const eventRecord = <DOMRingerEvent> events[i];
 
       const eventData = eventRecord.data;
       const eventName = eventData.type;
@@ -911,7 +877,7 @@ export class RingerContent {
       /*
       if (Math.random() < 0.1){
         this.port.postMessage({
-          type: 'nodeFindingWithUserRequiredFeaturesFailure',
+          type: 'findNodeWithoutRequiredFeatures',
           value: null, state: recording});
         setRetry(events, i, params.replay.defaultWait);
         return;
@@ -968,7 +934,7 @@ export class RingerContent {
             //   addressing fails in this case
             // so there will be a special error handler at the mainpanel for this
             this.port.postMessage({
-              type: 'nodeFindingWithUserRequiredFeaturesFailure',
+              type: 'findNodeWithoutRequiredFeatures',
               value: null,
               state: this.recording
             });
@@ -1153,8 +1119,8 @@ export class RingerContent {
         preReplayHandler(target, oEvent, eventRecord, events);
       }
 
-      /* sometimes a tool will want to force us to set a target property before
-      dispatching event */
+      // sometimes a tool will want to force us to set a target property before
+      //   dispatching event
       if (eventRecord.meta.forceProp) {
         for (const key in eventRecord.meta.forceProp){
           target = <Indexable & Node> target;
@@ -1171,7 +1137,7 @@ export class RingerContent {
     * possible some/all events were skipped) */
     this.port.postMessage({
       type: 'ack',
-      value: { type: Ack.SUCCESS },
+      value: { type: ReplayAckStatus.SUCCESS },
       state: this.recording
     });
     this.replayLog.debug('sent ack: ', this.frameId);
@@ -1251,9 +1217,9 @@ export class RingerContent {
    * @param field field of event to update
    * @param value value of event to update
    */
-  public updateExistingEvent(eventMessage: RingerEventMessage, field: string,
+  public updateExistingEvent(eventMessage: DOMRingerEvent, field: string,
       value: string) {
-    var update = {
+    const update = {
       type: 'updateEvent',
       value: {
         pageEventId: eventMessage.meta.pageEventId,

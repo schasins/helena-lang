@@ -8,7 +8,7 @@ import { NodeVariable } from "./variables/node_variable";
 import { HelenaLangObject } from "./lang/helena_lang";
 import { Messages } from "../common/messages";
 import { RunObject } from "./lang/program";
-import { TraceType } from "../common/utils/trace";
+import { Trace } from "../common/utils/trace";
 
 // TODO: cjbaik: is there a way of avoiding using these as globals?
 declare global {
@@ -20,10 +20,8 @@ declare global {
     demoMode: boolean;
     ports: any;     // TODO: ringer ports manager
 
-    // TODO: cjbaik: modularize all these later, remove `window` calls
-    SimpleRecord: SimpleRecordPlaceholder;
+    // TODO: cjbaik: find working modular version of the library?
     JSOG: any;
-    ReplayTraceManipulation: any; // TODO: modularize later
   }
   
   // TODO: factor out these JQuery libraries
@@ -36,13 +34,7 @@ declare global {
     }
   }
 
-  interface HashBasedParallel {
-    on: boolean;
-    numThreads: number;
-    thisThreadIndex: number;
-  }
-
-  // TODO: cjbaik: placeholder objects until we can get the real imports
+  // TODO: move all these interfaces to the appropriate places
   interface ScheduledScriptMessage {
     progId: string;
   }
@@ -53,6 +45,7 @@ declare global {
     name: string;
     serialized_program: string;
   }
+
   interface HelenaBlock extends Blockly.Block {
     helena: HelenaLangObject;
   }
@@ -61,17 +54,10 @@ declare global {
     element: string;
     oldValue: any;
   }
-
-  interface SimpleRecordPlaceholder {
-    replay: Function;
-    startRecording: Function;
-    stopRecording: Function;
-    stopReplay: Function;
-  }
-
+  
   interface ReplayObjectPlaceholder {
     record: {
-      events: TraceType;
+      events: Trace;
     }
   }
 

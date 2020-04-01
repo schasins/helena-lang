@@ -51,7 +51,7 @@ export class LoopStatement extends StatementContainer {
     this.updateChildStatements(bodyStatements);
     this.pageVar = pageVar;
 
-    // TODO: cjbaik: seems strange to me that bodyStatements is not set here
+    this.bodyStatements = [];
 
     // note: for now, can only be set through js console.
     //   todo: eventually should have ui interaction for this.

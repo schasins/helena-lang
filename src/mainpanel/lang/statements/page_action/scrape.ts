@@ -15,7 +15,7 @@ import { GenericRelation } from "../../../relation/generic";
 import { PageVariable } from "../../../variables/page_variable";
 import { HelenaProgram, RunObject } from "../../program";
 import { Revival } from "../../../revival";
-import { TraceType, Trace } from "../../../../common/utils/trace";
+import { Trace, Traces } from "../../../../common/utils/trace";
 import { Environment } from "../../../environment";
 
 export class ScrapeStatement extends PageActionStatement {
@@ -30,7 +30,7 @@ export class ScrapeStatement extends PageActionStatement {
   public scrapeLink?: boolean;    // true if scraping link, not just text
   public xpaths: string[];
 
-  constructor(trace: TraceType) {
+  constructor(trace: Trace) {
     super();
     Revival.addRevivalLabel(this);
     this.setBlocklyLabel("scrape");
@@ -46,8 +46,8 @@ export class ScrapeStatement extends PageActionStatement {
     //   (as for a known column in a relation)
     if (trace.length > 0) {
       // find the record-time constants that we'll turn into parameters
-      const ev = Trace.firstVisibleEvent(trace);
-      this.pageVar = Trace.getDOMInputPageVar(ev);
+      const ev = Traces.firstVisibleEvent(trace);
+      this.pageVar = Traces.getDOMInputPageVar(ev);
       this.node = ev.target.xpath;
       this.pageUrl = ev.frame.topURL;
       // for now, assume the ones we saw at record time are the ones we'll want
@@ -327,7 +327,7 @@ export class ScrapeStatement extends PageActionStatement {
     return args;
   }
 
-  public postReplayProcessing(runObject: RunObject, trace: TraceType,
+  public postReplayProcessing(runObject: RunObject, trace: Trace,
       temporaryStatementIdentifier: number) {
     if (!this.scrapingRelationItem()) {
       // ok, this was a ringer-run scrape statement, so we have to grab the
@@ -338,7 +338,7 @@ export class ScrapeStatement extends PageActionStatement {
       // find the scrape that corresponds to this scrape statement based on
       //   temporarystatementidentifier
       const stmtTraceSegment = trace.filter(
-        (ev) => Trace.getTemporaryStatementIdentifier(ev) ===
+        (ev) => Traces.getTemporaryStatementIdentifier(ev) ===
           temporaryStatementIdentifier);
       const scrapedContentEvent =
         HelenaMainpanel.firstScrapedContentEventInTrace(stmtTraceSegment);

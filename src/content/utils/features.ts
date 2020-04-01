@@ -59,9 +59,6 @@ export namespace Features {
     xpath: string;
   }
 
-  /**
-   * TODO: cjbaik: not sure what a "pulldown" is?
-   */
   export interface PulldownFeatureSet extends GenericFeatureSet {
     type: string;
     index: number;

@@ -7,7 +7,7 @@ import { HelenaConsole } from "../../common/utils/helena_console";
 
 import { HelenaMainpanel, NodeSources } from "../helena_mainpanel";
 
-import { SkipBlock } from "./statements/control_flow/skip_block";
+import { SkipBlock, HashBasedParallel } from "./statements/control_flow/skip_block";
 import { Relation } from "../relation/relation";
 
 import { LoadStatement } from "./statements/browser/load";
@@ -32,13 +32,14 @@ import { ClosePageStatement } from "./statements/browser/close_page";
 import { Revival } from "../revival";
 import { RelationSelector } from "../../content/selector/relation_selector";
 import { NextTypes } from "../../content/selector/next_button_selector";
-import { Trace, TraceType, DisplayTraceEvent, TraceEvent } from "../../common/utils/trace";
+import { Traces, Trace, DisplayTraceEvent } from "../../common/utils/trace";
 import { HelenaConfig } from "../../common/config/config";
 import { MiscUtilities } from "../../common/misc_utilities";
 import { Dataset } from "../dataset";
 import { HelenaServer, RetrieveRelationsResponse } from "../utils/server";
 import { StatementTypes } from "./statements/statement_types";
 import { Environment } from "../environment";
+import { RingerEvents } from "../../ringer-record-replay/common/event";
 
 // TODO: move these somewhere safer
 let scrapingRunsCompleted = 0;
@@ -138,8 +139,7 @@ export class HelenaProgram extends StatementContainer {
 
     Revival.addRevivalLabel(this);
 
-    // TODO: cjbaik: added this because it doesn't seem to be initialized
-    //   anywhere?
+    // cjbaik: added this because it doesn't seem to be initialized anywhere
     this.defaultParamVals = {};
 
     this.statements = statements;
@@ -180,18 +180,19 @@ export class HelenaProgram extends StatementContainer {
     return program;
   }
 
-  public static fromRingerTrace(trace: TraceType, windowId?: number,
+  public static fromRingerTrace(trace: Trace, windowId?: number,
       addOutputStatement?: boolean) {
     let dispTrace = <DisplayTraceEvent[]> trace.filter((event) =>
       // filter out stopped events
-      event.state !== "stopped" &&
+      // cjbaik: I don't think this attribute actually exists
+      // event.state !== "stopped" &&
 
       // strip out events that weren't performed in the recording window
       (event.type === "manualload" || 
        (event.data && event.data.windowId === windowId) ||
        (event.frame && event.frame.windowId === windowId))
     ).map((event) =>
-      Trace.prepareForDisplay(event)
+      Traces.prepareForDisplay(event)
     );
     dispTrace = markUnnecessaryLoads(dispTrace);
     dispTrace = associateNecessaryLoadsWithIDsAndParameterizePages(dispTrace);
@@ -540,17 +541,17 @@ export class HelenaProgram extends StatementContainer {
 
   // just for replaying the straight-line recording, primarily for debugging
   public replayOriginal() {
-    let trace: TraceType = [];
+    let trace: Trace = [];
     for (const stmt of this.statements) {
       if (stmt instanceof PageActionStatement) {
         trace = trace.concat(stmt.cleanTrace);
       }
     }
     for (const ev of trace) {
-      Trace.clearDisplayInfo(<DisplayTraceEvent> ev);
+      Traces.clearDisplayInfo(<DisplayTraceEvent> ev);
     }
 
-    window.SimpleRecord.replay(trace, null, () => {
+    window.ringerMainpanel.replayScript(trace, null, () => {
       HelenaConsole.log("Done replaying.");
     });
   }
@@ -578,7 +579,7 @@ export class HelenaProgram extends StatementContainer {
   }
   */
 
-  private doTheReplay(runnableTrace: TraceType, config: object,
+  private doTheReplay(runnableTrace: Trace, config: object,
       basicBlockStmts: RingerStatement[], runObject: RunObject,
       bodyStatements: HelenaLangObject[], nextBlockStartIndex: number,
       callback: Function, options: RunOptions) {
@@ -588,14 +589,14 @@ export class HelenaProgram extends StatementContainer {
     if (runnableTrace.length > 0) {
       runnableTrace[0].timing.waitTime = 0;
     }
-    window.SimpleRecord.replay(runnableTrace, config,
+    window.ringerMainpanel.replayScript(runnableTrace, config,
         (replayObject: ReplayObjectPlaceholder) => {
       // use what we've observed in the replay to update page variables
       HelenaConsole.namedLog("rbb", "replayObject", replayObject);
 
       // based on the replay object, we need to update any pagevars involved in
       //   the trace
-      let trace: TraceType = [];
+      let trace: Trace = [];
       for (const stmt of basicBlockStmts) {
         // want the trace with display data, not the clean trace
         trace = trace.concat(stmt.trace);
@@ -622,9 +623,8 @@ export class HelenaProgram extends StatementContainer {
     },
       // ok, we also want some error handling functions
     {
-      nodeFindingWithUserRequiredFeaturesFailure:
-        (replayObject: ReplayObjectPlaceholder,
-         ringerContinuation: Function) => {
+      findNodeWithoutRequiredFeatures: (replayObject: ReplayObjectPlaceholder,
+         ringerContinuation: Function | null) => {
         // todo: note that continuation doesn't actually have a continuation yet
         //   because of Ringer-level implementation if you decide to start using
         //   it, you'll have to go back and fix that.
@@ -663,7 +663,7 @@ export class HelenaProgram extends StatementContainer {
           callback();
         };
 
-        let trace: TraceType = [];
+        let trace: Trace = [];
         for (const stmt of basicBlockStmts) {
           // want the trace with display data, not the clean trace
           trace = trace.concat(stmt.trace);
@@ -671,7 +671,7 @@ export class HelenaProgram extends StatementContainer {
         updatePageVars(trace, replayObject.record.events, allPageVarsOk);
       },
       portFailure: (replayObject: ReplayObjectPlaceholder,
-          ringerContinuation: Function) => {
+          ringerContinuation: Function | null) => {
         // for now I haven't seen enough of these failures in person to know a
         //   good way to fix them
         // for now just treat them like a node finding failure and continue
@@ -699,7 +699,7 @@ export class HelenaProgram extends StatementContainer {
           callback();
         };
 
-        let trace: TraceType = [];
+        let trace: Trace = [];
         for (const stmt of basicBlockStmts) {
           // want the trace with display data, not the clean trace
           trace = trace.concat(stmt.trace);
@@ -906,8 +906,8 @@ export class HelenaProgram extends StatementContainer {
         
         // time to run end-of-loop-cleanup on the various bodyStatements
         loopStmt.traverse((stmt: HelenaLangObject) => {
-          // TODO: cjbaik: not sure if SkipBlocks actually pass thru here but
-          //   for now safer to assume so
+          // cjbaik: not sure if SkipBlocks actually pass thru here but safer to
+          //   assume so
           if (stmt instanceof LoopStatement || stmt instanceof SkipBlock) {
             stmt.endOfLoopCleanup(continuation);
           }
@@ -1207,7 +1207,7 @@ export class HelenaProgram extends StatementContainer {
 
     // todo: is current (new) stopReplay enough to make sure that when we try to
     //   run the script again, it will start up correctly?
-    window.SimpleRecord.stopReplay();
+    window.ringerMainpanel.stopReplay();
   }
 
   public clearRunningState() {
@@ -1375,7 +1375,7 @@ export class HelenaProgram extends StatementContainer {
 
           // this is one of the points to which we'll have to replay
           const statementSlice = self.statements.slice(startIndex, i + 1);
-          let trace: TraceType = [];
+          let trace: Trace = [];
           for (const stmt of statementSlice) {
             trace = trace.concat((<OutputPageVarStatement> stmt).cleanTrace);
           }
@@ -1394,7 +1394,7 @@ export class HelenaProgram extends StatementContainer {
           // todo, if we fail to find it with this approach, start running
           //   additional statements (seomtimes the relation is only displayed
           //   after user clicks on an element, that kind of thing)
-          window.SimpleRecord.replay(trace, {
+          window.ringerMainpanel.replayScript(trace, {
             tabMapping: tabMapping,
             targetWindowId: windowId
           }, (replayObj: ReplayObjectPlaceholder) => {
@@ -1403,12 +1403,12 @@ export class HelenaProgram extends StatementContainer {
 
             // what's the tab that now has the target page?
             const replayTrace = replayObj.record.events;
-            const lastCompletedEvent = Trace.lastTopLevelCompletedEvent(
+            const lastCompletedEvent = Traces.lastTopLevelCompletedEvent(
               replayTrace);
-            const lastCompletedEventTabId = Trace.tabId(lastCompletedEvent);
+            const lastCompletedEventTabId = Traces.tabId(lastCompletedEvent);
             // what tabs did we make in the interaction in general?
             tabsToCloseAfter = tabsToCloseAfter.concat(
-              Trace.tabsInTrace(replayTrace));
+              Traces.tabsInTrace(replayTrace));
             // also sometimes it's important that we bring this tab (on which
             //   we're about to do relation finding)
             // to be focused, so that it will get loaded and we'll be able to
@@ -1943,21 +1943,21 @@ function removeStatementAndFollowing(stmts: HelenaLangObject[],
   return null;
 }
 
-function alignCompletedEvents(recordTrace: TraceType,
-    replayTrace: TraceType) {
+function alignCompletedEvents(recordTrace: Trace,
+    replayTrace: Trace) {
   // we should see corresponding 'completed' events in the traces
   // todo: should we remove http?
   // now only doing this for top-level completed events.  will see if this is
   //   sufficient
   const recCompleted = recordTrace.filter((ev) =>
-    Trace.completedEventType(ev) &&
+    RingerEvents.isComplete(ev) &&
     !ev.data.url.includes(HelenaConfig.helenaServerUrl)
   );
 
   // have to check for kaofang presence, because otherwise user can screw it up
   //   by downloading data in the middle or something like that
   const repCompleted = replayTrace.filter((ev) =>
-    Trace.completedEventType(ev) &&
+    RingerEvents.isComplete(ev) &&
     !ev.data.url.indexOf(HelenaConfig.helenaServerUrl)
   );
 
@@ -1980,8 +1980,8 @@ function alignCompletedEvents(recordTrace: TraceType,
   ];
 }
 
-function updatePageVars(recordTrace: TraceType,
-    replayTrace: TraceType, continuation: Function) {
+function updatePageVars(recordTrace: Trace,
+    replayTrace: Trace, continuation: Function) {
   // HelenaConsole.log("updatePageVars", recordTimeTrace, replayTimeTrace);
   const alignedTraces = alignCompletedEvents(recordTrace, replayTrace);
   const alignedRecord = alignedTraces[0];
@@ -1990,12 +1990,12 @@ function updatePageVars(recordTrace: TraceType,
   updatePageVarsHelper(alignedRecord, alignedReplay, 0, continuation);
 }
 
-function updatePageVarsHelper(recordTrace: TraceType,
-    replayTrace: TraceType, index: number, continuation: Function) {
+function updatePageVarsHelper(recordTrace: Trace,
+    replayTrace: Trace, index: number, continuation: Function) {
   if (index >= recordTrace.length) {
     continuation();
   } else {
-    const pageVar = Trace.getLoadOutputPageVar(
+    const pageVar = Traces.getLoadOutputPageVar(
       <DisplayTraceEvent> recordTrace[index]);
     if (pageVar === undefined) {
       updatePageVarsHelper(recordTrace, replayTrace, index + 1, continuation);
@@ -2008,8 +2008,8 @@ function updatePageVarsHelper(recordTrace: TraceType,
   }
 }
 
-function tabMappingFromTraces(recordTrace: TraceType,
-    replayTrace: TraceType) {
+function tabMappingFromTraces(recordTrace: Trace,
+    replayTrace: Trace) {
   const alignedTraces = alignCompletedEvents(recordTrace, replayTrace);
   const alignedRecord = alignedTraces[0];
   const alignedReplay = alignedTraces[1];
@@ -2062,7 +2062,7 @@ function selectBasicBlockStatements(bodyStmts: HelenaLangObject[],
 }
 
 function makeTraceFromStatements(stmts: RingerStatement[]) {
-  let trace: TraceType = [];
+  let trace: Trace = [];
   
   // label each trace item with the basicBlock statement being used
   let withinScrapeSection = false;
@@ -2092,7 +2092,7 @@ function makeTraceFromStatements(stmts: RingerStatement[]) {
     }
 
     for (const ev of cleanTrace) {
-      Trace.setTemporaryStatementIdentifier(ev, i);
+      Traces.setTemporaryStatementIdentifier(ev, i);
     }
 
     // ok, now let's deal with speeding up the trace based on knowing that
@@ -2123,7 +2123,7 @@ function makeTraceFromStatements(stmts: RingerStatement[]) {
           if (ev.data.metaKey) {
             ev.data.ctrlKeyOnLinux = true;
           }
-          Trace.setTemporaryStatementIdentifier(ev, i);
+          Traces.setTemporaryStatementIdentifier(ev, i);
         }
       }
     } else if (osString.indexOf("Mac") > -1) {
@@ -2135,7 +2135,7 @@ function makeTraceFromStatements(stmts: RingerStatement[]) {
           if (ev.data.ctrlKey) {
             ev.data.metaKeyOnMac = true;
           }
-          Trace.setTemporaryStatementIdentifier(ev, i);
+          Traces.setTemporaryStatementIdentifier(ev, i);
         }
       }
     }
@@ -2335,7 +2335,7 @@ function paramName(stmtIndex: number, paramType: string) {
  * @param trace 
  * @param stmts 
  */
-function pbv(trace: TraceType, stmts: RingerStatement[]) {
+function pbv(trace: Trace, stmts: RingerStatement[]) {
   const pTrace = new ParameterizedTrace(trace);
 
   for (let i = 0; i < stmts.length; i++) {
@@ -2821,7 +2821,7 @@ function removeLoopsForRelation(bodyStmts: HelenaLangObject[],
  */
 function markUnnecessaryLoads(trace: DisplayTraceEvent[]) {
   const domEvents =  trace.filter((ev) => ev.type === "dom");
-  const domEventURLs = [...new Set(domEvents.map((ev) => Trace.getDOMURL(ev)))];
+  const domEventURLs = [...new Set(domEvents.map((ev) => Traces.getDOMURL(ev)))];
 
   // ok, now first let's mark all the loads that are top-level and used, so we
   //   need them for introducing page variables (even if they'll ultimately be
@@ -2846,8 +2846,8 @@ function markUnnecessaryLoads(trace: DisplayTraceEvent[]) {
   } = {};
   for (let i = 0; i < trace.length; i++){
     const ev = trace[i];
-    if (Trace.completedEventType(ev)) {
-      const url = trimSlashes(Trace.getLoadURL(ev));
+    if (RingerEvents.isComplete(ev)) {
+      const url = trimSlashes(Traces.getLoadURL(ev));
       if (url in urlsToCompletedEvents){
         urlsToCompletedEvents[url].push([i, ev]);
       } else {
@@ -2880,11 +2880,11 @@ function markUnnecessaryLoads(trace: DisplayTraceEvent[]) {
       }
       // go ahead and mark the closest completed event as the one that's
       //   visible/must be replayed
-      Trace.setVisible(preferredCe, true);
+      Traces.setVisible(preferredCe, true);
 
       // go ahead and mark the closest completed event as the one that's
       //   visible/must be replayed
-      Trace.setManual(preferredCe, true);
+      Traces.setManual(preferredCe, true);
     }
   }
   return trace;
@@ -2910,7 +2910,7 @@ function associateNecessaryLoadsWithIDsAndParameterizePages(trace:
   } = {};
 
   const portsToPageVars: {
-    [key: number]: PageVariable;
+    [key: string]: PageVariable;
   } = {};
 
   // people do redirects!  to track it, let's track the url that was actually
@@ -2933,7 +2933,7 @@ function associateNecessaryLoadsWithIDsAndParameterizePages(trace:
     // any time we complete making a new page in the top level, we want to intro
     //   a new pagevar
     if (newPageVar) {
-      const url = Trace.getLoadURL(ev);
+      const url = Traces.getLoadURL(ev);
       if (url === lastURL) {
         // sometimes the same URL appears to load twice in a single logical load
         //   if we see the same url twice in a row, just ignore the second
@@ -2941,10 +2941,10 @@ function associateNecessaryLoadsWithIDsAndParameterizePages(trace:
         continue;
       }
       const p = new PageVariable("page" + idCounter, url);
-      Trace.setLoadOutputPageVar(ev, p);
+      Traces.setLoadOutputPageVar(ev, p);
       urlsToMostRecentPageVar[url] = p;
       idCounter += 1;
-      const tab = Trace.getTabId(ev);
+      const tab = Traces.getTabId(ev);
 
       // this is the complete-time urls, so go ahead and put it in there
       tabToCanonicalUrl[tab] = url;
@@ -2954,24 +2954,24 @@ function associateNecessaryLoadsWithIDsAndParameterizePages(trace:
       //   we'll take away any that shouldn't be
       // but for now it means just that it's top-level and thus needs to be
       //   taken care of
-      Trace.setVisible(ev, true);
+      Traces.setVisible(ev, true);
       lastURL = url;
     } else if (ev.type === "webnavigation") {
       // fortunately webnavigation events look at redirects, so we can put in that a redirect happend in a given tab
       // so that we can use the tab to get the canonical/complete-time url, then use that to get the relevant page var
-      const url = Trace.getLoadURL(ev);
+      const url = Traces.getLoadURL(ev);
       if (!(url in urlToTab)){
-        urlToTab[url] = Trace.getTabId(ev);
+        urlToTab[url] = Traces.getTabId(ev);
       }
     } else if (ev.type === "dom") {
-      const port = Trace.getDOMPort(ev);
+      const port = Traces.getDOMPort(ev);
       let pageVar = null;
       if (port in portsToPageVars) {
         // we already know the port, and that's a great way to do the mapping
         pageVar = portsToPageVars[port];
       } else {
         // ok, have to look it up by url
-        const url = Trace.getDOMURL(ev);
+        const url = Traces.getDOMURL(ev);
         let correctUrl = null;
         if (url in urlsToMostRecentPageVar) {
           // great, this dom event already uses the canonical complete-time url
@@ -2993,17 +2993,18 @@ function associateNecessaryLoadsWithIDsAndParameterizePages(trace:
         //   another pagevar later becomes associated with the url
         portsToPageVars[port] = pageVar;
       }
-      Trace.setDOMInputPageVar(ev, pageVar); 
+      Traces.setDOMInputPageVar(ev, pageVar); 
       pageVar.setRecordTimeFrameData(ev.frame);
     }
   }
   return trace;
 }
 
-function newTopLevelUrlLoadedEvent(ev: TraceEvent, lastURL: string | null) {
+function newTopLevelUrlLoadedEvent(ev: DisplayTraceEvent,
+    lastURL: string | null) {
   // any time we complete making a new page in the top level, we want to intro
   //   a new pagevar
-  return Trace.completedEventType(ev);
+  return RingerEvents.isComplete(ev);
 }
 
 
@@ -3012,18 +3013,18 @@ function addCausalLinks(trace: DisplayTraceEvent[]) {
   for (const ev of trace) {
     if (ev.type === "dom"){
       lastDOMEvent = ev;
-      Trace.setDOMOutputLoadEvents(ev, []);
-    } else if (lastDOMEvent !== null && Trace.completedEventType(ev) &&
-      Trace.getVisible(ev) && !Trace.getManual(ev)) {
+      Traces.setDOMOutputLoadEvents(ev, []);
+    } else if (lastDOMEvent !== null && RingerEvents.isComplete(ev) &&
+      Traces.getVisible(ev) && !Traces.getManual(ev)) {
       // events should be invisible if they're not top-level or if they're
       //   caused by prior dom events instead of a url-bar load
       // if they're visible right now but not manual, that means they're caused
       //   by a dom event, so let's add the causal link and remove their
       //   visibility
-      Trace.setLoadCausedBy(ev, lastDOMEvent);
-      Trace.addDOMOutputLoadEvent(lastDOMEvent, ev);
+      Traces.setLoadCausedBy(ev, lastDOMEvent);
+      Traces.addDOMOutputLoadEvent(lastDOMEvent, ev);
       // now that we have a cause for the load event, we can make it invisible
-      Trace.setVisible(ev, false);
+      Traces.setVisible(ev, false);
     }
   }
   return trace;
@@ -3032,7 +3033,7 @@ function addCausalLinks(trace: DisplayTraceEvent[]) {
 function removeEventsBeforeFirstVisibleLoad(trace: DisplayTraceEvent[]) {
   for (let i = 0; i < trace.length; i++){
     const ev = trace[i];
-    if (Trace.getVisible(ev)) {
+    if (Traces.getVisible(ev)) {
       // we've found the first visible event
       return trace.slice(i, trace.length);
     }
@@ -3048,15 +3049,15 @@ function segment(trace: DisplayTraceEvent[]) {
   let currentSegmentVisibleEvent = null;
   for (const ev of trace) {
     if (allowedInSameSegment(currentSegmentVisibleEvent, ev)) {
-      if (Trace.statementType(ev) !== null) {
-        HelenaConsole.log("stype(ev)", ev, Trace.statementType(ev),
+      if (Traces.statementType(ev) !== null) {
+        HelenaConsole.log("stype(ev)", ev, Traces.statementType(ev),
           currentSegmentVisibleEvent);
       }
       currentSegment.push(ev);
 
       // only relevant to first segment
       if (currentSegmentVisibleEvent === null &&
-          Trace.statementType(ev) !== null) {
+          Traces.statementType(ev) !== null) {
         currentSegmentVisibleEvent = ev;
       }
     } else {
@@ -3096,8 +3097,8 @@ function segment(trace: DisplayTraceEvent[]) {
   if (e1 === null || e2 === null) {
     return true;
   }
-  const e1type = Trace.statementType(e1);
-  const e2type = Trace.statementType(e2);
+  const e1type = Traces.statementType(e1);
+  const e2type = Traces.statementType(e2);
   HelenaConsole.log("allowedInSameSegment?", e1type, e2type, e1, e2);
   // if either is invisible, can be together, because an invisible event allowed
   //   anywhere
@@ -3112,8 +3113,8 @@ function segment(trace: DisplayTraceEvent[]) {
   // now we know they're both visible and both dom events
   // if they're both visible, but have the same type and called on the same node, they're allowed together
   if (e1type === e2type) {
-    const e1page = Trace.getDOMInputPageVar(e1);
-    const e2page = Trace.getDOMInputPageVar(e2);
+    const e1page = Traces.getDOMInputPageVar(e1);
+    const e2page = Traces.getDOMInputPageVar(e2);
     if (e1page === e2page) {
       const e1node = e1.target.xpath;
       const e2node = e2.target.xpath;
@@ -3140,7 +3141,7 @@ function segmentedTraceToProgram(segmentedTrace: DisplayTraceEvent[][],
     let sType = null;
     for (let i = 0; i < seg.length; i++){
       const ev = seg[i];
-      const st = Trace.statementType(ev);
+      const st = Traces.statementType(ev);
       if (st !== null){
         sType = st;
         if (sType === StatementTypes.LOAD){

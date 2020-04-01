@@ -3,7 +3,7 @@
 import { HelenaConsole } from "../../common/utils/helena_console";
 import { MainpanelNode } from "../../common/mainpanel_node";
 import { Revival } from "../revival";
-import { FrameData } from "../../common/utils/trace";
+import { RingerFrameInfo } from "../../ringer-record-replay/common/event";
 
 // note that first arg should be SortedArray not just sorted array
 /*function outlier(sortedList, potentialItem) {
@@ -61,7 +61,7 @@ export class PageVariable implements Revival.Revivable {
 
   public tabId?: number;
 
-  public recordTimeFrameData: FrameData;
+  public recordTimeFrameData: RingerFrameInfo;
 
   constructor(name: string, recordTimeUrl: string) {
     Revival.addRevivalLabel(this);
@@ -73,7 +73,7 @@ export class PageVariable implements Revival.Revivable {
     // this.pageStats = freshPageStats();
   }
   
-  public setRecordTimeFrameData(frameData: FrameData) {
+  public setRecordTimeFrameData(frameData: RingerFrameInfo) {
     this.recordTimeFrameData = frameData;
   }
 

@@ -103,7 +103,7 @@ export class HelenaUIBase {
         // this might have changed our program.  let's go ahead and update it
         self.blocklyToHelena(self.helenaProg);
       }
-      /* TODO: cjbaik: to the best of my knowledge, "newblocklyblockdraggedin"
+      /* cjbaik: to the best of my knowledge, "newblocklyblockdraggedin"
                doens't exist in the codebase
       if (self.newBlocklyBlockDraggedIn && event.type === window.Blockly.Events.CREATE){
         let createdBlock = self.workspace.getBlockById(event.blockId);
@@ -188,7 +188,7 @@ export class HelenaUIBase {
     }
   }
 
-  /* TODO: cjbaik: seems not to be used
+  /* cjbaik: seems not to be used
   private quickSizeEstimate(ls) {
     let acc = 0;
     acc += ls.length;

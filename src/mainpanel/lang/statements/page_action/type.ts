@@ -16,7 +16,7 @@ import { GenericRelation } from "../../../relation/generic";
 import { PageVariable } from "../../../variables/page_variable";
 import { RunObject, RunOptions, HelenaProgram } from "../../program";
 import { Revival } from "../../../revival";
-import { TraceType, Trace, DisplayTraceEvent } from "../../../../common/utils/trace";
+import { Trace, Traces, DisplayTraceEvent } from "../../../../common/utils/trace";
 import { Environment } from "../../../environment";
 
 /**
@@ -25,7 +25,7 @@ import { Environment } from "../../../environment";
 export class TypeStatement extends PageActionStatement {
   public currentTypedString: HelenaString | Concatenate | NodeVariableUse | null;
   public keyCodes: number[];
-  public keyEvents: TraceType;
+  public keyEvents: Trace;
   public onlyKeydowns: boolean;
   public onlyKeyups: boolean;
   public outputPageVars?: PageVariable[];
@@ -34,7 +34,7 @@ export class TypeStatement extends PageActionStatement {
   public typedStringLower?: string;
   public typedStringParameterizationRelation?: GenericRelation;
 
-  constructor(trace: TraceType) {
+  constructor(trace: Trace) {
     super();
     Revival.addRevivalLabel(this);
     this.setBlocklyLabel("type");
@@ -42,13 +42,13 @@ export class TypeStatement extends PageActionStatement {
     this.cleanTrace = HelenaMainpanel.cleanTrace(trace);
 
     // find the record-time constants that we'll turn into parameters
-    const ev = Trace.firstVisibleEvent(trace);
-    this.pageVar = Trace.getDOMInputPageVar(ev);
+    const ev = Traces.firstVisibleEvent(trace);
+    this.pageVar = Traces.getDOMInputPageVar(ev);
     this.node = ev.target.xpath;
     this.pageUrl = ev.frame.topURL;
     // var acceptableEventTypes = HelenaMainpanel.statementToEventMapping.keyboard;
     const textEntryEvents = trace.filter((ev) => {
-      const sType = Trace.statementType(ev);
+      const sType = Traces.statementType(ev);
       return (sType === StatementTypes.KEYBOARD);
               // || sType === StatementTypes.KEYUP);
     });
@@ -66,8 +66,8 @@ export class TypeStatement extends PageActionStatement {
     const domEvents = trace.filter((ev) => ev.type === "dom");
 
     const outputLoads = domEvents.reduce(
-      (acc: TraceType, ev) => {
-        const loadEvs = Trace.getDOMOutputLoadEvents(<DisplayTraceEvent> ev);
+      (acc: Trace, ev) => {
+        const loadEvs = Traces.getDOMOutputLoadEvents(<DisplayTraceEvent> ev);
         if (!loadEvs) {
           throw new ReferenceError("DOM output load events undefined");
         }
@@ -76,7 +76,7 @@ export class TypeStatement extends PageActionStatement {
       }, []);
 
     this.outputPageVars = outputLoads.map(
-      (ev) => Trace.getLoadOutputPageVar(<DisplayTraceEvent> ev)
+      (ev) => Traces.getLoadOutputPageVar(<DisplayTraceEvent> ev)
     );
 
     // for now, assume the ones we saw at record time are the ones we'll want at
@@ -116,11 +116,8 @@ export class TypeStatement extends PageActionStatement {
   }
 
   public prepareToRun() {
-    // TODO: cjbaik: is there a case where currentNode is not NodeVariable?
-    if (this.currentNode instanceof NodeVariable) {
-      const feats = this.currentNode.getRequiredFeatures();
-      this.requireFeatures(feats);
-    }
+    const feats = this.currentNode.getRequiredFeatures();
+    this.requireFeatures(feats);
   }
 
   public stringRep() {

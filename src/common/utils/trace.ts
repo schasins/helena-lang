@@ -1,130 +1,65 @@
-import { MainpanelNode } from "../mainpanel_node";
 import { HelenaConsole } from "./helena_console";
 import { PageVariable } from "../../mainpanel/variables/page_variable";
 import { StatementTypes } from "../../mainpanel/lang/statements/statement_types";
-import { Delta } from "../../ringer-record-replay/content/snapshot";
+import { RingerEvents,
+  RecordedRingerEvent,
+  DOMRingerEvent} from "../../ringer-record-replay/common/event";
 
-export type TraceType = TraceEvent[];
+export type Trace = RecordedRingerEvent[];
 
-interface DisplayInfo {
-  causedBy?: TraceEvent;
-  causesLoads?: TraceEvent[];
+interface EventDisplayInfo {
+  causedBy?: RecordedRingerEvent;
+  causesLoads?: RecordedRingerEvent[];
   inputPageVar?: PageVariable;
   manual?: boolean;
   pageVar?: PageVariable;
   visible?: boolean;
 }
 
-interface DOMEventInfo {
-  ___additionalData___: {
-    temporaryStatementIdentifier: number;
-  };
-  scrape: MainpanelNode.Interface;
-  visualization: string;
-}
-
-export interface FrameData {
-  iframeIndex: number;
-  port: number;
-  tab: number;
-  topURL: string;
-  URL: string;
-  windowId: number;
-}
-
-export interface TraceEvent {
-  additional?: DOMEventInfo;
-  additionalDataTmp?: {
-    display?: DisplayInfo;
-  }
-  data: {
-    altKey: boolean;
-    ctrlKey: boolean;
-    ctrlKeyOnLinux: boolean;
-    frameId: number;
-    keyCode?: number;
-    shiftKey: boolean;
-    metaKey: boolean;
-    metaKeyOnMac: boolean;
-    parentFrameId: number;
-    tabId: number;
-    type: string;
-    url: string;
-    windowId: number;
-  };
-  forceReplay: boolean;
-  frame: FrameData;
-  mayBeSkippable?: boolean;
-  meta: {
-    deltas: Delta[];
-  };
-  state: string;
-  target: {
-    snapshot: MainpanelNode.Interface;
-    xpath: string;
-  };
-  targetTimeout: number;
-  timing: {
-    ignoreWait: boolean;
-    waitTime: number;
-  };
-  type: string;
-}
-
-export interface DOMTraceEvent extends TraceEvent {
-  additional: DOMEventInfo;
-}
-
-export interface DisplayTraceEvent extends DOMTraceEvent {
+export interface DisplayTraceEvent extends RecordedRingerEvent {
   additionalDataTmp: {
-    display: DisplayInfo;
+    display: EventDisplayInfo;
   }
 }
 
 /**
  * Handling a trace (i.e. a list of Ringer events).
  */
-export namespace Trace {
+export namespace Traces {
   const statementToEventMapping = {
     mouse: ['click','dblclick','mousedown','mousemove','mouseout','mouseover',
       'mouseup'],
     keyboard: ['keydown','keyup','keypress','textinput','paste','input'],
     dontcare: ['blur']
-  };
-
-  export function completedEventType(ev: TraceEvent) {
-    return (ev.type === "completed" && ev.data.type === "main_frame") ||
-      (ev.type === "webnavigation" && ev.data.type === "onCompleted" &&
-       ev.data.parentFrameId === -1);
   }
 
-  export function lastTopLevelCompletedEvent(trace: TraceType) {
+  export function lastTopLevelCompletedEvent(trace: Trace) {
     for (let i = trace.length - 1; i >= 0; i--){
       const ev = trace[i];
-      if (completedEventType(ev)) {
+      if (RingerEvents.isComplete(ev)) {
         return ev;
       }
     }
     throw new ReferenceError("No top level completed event!");
   }
 
-  export function tabId(ev: TraceEvent) {
+  export function tabId(ev: RecordedRingerEvent) {
     return ev.data.tabId;
   }
 
-  export function frameId(ev: TraceEvent) {
+  export function frameId(ev: RecordedRingerEvent) {
     return ev.data.frameId;
   }
 
-  export function lastTopLevelCompletedEventTabId(trace: TraceType) {
+  export function lastTopLevelCompletedEventTabId(trace: Trace) {
     const ev = lastTopLevelCompletedEvent(trace);
     return ev?.data.tabId;
   }
 
-  export function tabsInTrace(trace: TraceType) {
+  export function tabsInTrace(trace: Trace) {
     const tabs: number[] = [];
     for (const ev of trace) {
-      if (completedEventType(ev)){
+      if (RingerEvents.isComplete(ev)){
         if (!tabs.includes(ev.data.tabId)) {
           tabs.push(ev.data.tabId);
         }
@@ -133,29 +68,34 @@ export namespace Trace {
     return tabs;
   }
 
-  export function prepareForDisplay(ev: TraceEvent) {
-    // this is where this tool chooses to store temporary data that we'll
-    //   actually clear out before sending it back to r+r
-    if (!ev.additionalDataTmp) {
-      ev.additionalDataTmp = {};
-    } 
-    ev.additionalDataTmp.display = {};
-    return <DisplayTraceEvent> ev;
+  /**
+   * Add display information placeholder to event.
+   * @param ev 
+   */
+  export function prepareForDisplay(ev: RecordedRingerEvent) {
+    let dispEv: DisplayTraceEvent = {
+      ...ev,
+      additionalDataTmp: {
+        display: {}
+      }
+    };
+    return dispEv;
   }
 
-  export function getLoadURL(ev: TraceEvent) {
+  export function getLoadURL(ev: RecordedRingerEvent) {
     const url = ev.data.url;
     // to canonicalize urls that'd be treated the same, remove slash at end
     return strip(url, "/");
   }
 
-  export function getDOMURL(ev: TraceEvent) {
+  export function getDOMURL(ev: RecordedRingerEvent) {
     const url = ev.frame.topURL;
+
     // to canonicalize urls that'd be treated the same, remove slash at end
     return strip(url, "/");
   }
 
-  export function getTabId(ev: TraceEvent) {
+  export function getTabId(ev: RecordedRingerEvent) {
     if (ev.type === "dom") {
       HelenaConsole.warn("yo, this function isn't for dom events");
     }
@@ -163,11 +103,11 @@ export namespace Trace {
     return tabId;
   }
 
-  export function getDOMPort(ev: TraceEvent) {
+  export function getDOMPort(ev: RecordedRingerEvent) {
     return ev.frame.port;
   }
 
-  export function getVisible(ev: TraceEvent) {
+  export function getVisible(ev: RecordedRingerEvent) {
     return ev.additionalDataTmp?.display?.visible;
   }
 
@@ -212,13 +152,13 @@ export namespace Trace {
   }
 
   export function setDOMOutputLoadEvents(ev: DisplayTraceEvent,
-      val: TraceEvent[]) {
+      val: RecordedRingerEvent[]) {
     if (ev.type !== "dom") { return; }
     ev.additionalDataTmp.display.causesLoads = val;
   }
 
   export function addDOMOutputLoadEvent(ev: DisplayTraceEvent,
-      val: TraceEvent) {
+      val: RecordedRingerEvent) {
     if (!ev.additionalDataTmp.display.causesLoads) {
       ev.additionalDataTmp.display.causesLoads = [];
     }
@@ -229,7 +169,7 @@ export namespace Trace {
     return ev.additionalDataTmp.display.causedBy;
   }
 
-  export function setLoadCausedBy(ev: DisplayTraceEvent, val: TraceEvent) {
+  export function setLoadCausedBy(ev: DisplayTraceEvent, val: RecordedRingerEvent) {
     ev.additionalDataTmp.display.causedBy = val;
   }
 
@@ -242,11 +182,11 @@ export namespace Trace {
   }
 
   export function setDisplayInfo(ev: DisplayTraceEvent,
-      displayInfo: DisplayInfo) {
+      displayInfo: EventDisplayInfo) {
     ev.additionalDataTmp.display = displayInfo;
   }
 
-  export function setTemporaryStatementIdentifier(ev: TraceEvent, id: number) {
+  export function setTemporaryStatementIdentifier(ev: RecordedRingerEvent, id: number) {
     if (!ev.additional) {
       // not a dom event, can't copy this stuff around
       return;
@@ -259,7 +199,7 @@ export namespace Trace {
     ev.additional.___additionalData___.temporaryStatementIdentifier = id;
   }
 
-  export function getTemporaryStatementIdentifier(ev: TraceEvent) {
+  export function getTemporaryStatementIdentifier(ev: RecordedRingerEvent) {
     if (!ev.additional) {
       // not a dom event, can't copy this stuff around
       return null;
@@ -267,24 +207,25 @@ export namespace Trace {
     return ev.additional.___additionalData___.temporaryStatementIdentifier;
   }
 
-  export function statementType(ev: TraceEvent) {
+  export function statementType(ev: RecordedRingerEvent) {
     if (ev.type === "completed" || ev.type === "manualload" ||
         ev.type === "webnavigation") {
-      if (!Trace.getVisible(ev)) {
+      if (!Traces.getVisible(ev)) {
         return null; // invisible, so we don't care where this goes
       }
       return StatementTypes.LOAD;
     } else if (ev.type === "dom") {
-      if (statementToEventMapping.dontcare.indexOf(ev.data.type) > -1) {
+      const domEv = <DOMRingerEvent & RecordedRingerEvent> ev;
+      if (statementToEventMapping.dontcare.includes(domEv.data.type)) {
         return null; // who cares where blur events go
       }
-      let lowerXPath = ev.target.xpath.toLowerCase();
+      let lowerXPath = domEv.target.xpath.toLowerCase();
       if (lowerXPath.indexOf("/select[") > -1) {
         // this was some kind of interaction with a pulldown, so we have
         //   something special for this
         return StatementTypes.PULLDOWNINTERACTION;
       } else if (statementToEventMapping.mouse.includes(ev.data.type)) {
-        const domEv = <DOMTraceEvent> ev;
+        const domEv = <DOMRingerEvent> ev;
         if (domEv.additional.scrape) {
           if (domEv.additional.scrape.linkScraping) {
             return StatementTypes.SCRAPELINK;
@@ -309,7 +250,7 @@ export namespace Trace {
     return null;
   }
 
-  export function firstVisibleEvent(trace: TraceType) {
+  export function firstVisibleEvent(trace: Trace) {
     for (const ev of trace) {
       const st = statementType(ev);
       if (st !== null) {

@@ -26,8 +26,8 @@ export namespace XPath {
     let xPathLists = elements.map((node) =>
       toXPathNodeList(<string> fromNode(node)));
     let firstXPathList = xPathLists[0];
-    // TODO: cjbaik eliminate this `var` call; but don't want to mess with logic
-    for (var i = 0; i < firstXPathList.length; i++) {
+    let i: number;
+    for (i = 0; i < firstXPathList.length; i++) {
       let all_match = xPathLists.every((curXPathList) =>
         curXPathList[i].nodeName === firstXPathList[i].nodeName &&
         curXPathList[i].index === firstXPathList[i].index &&

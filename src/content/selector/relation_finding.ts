@@ -262,7 +262,7 @@ export namespace RelationFinder {
     // Messages.sendMessage("mainpanel", "content", "editRelation", {selector: this.selector, selector_version: this.selectorVersion, exclude_first: this.excludeFirst, columns: this.columns}, null, null, [tab.id]);};
     currentSelectorToEdit = <ContentSelector> selector;
 
-    // TODO: cjbaik: move this to some place for all document listeners
+    // TODO: cjbaik: do we need to remove this listener at any point?
     document.addEventListener('click', editingClick, true);
 
     // don't try to process the page till it's loaded!  jquery onloaded stuff
@@ -656,7 +656,7 @@ export namespace RelationFinder {
  **********************************************************************/
 
   let currentRelationData: {
-    [key: string]: any;     // TODO: cjbaik: not sure what value types are
+    [key: string]: MainpanelNodeI[][];
   } = {};
   // this will be adjusted when we're in the midst of running next button
   //   interactions

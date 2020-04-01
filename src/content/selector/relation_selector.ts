@@ -20,7 +20,7 @@ import XPathList = XPath.XPathList;
 import SuffixXPathList = XPath.SuffixXPathList;
 
 import { HelenaConsole } from "../../common/utils/helena_console";
-import { MiscUtilities } from "../../common/misc_utilities";
+import { Utilities } from "../../ringer-record-replay/common/utils";
 
 /**
  * Produce the powerset of the array.
@@ -512,7 +512,6 @@ export class RelationSelector {
 
 /**
  * A selector with the relation referring to a 2d-array of DOM Elements.
- * TODO: cjbaik: do something about strange additional properties here?
  */
 export class ContentSelector extends RelationSelector {
   relation: (HTMLElement | null)[][];
@@ -648,8 +647,8 @@ export class TableSelector extends ContentSelector {
       let bestTableScore = Number.POSITIVE_INFINITY;
 
       for (const t of tables) {
-        let distance = MiscUtilities.levenshteinDistance(
-          XPath.fromNode(t), selector.xpath);
+        let distance = Utilities.levenshteinDistance(XPath.fromNode(t),
+          selector.xpath);
         if (distance < bestTableScore){
           bestTableScore = distance;
           table = t;
@@ -771,7 +770,6 @@ export class PulldownSelector extends RelationSelector {
    * @returns a relation (i.e. a 2d array) with the matching data
    */
   public getMatchingRelation(): (HTMLElement | null)[][] {
-    // TODO: cjbaik: cannot tell if this is ever used...
     let optionNodes = PulldownSelector.getNodesForPulldownSelector(
       <PulldownFeatureSet> this.selector);
     optionNodes = optionNodes.splice(this.exclude_first, optionNodes.length);
@@ -807,7 +805,7 @@ export class PulldownSelector extends RelationSelector {
           <HTMLElement> node);
         let firstRowXpath = optionsRelation[0][0].xpath;
         
-        // TODO: cjbaik: this is a no-op so long as excludeFirst is always 0
+        // cjbaik: this is a no-op so long as excludeFirst is always 0 above
         // optionsRelation = optionsRelation.splice(selector.exclude_first,
         // optionsRelation.length);
   

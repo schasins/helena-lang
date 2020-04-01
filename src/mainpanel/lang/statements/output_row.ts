@@ -15,14 +15,14 @@ import { MainpanelNode } from "../../../common/mainpanel_node";
 import { PageVariable } from "../../variables/page_variable";
 import { RunObject, HelenaProgram, RunOptions } from "../program";
 import { Revival } from "../../revival";
-import { TraceType } from "../../../common/utils/trace";
+import { Trace } from "../../../common/utils/trace";
 import { Environment } from "../../environment";
 
 export class OutputRowStatement extends HelenaLangObject {
-  public cleanTrace: TraceType;
+  public cleanTrace: Trace;
   public relations: GenericRelation[];
   public scrapeStatements: ScrapeStatement[];
-  public trace: TraceType;
+  public trace: Trace;
   public nodeUseVariables: NodeVariableUse[];
 
   constructor(scrapeStatements: ScrapeStatement[]) {

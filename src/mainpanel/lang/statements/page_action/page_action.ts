@@ -6,13 +6,13 @@ import { TraceContributions, RunObject } from "../../program";
 import { NodeSources, HelenaMainpanel } from "../../../helena_mainpanel";
 import { GenericRelation } from "../../../relation/generic";
 import { ColumnSelector } from "../../../../content/selector/column_selector";
-import { TraceType } from "../../../../common/utils/trace";
+import { Trace } from "../../../../common/utils/trace";
 import { Environment } from "../../../environment";
 import { TextRelation } from "../../../relation/text_relation";
 import { Relation } from "../../../relation/relation";
 
 export class PageActionStatement extends HelenaLangObject {
-  public cleanTrace: TraceType;
+  public cleanTrace: Trace;
   public columnObj?: ColumnSelector.Interface;
   public contributesTrace?: TraceContributions;
   public currentNode: NodeVariable;
@@ -20,7 +20,7 @@ export class PageActionStatement extends HelenaLangObject {
   public origNode?: string;
   public pageVar?: PageVariable;
   public relation?: GenericRelation;
-  public trace: TraceType;
+  public trace: Trace;
 
   public args(environment: Environment.Frame): StatementParameter[] {
     return [];
@@ -141,7 +141,7 @@ export class PageActionStatement extends HelenaLangObject {
     return null;
   }
   
-  public postReplayProcessing(runObject: RunObject, trace: TraceType,
+  public postReplayProcessing(runObject: RunObject, trace: Trace,
       temporaryStatementIdentifier: number) {
     return;
   }
@@ -158,16 +158,32 @@ export class PageActionStatement extends HelenaLangObject {
       if (!this.node) {
         // sometimes this.node will be empty, as when we add a scrape
         //   statement for known relation item, with no trace associated 
-        HelenaConsole.warn("Hey, you tried to require some features, but " +
-          "there was no Ringer trace associated with the statement.", this,
-          featureNames);
+        throw new ReferenceError("Required features with no associated trace.");
       }
       // note that this.node stores the xpath of the original node
-      window.ReplayTraceManipulation.requireFeatures(this.trace, this.node,
-        featureNames);
-      window.ReplayTraceManipulation.requireFeatures(this.cleanTrace, this.node,
-        featureNames);
+      this.requireFeaturesHelper(this.trace, this.node, featureNames);
+      this.requireFeaturesHelper(this.cleanTrace, this.node, featureNames);
     }
+  }
+
+  private requireFeaturesHelper(trace: Trace, targetXpath: string,
+      features: string[]) {
+		targetXpath = targetXpath.toUpperCase();
+		// for (var i = 0; i< trace.length; i++){
+    for (const ev of trace) {
+			if (ev.type !== "dom"){ continue; }
+      const xpathStr = ev.target.xpath;
+      
+      // sometimes it's a parameterized node, not a normal node
+      if (!xpathStr.toUpperCase){ continue; }
+      
+			var xpath = xpathStr.toUpperCase();
+			if (xpath === targetXpath) {
+        HelenaConsole.log("requiring stability of features", features,
+          targetXpath);
+				ev.target.requiredFeatures = features;
+			}
+		}
   }
 
   public unParameterizeNodeWithRelation(relation: GenericRelation) {

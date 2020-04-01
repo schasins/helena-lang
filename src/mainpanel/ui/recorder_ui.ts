@@ -23,6 +23,8 @@ import { NextTypes } from "../../content/selector/next_button_selector";
 import { MiscUtilities } from "../../common/misc_utilities";
 import { Dataset } from "../dataset";
 import { HelenaServer } from "../utils/server";
+import { Indexable } from "../../ringer-record-replay/common/utils";
+import { Trace } from "../../common/utils/trace";
 
 function activateButton(div: JQuery<HTMLElement>, selector: string,
   handler: JQuery.EventHandlerBase<HTMLElement,
@@ -30,11 +32,6 @@ function activateButton(div: JQuery<HTMLElement>, selector: string,
   let button = div.find(selector);
   button.button();
   button.click(handler);
-}
-
-interface Indexable {
-  // TODO: cjbaik: can we update that function and avoid this index sig?
-  [key: string]: any;
 }
 
 /**
@@ -49,7 +46,7 @@ export class RecorderUI extends HelenaUIBase {
   public ringerUseXpathFastMode: boolean;
   
   // I'm going to make these accessible from the outside for debuggning purposes
-  public currentRingerTrace?: any;      // TODO: cjbaik: type?
+  public currentRingerTrace?: Trace;
   public currentHelenaProgram?: HelenaProgram | null;
 
   private currentRecordingWindow?: number;
@@ -59,9 +56,7 @@ export class RecorderUI extends HelenaUIBase {
   //   what's happening
   // dictionary based on xpath since we can get multiple DOM events that scrape
   //   same data from same node
-  private scraped: {
-    [key: string]: any;
-  }; 
+  private scraped: Indexable; 
   // todo: note that since we're indexing on xpath, if had same xpath on
   //   multiple different pages, this would fail to show us some data.  bad!
   //   actually, I think this whole thing may be unnecessary.  we've just been
@@ -219,7 +214,8 @@ export class RecorderUI extends HelenaUIBase {
     MiscUtilities.makeNewRecordReplayWindow((windowId: number) => {
       window.recordingWindowIds.push(windowId);
       self.currentRecordingWindow = windowId;
-      window.SimpleRecord.startRecording();
+      window.ringerMainpanel.reset();
+      window.ringerMainpanel.start();
     }, specifiedUrl);
   }
 
@@ -232,16 +228,13 @@ export class RecorderUI extends HelenaUIBase {
       }); 
   }
 
-  // TODO: cjbaik: not sure what type trace should be
-  private setCurrentProgram(program: HelenaProgram | null,
-    trace: any[] | null) {
+  private setCurrentProgram(program: HelenaProgram | null, trace?: Trace) {
     this.currentHelenaProgram = program;
     this.currentRingerTrace = trace;
     this.setBlocklyProgram(program);
   }
 
-  // TODO: cjbaik: not sure what type trace should be
-  private setWindowSize(program: HelenaProgram, trace: any[]) {
+  private setWindowSize(program: HelenaProgram, trace: Trace) {
     // the last dom event is the one we want to use to figure out the window size
     // because user might have changed the window size to make it work
     let ev;
@@ -258,10 +251,12 @@ export class RecorderUI extends HelenaUIBase {
     }
   }
 
-  // this is intended to set global config vars in
-  //   /helena/src/scripts/lib/helena-library/common/server_config.js
-  // TODO: cjbaik: not sure if this is actually called in real execution
-  public setGlobalConfig(kvArgs: {[key: string]: any}) {
+  /**
+   * Sets global configuration variables. Used for test scripts, not in live
+   *   execution.
+   * @param kvArgs 
+   */
+  public setGlobalConfig(kvArgs: Indexable) {
     if ("helenaServerUrl" in kvArgs) {
       HelenaConfig.helenaServerUrl = kvArgs.helenaServerUrl;
     }
@@ -271,7 +266,8 @@ export class RecorderUI extends HelenaUIBase {
   }
 
   public stopRecording() {
-    const trace = window.SimpleRecord.stopRecording();
+    window.ringerMainpanel.stop();
+    const trace = window.ringerMainpanel.record.getEvents();
     const program = HelenaProgram.fromRingerTrace(trace,
       this.currentRecordingWindow);
     if (program.statements.length < 1) {
@@ -300,7 +296,7 @@ export class RecorderUI extends HelenaUIBase {
   }
 
   public cancelRecording() {
-    window.SimpleRecord.stopRecording();
+    window.ringerMainpanel.stop();
     // once we're done, remove the window id from the list of windows where
     //   we're allowed to record
     if (this.currentRecordingWindow) {
@@ -602,7 +598,7 @@ export class RecorderUI extends HelenaUIBase {
   private loadDownloadedScriptHelper(serialized_program: string,
     continuation?: Function) {
     const revivedProgram = HelenaProgram.fromJSON(serialized_program);
-    this.setCurrentProgram(revivedProgram, null);
+    this.setCurrentProgram(revivedProgram, undefined);
 
     // make that first tab (the program running tab) active again
     $("#tabs").tabs("option", "active", 0);
@@ -1813,7 +1809,7 @@ export class RecorderUI extends HelenaUIBase {
 
         revivedProgram.name = resp.program.name;
 
-        this.setCurrentProgram(revivedProgram, null);
+        this.setCurrentProgram(revivedProgram, undefined);
 
         // make that first tab (the program running tab) active again
         $("#tabs").tabs("option", "active", 0);

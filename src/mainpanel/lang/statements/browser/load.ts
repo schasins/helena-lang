@@ -15,21 +15,21 @@ import { PageVariable } from "../../../variables/page_variable";
 import { RunObject, HelenaProgram, RunOptions,
   TraceContributions } from "../../program";
 import { Revival } from "../../../revival";
-import { TraceType, Trace, DisplayTraceEvent } from "../../../../common/utils/trace";
+import { Trace, Traces, DisplayTraceEvent } from "../../../../common/utils/trace";
 import { Environment } from "../../../environment";
 
 export class LoadStatement extends HelenaLangObject {
-  public cleanTrace: TraceType;
+  public cleanTrace: Trace;
   public contributesTrace?: TraceContributions;
   public currentUrl: string | HelenaString | NodeVariable | NodeVariableUse |
     Concatenate | null;
   public outputPageVar: PageVariable;
   public outputPageVars: PageVariable[];
   public relation: GenericRelation | null;
-  public trace: TraceType;
+  public trace: Trace;
   public url: string;
 
-  constructor(trace: TraceType) {
+  constructor(trace: Trace) {
     super();
     Revival.addRevivalLabel(this);
     this.setBlocklyLabel("load");
@@ -37,9 +37,9 @@ export class LoadStatement extends HelenaLangObject {
     this.trace = trace;
 
     // find the record-time constants that we'll turn into parameters
-    const ev = Trace.firstVisibleEvent(trace);
+    const ev = Traces.firstVisibleEvent(trace);
     this.url = ev.data.url;
-    this.outputPageVar = Trace.getLoadOutputPageVar(<DisplayTraceEvent> ev);
+    this.outputPageVar = Traces.getLoadOutputPageVar(<DisplayTraceEvent> ev);
 
     // this will make it easier to work with for other parts of the code
     this.outputPageVars = [ this.outputPageVar ];
@@ -258,7 +258,7 @@ export class LoadStatement extends HelenaLangObject {
     return args;
   }
 
-  public postReplayProcessing(runObject: RunObject, trace: TraceType,
+  public postReplayProcessing(runObject: RunObject, trace: Trace,
     temporaryStatementIdentifier: number) {
       return;
   };

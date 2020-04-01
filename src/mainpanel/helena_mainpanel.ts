@@ -29,8 +29,9 @@ import { ClickStatement } from "./lang/statements/page_action/click";
 import { PulldownInteractionStatement } from "./lang/statements/page_action/pulldown_interaction";
 import { ScrapeStatement } from "./lang/statements/page_action/scrape";
 import { OutputRowStatement } from "./lang/statements/output_row";
-import { TraceType, TraceEvent, Trace, DisplayTraceEvent, DOMTraceEvent } from "../common/utils/trace";
+import { Trace, Traces, DisplayTraceEvent } from "../common/utils/trace";
 import { Environment } from "./environment";
+import { DOMRingerEvent } from "../ringer-record-replay/common/event";
 
 export enum NodeSources {
   RELATIONEXTRACTOR = 1,
@@ -38,12 +39,6 @@ export enum NodeSources {
   PARAMETER,
   TEXTRELATION,
 };
-
-interface Indexable {
-  // cjbaik: This is for the `updateBlocklyBlocks` function.
-  // TODO: cjbaik: can we update that function and avoid this index sig?
-  [key: string]: any;
-}
 
 export class HelenaMainpanel {
   public static toolId = null;
@@ -145,7 +140,7 @@ export class HelenaMainpanel {
     return opsDropdown;
   }
 
-  public static makeNodeVariableForTrace(trace: TraceType) {
+  public static makeNodeVariableForTrace(trace: Trace) {
     let recordTimeNodeSnapshot = null;
     let imgData = null;
     // may get 0-length trace if we're just adding a scrape statement by editing
@@ -153,7 +148,7 @@ export class HelenaMainpanel {
     if (trace.length > 0) {
       // 0 bc this is the first ev that prompted us to turn it into the given
       //   statement, so must use the right node
-      const ev = <DOMTraceEvent> trace[0];
+      const ev = <DOMRingerEvent> trace[0];
       recordTimeNodeSnapshot = ev.target.snapshot;
       imgData = ev.additional.visualization;
     }
@@ -166,7 +161,7 @@ export class HelenaMainpanel {
            urlMatchSymmetryHelper(currentUrl, text);
   }
 
-  public static cleanTrace(trace: TraceType) {
+  public static cleanTrace(trace: Trace) {
     const cleanTrace = [];
     for (const event of trace) {
       cleanTrace.push(cleanEvent(<DisplayTraceEvent> event));
@@ -358,7 +353,7 @@ export class HelenaMainpanel {
     return helenaBlock.helena;
   }
 
-  public static firstScrapedContentEventInTrace(trace: TraceType) {
+  public static firstScrapedContentEventInTrace(trace: Trace) {
     for (const event of trace) {
       if (event.additional && event.additional.scrape &&
           event.additional.scrape.text) {
@@ -424,7 +419,6 @@ export class HelenaMainpanel {
     //   "BinOpNum", "LengthString", "BackStatement", "ClosePageStatement",
     //   "WaitStatement", "WaitUntilUserReadyStatement", "SayStatement"];
     
-    // TODO: cjbaik: maybe make a map for these somewhere?
     const toolBoxBlocks = ["HelenaNumber", "NodeVariableUse", "HelenaString",
       "Concatenate", "BackStatement", "ClosePageStatement", "WaitStatement"];
     
@@ -501,12 +495,12 @@ function urlMatchSymmetryHelper(t1: string, t2: string) {
   return false;
 }
 
-function cleanEvent(ev: DisplayTraceEvent): TraceEvent {
-  const displayData = Trace.getDisplayInfo(ev);
-  Trace.clearDisplayInfo(ev);
+function cleanEvent(ev: DisplayTraceEvent): DisplayTraceEvent {
+  const displayData = Traces.getDisplayInfo(ev);
+  Traces.clearDisplayInfo(ev);
   const cleanEvent = clone(ev);
   // now restore the true trace object
-  Trace.setDisplayInfo(ev, displayData);
+  Traces.setDisplayInfo(ev, displayData);
   return cleanEvent;
 }
 

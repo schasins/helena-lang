@@ -16,7 +16,6 @@ import { StatementContainer } from "../container";
 import { RunObject, RunOptions } from "../../program";
 import { Revival } from "../../../revival";
 import { HelenaConfig } from "../../../../common/config/config";
-import { MiscUtilities } from "../../../../common/misc_utilities";
 import { HelenaServer } from "../../../utils/server";
 import { Environment } from "../../../environment";
 
@@ -57,7 +56,12 @@ export interface AnnotationItem {
   attr: string;
 }
 
-// TODO: cjbaik: is this the right name for this?
+export interface HashBasedParallel {
+  on: boolean;
+  numThreads: number;
+  thisThreadIndex: number;
+}
+
 interface TransactionItem {
   attr: string;
   val: string | null;

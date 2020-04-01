@@ -1,4 +1,4 @@
-// TODO: cjbaik: appears unused
+// cjbaik: appears unused
 /*import * as Blockly from "blockly";
 
 import { HelenaMainpanel } from "../../../../helena_mainpanel";

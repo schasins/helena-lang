@@ -67,7 +67,7 @@ export class Relation extends GenericRelation {
   public getRowsCounter: number;
   public doneArray: boolean[];
   public relationItemsRetrieved: {
-    [key: string]: any;       // TODO: cjbaik: what type is this?
+    [key: string]: FreshRelationItemsMessage;
   };
   // may still be interesting to track misses. may choose to send an extra next
   //   button press, something like that
@@ -577,7 +577,7 @@ export class Relation extends GenericRelation {
       for (const frame of frames) {
         // keep track of which frames need to respond before we'll be ready to
         //   advance
-        self.relationItemsRetrieved[frame] = false;
+        delete self.relationItemsRetrieved[frame];
         self.missesSoFar[frame] = 0;
       }
       for (const frame of frames) {

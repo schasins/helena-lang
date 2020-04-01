@@ -1,4 +1,4 @@
-// TODO: cjbaik: doesn't appear to be used
+//  cjbaik: doesn't appear to be used
 /*
 import * as Blockly from "blockly";
 

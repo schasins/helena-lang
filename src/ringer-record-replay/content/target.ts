@@ -2,6 +2,7 @@ import { Indexable, Utilities } from "../common/utils";
 import { NodeSnapshot, Snapshot } from "./snapshot";
 import { HelenaConsole } from "../../common/utils/helena_console";
 import { DOMUtils } from "./dom_utils";
+import { RecordState } from "../common/messages";
 
 interface ElementFeatures {
   [key: string]: any;
@@ -417,7 +418,7 @@ export namespace Target {
       snapshot: getFeatures(target),
       xpath: DOMUtils.nodeToXPath(target)
     };
-    if (recording == RecordState.RECORDING) {
+    if (recording === RecordState.RECORDING) {
       targetInfo.branch = Snapshot.snapshotBranch(target);
     }
     return targetInfo;

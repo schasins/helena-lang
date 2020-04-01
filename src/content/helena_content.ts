@@ -9,6 +9,7 @@ import { RecordingModeFilters } from "./filters/recording_mode_filters";
 import { RelationHighlighter } from "./ui/relation_highlighter";
 import { Screenshot } from "./utils/screenshot";
 import { MiscUtilities } from "../common/misc_utilities";
+import { RecordState } from "../ringer-record-replay/common/messages";
 
 /**
  * Stores Helena's global state variables for the content scripts.
@@ -60,7 +61,6 @@ export class HelenaContent {
   public currentlyRecording() {
     // `recording` is defined in scripts/lib/record-replay/content_script.js,
     //   tells whether r+r layer currently recording
-    // TODO: cjbaik: move `recording` to this class
     return window.ringerContent.recording === RecordState.RECORDING
       && this.windowId && this.currentRecordingWindows
       && this.currentRecordingWindows.indexOf(this.windowId) > -1;
@@ -79,8 +79,6 @@ export class HelenaContent {
   public activateScrapeMode() {
     this.scrapeMode = true;
 
-    // TODO: cjbaik: these only exist to enable the `scrape` handler and filter
-    //   to be called. If the handler/filter are moved elsewhere, no need for it
     window.additional_recording_handlers_on.scrape = true;
     window.additional_recording_filters_on.ignoreExtraCtrlAlt = true;
   }
@@ -91,8 +89,6 @@ export class HelenaContent {
   public disableScrapeMode() {
     this.scrapeMode = false;
 
-    // TODO: cjbaik: these only exist to enable the `scrape` handler and filter
-    //   to be called. If the handler/filter are moved elsewhere, no need for it
     window.additional_recording_handlers_on.scrape = false;
     window.additional_recording_filters_on.ignoreExtraCtrlAlt = false;
   }

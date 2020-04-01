@@ -9,7 +9,7 @@ import { GenericRelation } from "../../../relation/generic";
 import { PageVariable } from "../../../variables/page_variable";
 import { HelenaProgram } from "../../program";
 import { Revival } from "../../../revival";
-import { TraceType, Trace, DisplayTraceEvent } from "../../../../common/utils/trace";
+import { Trace, Traces, DisplayTraceEvent } from "../../../../common/utils/trace";
 import { Environment } from "../../../environment";
 
 export class ClickStatement extends PageActionStatement {
@@ -22,7 +22,7 @@ export class ClickStatement extends PageActionStatement {
   public pageVar: PageVariable;
   public relation: GenericRelation;
 
-  constructor(trace: TraceType) {
+  constructor(trace: Trace) {
     super();
     Revival.addRevivalLabel(this);
     this.setBlocklyLabel("click");
@@ -30,8 +30,8 @@ export class ClickStatement extends PageActionStatement {
     this.trace = trace;
 
     // find the record-time constants that we'll turn into parameters
-    const ev = Trace.firstVisibleEvent(trace);
-    this.pageVar = Trace.getDOMInputPageVar(ev);
+    const ev = Traces.firstVisibleEvent(trace);
+    this.pageVar = Traces.getDOMInputPageVar(ev);
     this.pageUrl = ev.frame.topURL;
     this.node = ev.target.xpath;
 
@@ -39,8 +39,8 @@ export class ClickStatement extends PageActionStatement {
     const domEvents = trace.filter((ev) => ev.type === "dom");
 
     const outputLoads = domEvents.reduce(
-      (acc: TraceType, ev) => {
-        const loadEvs = Trace.getDOMOutputLoadEvents(<DisplayTraceEvent> ev);
+      (acc: Trace, ev) => {
+        const loadEvs = Traces.getDOMOutputLoadEvents(<DisplayTraceEvent> ev);
         if (!loadEvs) {
           throw new ReferenceError("DOM output load events undefined");
         }
@@ -49,7 +49,7 @@ export class ClickStatement extends PageActionStatement {
       }, []);
 
     this.outputPageVars = outputLoads.map(
-      (ev) => Trace.getLoadOutputPageVar(<DisplayTraceEvent> ev));
+      (ev) => Traces.getLoadOutputPageVar(<DisplayTraceEvent> ev));
 
     // for now, assume the ones we saw at record time are the ones we'll want at
     //   replay
@@ -78,11 +78,8 @@ export class ClickStatement extends PageActionStatement {
   }
 
   public prepareToRun() {
-    // TODO: cjbaik: is there a case where this is not NodeVariable type?
-    if (this.currentNode instanceof NodeVariable) {
-      const feats = this.currentNode.getRequiredFeatures();
-      this.requireFeatures(feats);
-    }
+    const feats = this.currentNode.getRequiredFeatures();
+    this.requireFeatures(feats);
   }
 
   public toStringLines(): string[] {

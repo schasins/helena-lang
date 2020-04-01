@@ -3,7 +3,7 @@ import { XPath } from "../utils/xpath";
 import { NextButtonSelectorMessage, Messages } from "../../common/messages";
 import { HelenaConsole } from "../../common/utils/helena_console";
 import { Highlight } from "../ui/highlight";
-import { MiscUtilities } from "../../common/misc_utilities";
+import { Utilities } from "../../ringer-record-replay/common/utils";
 
 /**
  * Types of next or more buttons.
@@ -197,7 +197,7 @@ export namespace NextButtonSelector {
       let min_candidate = null;
       for (const candButton of candButtons) {
         let candXPath = XPath.fromNode(candButton);
-        let distance = MiscUtilities.levenshteinDistance(candXPath,
+        let distance = Utilities.levenshteinDistance(candXPath,
           selector.xpath);
         if (distance < min_distance){
           min_distance = distance;

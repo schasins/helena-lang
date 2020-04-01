@@ -83,7 +83,6 @@ export interface FastModeMessage {
   use: boolean;
 }
 
-// TODO: cjbaik: not sure if name is correct
 export interface SkipBlockResponse {
   exists: boolean;
   task_yours: boolean;

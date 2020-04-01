@@ -7,7 +7,7 @@ export namespace MainpanelNode {
     link?: string;
     xpath?: string;
     value?: string;
-    frame?: string;
+    frame?: number;
     source_url?: string;
     top_frame_source_url?: string;
     date?: number;
@@ -20,7 +20,7 @@ export namespace MainpanelNode {
    * @param node DOM node
    */
   export function fromDOMNode(node: Node | null): Interface {
-    const frameId = SimpleRecord.getFrameId();
+    const frameId = window.ringerContent.frameId;
     if (node === null) {
 	    return {
 	    	text: "", 
