@@ -57,7 +57,7 @@ export function WaitUntilUserReadyStatement() {
     // throw up a dialog message that asks the user to tell us when they're ready
     // once they're ready, call the rbbcontinuation on rbboptions
     var dialogText = "This program had a 'wait until user is ready' statement, so go ahead and press the button below when you're ready.";
-    HelenaMainpanel.UIObject.addDialog("Ready when you are!", dialogText, 
+    window.helenaMainpanel.UIObject.addDialog("Ready when you are!", dialogText, 
       {"Go Ahead": function _goAhead() {WALconsole.log("Go Ahead."); rbbcontinuation(rbboptions);}}
     );
   };

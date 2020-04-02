@@ -1,4 +1,5 @@
 import { RingerMessage, PortInfo } from "../common/messages";
+import { Logs } from "../common/logs";
 
 export interface TabInfo {
   top: PortInfo[];
@@ -14,7 +15,7 @@ interface SingleTopTabInfo {
  * Manages mappings between ports, tabs, iframes, etc.
  */
 export class PortManager {
-  private log = window.getLog('ports');
+  private log = Logs.getLog('ports');
   public numPorts: number;
   public portIdToPort: { [key: string]: chrome.runtime.Port };
   public portIdToPortInfo: { [key: string]: PortInfo } ;

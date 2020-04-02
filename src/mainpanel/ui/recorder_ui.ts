@@ -6,7 +6,9 @@ import { DOMCreation } from "../../common/utils/dom_creation";
 import { HelenaUIBase } from "./helena_ui_base";
 
 import { EditRelationMessage, NextButtonSelectorMessage, RelationResponse,
-  Messages} from "../../common/messages";
+  Messages,
+  ScheduledScriptMessage,
+  SavedProgramMessage} from "../../common/messages";
 
 import { ColumnSelector } from "../../content/selector/column_selector";
 
@@ -212,7 +214,7 @@ export class RecorderUI extends HelenaUIBase {
       "Collect the FIRST ROW of your target dataset.</div>");
 
     MiscUtilities.makeNewRecordReplayWindow((windowId: number) => {
-      window.recordingWindowIds.push(windowId);
+      window.helenaMainpanel.recordingWindowIds.push(windowId);
       self.currentRecordingWindow = windowId;
       window.ringerMainpanel.reset();
       window.ringerMainpanel.start();
@@ -224,7 +226,7 @@ export class RecorderUI extends HelenaUIBase {
     //   recording to figure out what UI stuff to show
     Messages.sendMessage("mainpanel", "content",
       "currentRecordingWindows", {
-        window_ids: window.recordingWindowIds
+        window_ids: window.helenaMainpanel.recordingWindowIds
       }); 
   }
 
@@ -282,7 +284,7 @@ export class RecorderUI extends HelenaUIBase {
     // once we're done, remove the window id from the list of windows where
     //   we're allowed to record
     if (this.currentRecordingWindow) {
-      window.recordingWindowIds = window.recordingWindowIds.filter(
+      window.helenaMainpanel.recordingWindowIds = window.helenaMainpanel.recordingWindowIds.filter(
         (window) => window !== this.currentRecordingWindow
       );
     }
@@ -300,7 +302,7 @@ export class RecorderUI extends HelenaUIBase {
     // once we're done, remove the window id from the list of windows where
     //   we're allowed to record
     if (this.currentRecordingWindow) {
-      window.recordingWindowIds = window.recordingWindowIds.filter(
+      window.helenaMainpanel.recordingWindowIds = window.helenaMainpanel.recordingWindowIds.filter(
         (window) => window !== this.currentRecordingWindow
       );
     }
@@ -316,7 +318,7 @@ export class RecorderUI extends HelenaUIBase {
     // I like it when the run button just says "Run Script" for demos
     //   nice to have a reminder that it saves stuff if we're not in demo mode,
     //   but it's prettier with just run
-    if (window.demoMode) {
+    if (window.helenaMainpanel.demoMode) {
       div.find("#run").html("Run Script");
     }
 
@@ -697,7 +699,7 @@ export class RecorderUI extends HelenaUIBase {
   public resetForNewScript() {
     this.scraped = {};
     this.keys = [];
-    this.resetForNewScriptInternal();
+    window.helenaMainpanel.resetForNewScript();
   }
 
   public processScrapedData(data: MainpanelNode.Interface) {
@@ -761,13 +763,13 @@ export class RecorderUI extends HelenaUIBase {
     //   yet backed up to the server, better send it to the server.
     //   should we stop scraping also?
 
-    for (const runObject of window.currentRunObjects) {
+    for (const runObject of window.helenaMainpanel.currentRunObjects) {
       this.pauseRun(runObject); // we'll let that do its thing in the background
     }
 
     let i = 0;
     const processARunObject = function() {
-      if (i >= window.currentRunObjects.length) {
+      if (i >= window.helenaMainpanel.currentRunObjects.length) {
         // ok, we're done.  we've closed the datasets for all the current run
         //   objects. we want to let the background page know that we refreshed,
         //   in case it was the one that requested it
@@ -775,7 +777,7 @@ export class RecorderUI extends HelenaUIBase {
           "readyToRefresh", {});
       } else {
         // still more run objects to process
-        const runObject = window.currentRunObjects[i];
+        const runObject = window.helenaMainpanel.currentRunObjects[i];
         i += 1;
         runObject.dataset.closeDatasetWithCont(processARunObject);
       }
@@ -907,7 +909,7 @@ export class RecorderUI extends HelenaUIBase {
         "height='20px'><br>Looking at webpages to find relevant tables. " +
         "Give us a moment.<br></center>");
       
-      if (!window.demoMode) {
+      if (!window.helenaMainpanel.demoMode) {
         const giveUpButton =
           $("<button>Give up looking for relevant tables.</button>");
         giveUpButton.button();
@@ -1714,7 +1716,7 @@ export class RecorderUI extends HelenaUIBase {
     const self = this;
     HelenaConsole.log("going to load saved scripts.");
     const savedScriptsDiv = $("#saved_script_list");
-    const handler = (response: ServerSavedProgram[]) => {
+    const handler = (response: SavedProgramMessage[]) => {
       HelenaConsole.log(response);
       const arrayOfArrays = response.map((prog) => {
         const date = $.format.date(prog.date * 1000, "dd/MM/yyyy HH:mm")
@@ -1798,7 +1800,7 @@ export class RecorderUI extends HelenaUIBase {
     const self = this;
     HelenaConsole.log("loading program: ", progId);
     HelenaServer.loadSavedProgram(progId,
-      (resp: { program: ServerSavedProgram }) => {
+      (resp: { program: SavedProgramMessage }) => {
         HelenaConsole.log("received program: ", resp);
         const revivedProgram = HelenaProgram.fromJSON(
           resp.program.serialized_program);

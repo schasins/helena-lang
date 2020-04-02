@@ -6,23 +6,8 @@ import { Target, TargetInfo, TargetStatus } from "./target";
 import { DOMUtils } from "./dom_utils";
 import { RingerMessage, PortInfo, ReplayAckStatus, RecordState } from "../common/messages";
 import { RingerEvent, RecordedRingerEvent, DOMRingerEvent } from "../common/event";
-
-declare global {
-  interface Window {
-    ringerContent: RingerContent;
-
-    getLog: (() => LoggerPlaceholder);
-    params: RingerParams;
-  }
-
-  interface LoggerPlaceholder {
-    debug: Function;
-    error: Function;
-    info: Function;
-    log: Function;
-    warn: Function;
-  }
-}
+import { Logs } from "../common/logs";
+import { CompensationAction, IRingerParams, RingerParams } from "../common/params";
 
 /**
  * Handlers for other tools using record & replay to put data in event messages.
@@ -61,11 +46,6 @@ interface RingerSnapshot {
   before?: NodeSnapshot;
   after?: NodeSnapshot;
   target: HTMLElement;
-}
-
-interface RingerParams {
-  defaultProps: { [key: string]: any };
-  events: { [key: string]: string };
 }
 
 export interface TimeoutInfo {
@@ -134,9 +114,9 @@ export class RingerContent {
   /**
    * Loggers
    */
-  public log: LoggerPlaceholder;
-  public recordLog: LoggerPlaceholder;
-  public replayLog: LoggerPlaceholder;
+  public log: Logs.Logger | Logs.NoopLogger;
+  public recordLog: Logs.Logger | Logs.NoopLogger;
+  public replayLog: Logs.Logger | Logs.NoopLogger;
 
   /**
    * Prompt
@@ -172,9 +152,9 @@ export class RingerContent {
     this.addonPreTarget = [];
     this.addonTarget = [];
 
-    this.log = window.getLog('content');
-    this.recordLog = window.getLog('record');
-    this.replayLog = window.getLog('replay');
+    this.log = Logs.getLog('content');
+    this.recordLog = Logs.getLog('record');
+    this.replayLog = Logs.getLog('replay');
 
     // We need to add all the events now before and other event listeners are
     //   added to the page. We will remove the unwanted handlers once params is
@@ -235,7 +215,7 @@ export class RingerContent {
    * Attach the event handlers to their respective events.
    */
   public addListenersForRecording() {
-    const events = window.params.events;
+    const events = RingerParams.params.events;
     for (const eventType in events) {
       const listOfEvents = events[eventType];
       for (const e in listOfEvents) {
@@ -255,9 +235,9 @@ export class RingerContent {
    * @returns {boolean} True if timeout has occured
    */
   public checkTimeout(events: RingerEvent[], startIndex: number) {
-    let timeout = window.params.replay.targetTimeout;
+    let timeout = RingerParams.params.replay.targetTimeout;
     if (events[startIndex] && events[startIndex].targetTimeout){
-      timeout = events[startIndex].targetTimeout;
+      timeout = <number> events[startIndex].targetTimeout;
     }
     console.log("Checking for timeout:", timeout);
     if (!(timeout === null || timeout === undefined) && timeout > 0) {
@@ -319,7 +299,7 @@ export class RingerContent {
       if (delta.type === 'Property is different.') {
         const propDiffDelta = <PropertyDifferentDelta> delta;
         const divProp = propDiffDelta.divergingProp;
-        if (window.params.replay.compensation === CompensationAction.FORCED) {
+        if (RingerParams.params.replay.compensation === CompensationAction.FORCED) {
           try {
             element[divProp] = propDiffDelta.orig.prop[divProp];
             HelenaConsole.log("updated prop", divProp, " to ",
@@ -339,7 +319,7 @@ export class RingerContent {
       if (delta.type == 'Property is different.') {
         const diffPropDelta = <PropertyDifferentDelta> delta;
         const divProp = diffPropDelta.divergingProp;
-        if (window.params.replay.compensation == CompensationAction.FORCED) {
+        if (RingerParams.params.replay.compensation == CompensationAction.FORCED) {
           try {
             element[divProp] = diffPropDelta.changed.prop[divProp];
             HelenaConsole.log("updated prop", divProp, " to ",
@@ -360,7 +340,7 @@ export class RingerContent {
    */
   public getEventProps(type: string) {
     const eventType = this.getEventType(type);
-    return window.params.defaultProps[eventType];
+    return RingerParams.params.defaultProps[eventType];
   }
 
   /**
@@ -370,8 +350,8 @@ export class RingerContent {
    * @returns The class type, such as MouseEvent, etc.
    */
   public getEventType(type: string) {
-    for (const eventType in window.params.events) {
-      const eventTypes = window.params.events[eventType];
+    for (const eventType in RingerParams.params.events) {
+      const eventTypes = RingerParams.params.events[eventType];
       for (const e in eventTypes) {
         if (e === type) {
           return eventType;
@@ -506,8 +486,8 @@ export class RingerContent {
 
     const type = eventData.type;
     const dispatchType = this.getEventType(type);
-    let shouldRecord = window.params.events[dispatchType][type];
-    if (window.params.ctrlOnlyEvents.includes(type) &&
+    let shouldRecord = RingerParams.params.events[dispatchType][type];
+    if (RingerParams.params.ctrlOnlyEvents.includes(type) &&
         !(<MouseEvent | KeyboardEvent> eventData).ctrlKey) {
       //console.log("Ignoring "+type+" because CTRL key not down.");
       shouldRecord = false;
@@ -524,7 +504,7 @@ export class RingerContent {
 
     /* cancel the affects of events which are not extension generated or are not
     * picked up by the recorder */
-    if (window.params.replay.cancelUnknownEvents && 
+    if (RingerParams.params.replay.cancelUnknownEvents && 
         this.recording === RecordState.REPLAYING && !this.dispatchingEvent) {
       this.recordLog.debug(
         `[${this.frameId}] cancel unknown event during replay:`, type,
@@ -534,7 +514,7 @@ export class RingerContent {
       return false;
     }
 
-    if (window.params.record.cancelUnrecordedEvents &&
+    if (RingerParams.params.record.cancelUnrecordedEvents &&
         this.recording === RecordState.RECORDING && !shouldRecord) {
       this.recordLog.debug(`[${this.frameId}] cancel unrecorded event:`, type, 
           dispatchType, eventData);
@@ -607,7 +587,7 @@ export class RingerContent {
     }
 
     /* record all properties of the event object */
-    if (window.params.record.allEventProps) {
+    if (RingerParams.params.record.allEventProps) {
       for (const prop in eventData) {
         try {
           const value = eventData[prop];
@@ -716,7 +696,7 @@ export class RingerContent {
       this.snapshotReplay(target);
 
       /* make sure the deltas from the last event actually happened */
-      if (window.params.compensation.enabled && this.lastReplayEvent) {
+      if (RingerParams.params.compensation.enabled && this.lastReplayEvent) {
         let recordDeltas = this.lastReplayEvent.meta?.deltas;
         if (recordDeltas === undefined) {
           this.recordLog.error('no deltas found for last event:',
@@ -843,7 +823,7 @@ export class RingerContent {
       const eventName = eventData.type;
 
       /* this event was detected by the recorder, so lets skip it */
-      if (window.params.replay.cascadeCheck && eventRecord.replayed) {
+      if (RingerParams.params.replay.cascadeCheck && eventRecord.replayed) {
         continue;
       }
 
@@ -865,7 +845,7 @@ export class RingerContent {
           }
         }
       } else {
-        targetInfo = eventRecord.target;
+        targetInfo = <TargetInfo> eventRecord.target;
         // const xpath = targetInfo.xpath;
     
         /* find the target */
@@ -955,11 +935,11 @@ export class RingerContent {
           }
         }
 
-        this.setRetry(events, i, window.params.replay.defaultWait);
+        this.setRetry(events, i, RingerParams.params.replay.defaultWait);
         return;
       }
 
-      if (window.params.replay.highlightTarget) {
+      if (RingerParams.params.replay.highlightTarget) {
         if (!["blur", "focus"].includes(eventName)){
           Highlight.highlightNode(<HTMLElement> target, 100);
         }
@@ -1240,17 +1220,17 @@ export class RingerContent {
    * Update the parameters for this script's scope.
    * @param newParams
    */
-  public updateParams(newParams: RingerParams) {
-    const oldParams = window.params;
-    window.params = newParams;
+  public updateParams(newParams: IRingerParams) {
+    const oldParams = RingerParams.params;
+    RingerParams.params = newParams;
 
     const oldEvents = oldParams.events;
-    const events = window.params.events;
+    const events = RingerParams.params.events;
 
     // if we are listening to all events, then we don't need to do anything
     //   since we should have already added listeners to all events at the very
     //   beginning
-    if (window.params.record.listenToAllEvents) {
+    if (RingerParams.params.record.listenToAllEvents) {
       return;
     }
 

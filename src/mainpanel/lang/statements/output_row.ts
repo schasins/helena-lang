@@ -72,7 +72,7 @@ export class OutputRowStatement extends HelenaLangObject {
 
   public updateBlocklyBlock(program?: HelenaProgram,
       pageVars?: PageVariable[], relations?: Relation[]) {
-    HelenaMainpanel.addToolboxLabel(this.blocklyLabel);
+    window.helenaMainpanel.addToolboxLabel(this.blocklyLabel);
     Blockly.Blocks[this.blocklyLabel] = {
       init: function(this: Blockly.Block) {
         this.appendValueInput('NodeVariableUse')
@@ -88,7 +88,7 @@ export class OutputRowStatement extends HelenaLangObject {
       workspace: Blockly.WorkspaceSvg) {
     this.block = workspace.newBlock(this.blocklyLabel);
     HelenaMainpanel.attachToPrevBlock(this.block, prevBlock);
-    HelenaMainpanel.setHelenaStatement(this.block, this);
+    window.helenaMainpanel.setHelenaStatement(this.block, this);
     let priorBlock = this.block;
     for (const vun of this.nodeUseVariables) {
       const block = vun.genBlocklyNode(this.block, workspace);
@@ -102,7 +102,7 @@ export class OutputRowStatement extends HelenaLangObject {
     // update our list of variable nodes based on the current blockly situation
     const firstInput = this.block.getInput('NodeVariableUse');
     if (firstInput && firstInput.connection.targetBlock()) {
-      const helena = HelenaMainpanel.getHelenaStatement(firstInput.connection.targetBlock());
+      const helena = window.helenaMainpanel.getHelenaStatement(firstInput.connection.targetBlock());
       if (helena instanceof NodeVariableUse) {
         const inputSeq = helena.getHelenaSeq();
         this.nodeUseVariables = inputSeq;
@@ -205,8 +205,8 @@ export class OutputRowStatement extends HelenaLangObject {
 
     const displayTextCells = cells.map((cell) => cell? cell : "EMPTY");
 
-    HelenaMainpanel.UIObject.addNewRowToOutput(runObject.tab, displayTextCells);
-    HelenaMainpanel.UIObject.updateRowsSoFar(runObject.tab,
+    window.helenaMainpanel.UIObject.addNewRowToOutput(runObject.tab, displayTextCells);
+    window.helenaMainpanel.UIObject.updateRowsSoFar(runObject.tab,
       runObject.dataset.fullDatasetLength);
 
     rbbcontinuation(rbboptions); // and carry on when done

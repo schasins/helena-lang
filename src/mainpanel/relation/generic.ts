@@ -92,7 +92,7 @@ export class GenericRelation implements Revival.Revivable {
     
     const nodeVariables = this.nodeVariables();
     nodeVariables[columnObj.index].setName(v);
-    HelenaMainpanel.UIObject.updateDisplayedScript();
+    window.helenaMainpanel.UIObject.updateDisplayedScript();
   }
 
   public toJSON: () => RelationMessage | string;

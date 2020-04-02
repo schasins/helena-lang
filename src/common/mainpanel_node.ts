@@ -2,7 +2,7 @@ import { XPath } from "../content/utils/xpath";
 
 export namespace MainpanelNode {
   export interface Interface {
-    text: string;
+    text?: string;
     textContent?: string;
     link?: string;
     xpath?: string;
@@ -53,8 +53,8 @@ export namespace MainpanelNode {
   }
 
   function getNodeTextHelper(node: Node) {
-		if ( node.nodeValue && (node.nodeType === 3 || node.nodeType === 4)) {
-      // Text node (3) or CDATA node (4) - return its text
+    if (node.nodeValue && (node.nodeType === Node.TEXT_NODE ||
+          node.nodeType === Node.CDATA_SECTION_NODE)) {
       return node.nodeValue.trim();
 		} else if (node.nodeType === 1) {
       // If node is an element (1)

@@ -40,6 +40,9 @@ import { HelenaServer, RetrieveRelationsResponse } from "../utils/server";
 import { StatementTypes } from "./statements/statement_types";
 import { Environment } from "../environment";
 import { RingerEvents } from "../../ringer-record-replay/common/event";
+import { Replay } from "../../ringer-record-replay/mainpanel/replay";
+import { ParameterizedTrace } from "../parameterized_trace";
+
 
 // TODO: move these somewhere safer
 let scrapingRunsCompleted = 0;
@@ -233,7 +236,7 @@ export class HelenaProgram extends StatementContainer {
 
   public setId(id: string) {
     this.id = id;
-    HelenaMainpanel.UIObject.programIdUpdated(this);
+    window.helenaMainpanel.UIObject.programIdUpdated(this);
   }
 
   public toString() {
@@ -290,12 +293,12 @@ export class HelenaProgram extends StatementContainer {
     //   program
     this.altRootBodyStatements = [];
     for (const block of rootBlocklyBlocks) {
-      const rootHelena = HelenaMainpanel.getHelenaStatement(block);
+      const rootHelena = window.helenaMainpanel.getHelenaStatement(block);
       if (!rootHelena) {
         // no helena associated with this one. guess we'll just throw it out
         continue;
       }
-      const helenaSeq = HelenaMainpanel.blocklySeqToHelenaSeq(block);
+      const helenaSeq = window.helenaMainpanel.blocklySeqToHelenaSeq(block);
       this.altRootBodyStatements.push(helenaSeq);
 
       // delete the old version from the workspace
@@ -334,7 +337,7 @@ export class HelenaProgram extends StatementContainer {
     const req = {
       id: this.id,
       name: this.name,
-      tool_id: HelenaMainpanel.toolId,
+      tool_id: window.helenaMainpanel.toolId,
       associated_string: this.associatedString
     };
   
@@ -590,7 +593,7 @@ export class HelenaProgram extends StatementContainer {
       runnableTrace[0].timing.waitTime = 0;
     }
     window.ringerMainpanel.replayScript(runnableTrace, config,
-        (replayObject: ReplayObjectPlaceholder) => {
+        (replayObject: Replay) => {
       // use what we've observed in the replay to update page variables
       HelenaConsole.namedLog("rbb", "replayObject", replayObject);
 
@@ -623,7 +626,7 @@ export class HelenaProgram extends StatementContainer {
     },
       // ok, we also want some error handling functions
     {
-      findNodeWithoutRequiredFeatures: (replayObject: ReplayObjectPlaceholder,
+      findNodeWithoutRequiredFeatures: (replayObject: Replay,
          ringerContinuation: Function | null) => {
         // todo: note that continuation doesn't actually have a continuation yet
         //   because of Ringer-level implementation if you decide to start using
@@ -670,7 +673,7 @@ export class HelenaProgram extends StatementContainer {
         }
         updatePageVars(trace, replayObject.record.events, allPageVarsOk);
       },
-      portFailure: (replayObject: ReplayObjectPlaceholder,
+      portFailure: (replayObject: Replay,
           ringerContinuation: Function | null) => {
         // for now I haven't seen enough of these failures in person to know a
         //   good way to fix them
@@ -789,7 +792,7 @@ export class HelenaProgram extends StatementContainer {
         parameterizedTrace);
       const runnableTrace = passArguments(parameterizedTrace, basicBlockStmts,
         runObject.environment);
-      const config: ParameterizedTraceConfig = parameterizedTrace.getConfig();
+      const config = parameterizedTrace.getConfig();
       config.targetWindowId = runObject.window;
       HelenaConsole.namedLog("rbb", "runnableTrace", runnableTrace, config);
 
@@ -852,10 +855,10 @@ export class HelenaProgram extends StatementContainer {
     HelenaConsole.namedLog("rbb", "runObject.userPaused",
       runObject.userPaused);
     if (runObject.userPaused) {
-      const repWindowId = window.currentReplayWindowId;
-      window.currentReplayWindowId = null;
+      const repWindowId = window.helenaMainpanel.currentReplayWindowId;
+      window.helenaMainpanel.currentReplayWindowId = null;
       runObject.resumeContinuation = () => {
-        window.currentReplayWindowId = repWindowId;
+        window.helenaMainpanel.currentReplayWindowId = repWindowId;
         self.runBasicBlock(runObject, bodyStmts, callback, options);
       };
       HelenaConsole.log("paused");
@@ -1230,7 +1233,7 @@ export class HelenaProgram extends StatementContainer {
     //   course they aren't nodes)
     // todo: do we want to restructure this in some way?
     for (const paramName of paramNamesLs) {
-      var nodeVar = HelenaMainpanel.getNodeVariableByName(paramName);
+      var nodeVar = window.helenaMainpanel.getNodeVariableByName(paramName);
       if (!nodeVar) {
         new NodeVariable(paramName, { text: "" }, { text: "" }, null,
           NodeSources.PARAMETER);
@@ -1360,8 +1363,8 @@ export class HelenaProgram extends StatementContainer {
         const curStmt = self.statements[i];
         if (curStmt.hasOutputPageVars()) {
           pageCount += 1;
-          if (HelenaMainpanel.UIObject.handleRelationFindingPageUpdate) {
-            HelenaMainpanel.UIObject.handleRelationFindingPageUpdate(pageCount);
+          if (window.helenaMainpanel.UIObject.handleRelationFindingPageUpdate) {
+            window.helenaMainpanel.UIObject.handleRelationFindingPageUpdate(pageCount);
           }
 
           // todo: for now this code assumes there's exactly one outputPageVar.
@@ -1397,7 +1400,7 @@ export class HelenaProgram extends StatementContainer {
           window.ringerMainpanel.replayScript(trace, {
             tabMapping: tabMapping,
             targetWindowId: windowId
-          }, (replayObj: ReplayObjectPlaceholder) => {
+          }, (replayObj: Replay) => {
             // continuation
             HelenaConsole.log("replayobj", replayObj);
 
@@ -1493,7 +1496,7 @@ export class HelenaProgram extends StatementContainer {
               // update the control panel display
               // true because we're still unearthing interesting relations, so
               //   should indicate we're in progress
-              HelenaMainpanel.UIObject.updateDisplayedRelations(true);
+              window.helenaMainpanel.UIObject.updateDisplayedRelations(true);
               // now let's go through this process all over again for the next
               //   page, if there is one
               HelenaConsole.log("going to processServerRelations with " +
@@ -1502,8 +1505,8 @@ export class HelenaProgram extends StatementContainer {
                 tabMapping, windowId, pageCount);
             };
 
-            if (HelenaMainpanel.UIObject.handleFunctionForSkippingToNextPageOfRelationFinding) {
-              HelenaMainpanel.UIObject.
+            if (window.helenaMainpanel.UIObject.handleFunctionForSkippingToNextPageOfRelationFinding) {
+              window.helenaMainpanel.UIObject.
                 handleFunctionForSkippingToNextPageOfRelationFinding(handleSelectedRelation);
             }
 
@@ -1685,7 +1688,7 @@ export class HelenaProgram extends StatementContainer {
       chrome.windows.remove(windowId);
       */
       // let's also update the ui to indicate that we're no longer looking
-      HelenaMainpanel.UIObject.updateDisplayedRelations(false);
+      window.helenaMainpanel.UIObject.updateDisplayedRelations(false);
     }
 
     // if this is our first time calling this function, we'll need to make a new
@@ -1823,10 +1826,10 @@ export class HelenaProgram extends StatementContainer {
     }
 
     if (updateProgPreview) {
-      HelenaMainpanel.UIObject.updateDisplayedScript();
+      window.helenaMainpanel.UIObject.updateDisplayedScript();
       // now that we know which columns are being scraped, we may also need to
       //   update how the relations are displayed
-      HelenaMainpanel.UIObject.updateDisplayedRelations();
+      window.helenaMainpanel.UIObject.updateDisplayedRelations();
     }
   }
 
@@ -1849,8 +1852,8 @@ export class HelenaProgram extends StatementContainer {
     //   relation, that one may now be relevant
     this.insertLoops(false);
 
-    HelenaMainpanel.UIObject.updateDisplayedScript();
-    HelenaMainpanel.UIObject.updateDisplayedRelations();
+    window.helenaMainpanel.UIObject.updateDisplayedScript();
+    window.helenaMainpanel.UIObject.updateDisplayedRelations();
   };
 
   // by default, we'll wait up to 15 seconds for the target node to appear
@@ -2172,8 +2175,8 @@ function runInternals(program: HelenaProgram, parameters: Parameters,
   };
 
   // the mainpanel tab in which we'll preview stuff
-  runObject.tab = HelenaMainpanel.UIObject.newRunTab(runObject);
-  window.currentRunObjects.push(runObject);
+  runObject.tab = window.helenaMainpanel.UIObject.newRunTab(runObject);
+  window.helenaMainpanel.currentRunObjects.push(runObject);
 
   // let's figure out params first.  parameters may be passed in (e.g., from
   //   command line or from tool running on top of Helena language)
@@ -2204,9 +2207,9 @@ function runInternals(program: HelenaProgram, parameters: Parameters,
   const runProgFunc = (windowId?: number) => {
     // now let's actually run
     if (windowId) {
-      window.recordingWindowIds.push(windowId);
+      window.helenaMainpanel.recordingWindowIds.push(windowId);
       runObject.window = windowId;
-      window.currentReplayWindowId = windowId;
+      window.helenaMainpanel.currentReplayWindowId = windowId;
     }
     datasetsScraped.push(runObject.dataset.getId());
     runObject.program.runBasicBlock(runObject,
@@ -2266,7 +2269,7 @@ function runInternals(program: HelenaProgram, parameters: Parameters,
       const whatToDoWhenWereDone = () => {
         scrapingRunsCompleted += 1;
         console.log("scrapingRunsCompleted", scrapingRunsCompleted);
-        window.currentRunObjects = window.currentRunObjects.filter(
+        window.helenaMainpanel.currentRunObjects = window.helenaMainpanel.currentRunObjects.filter(
           (runObj) => runObj !== runObject
         );
         HelenaConsole.log("Done with script execution.");
@@ -2276,7 +2279,7 @@ function runInternals(program: HelenaProgram, parameters: Parameters,
 
         if (windowId) {
           // take that window back out of the allowable recording set
-          window.recordingWindowIds = window.recordingWindowIds.filter(
+          window.helenaMainpanel.recordingWindowIds = window.helenaMainpanel.recordingWindowIds.filter(
             (window) => window !== windowId);
         }
         // go ahead and actually close the window so we don't have chrome memory
@@ -2353,7 +2356,7 @@ function pbv(trace: Trace, stmts: RingerStatement[]) {
       } else if (curPbv.type === "tab") {
         pTrace.parameterizeTab(pname, curPbv.value);
       } else if (curPbv.type === "frame") {
-        pTrace.parameterizeFrame(pname, curPbv.value);
+        // pTrace.parameterizeFrame(pname, curPbv.value);
       } else if (curPbv.type === "property") {
         pTrace.parameterizeProperty(pname, curPbv.value);
       } else {
@@ -2409,6 +2412,12 @@ function parameterizeWrapperNodes(pTrace: ParameterizedTrace, origXpath: string,
   }
 }
 
+/**
+ * TODO
+ * @param pTrace 
+ * @param stmts 
+ * @param environment 
+ */
 function passArguments(pTrace: ParameterizedTrace, stmts: RingerStatement[],
     environment: Environment.Frame) {
   for (let i = 0; i < stmts.length; i++) {
@@ -2431,7 +2440,7 @@ function passArguments(pTrace: ParameterizedTrace, stmts: RingerStatement[],
       } else if (curArg.type === "tab") {
         pTrace.useTab(pname, curArg.value);
       } else if (curArg.type === "frame") {
-        pTrace.useFrame(pname, curArg.value);
+        // pTrace.useFrame(pname, curArg.value);
       } else if (curArg.type === "property") {
         pTrace.useProperty(pname, curArg.value);
       } else {

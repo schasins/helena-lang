@@ -35,7 +35,7 @@ export class ConditionalStatement extends ControlFlowStatement {
     // all well and good to have the things attached after this block, but also need the bodyStatements updated
     const firstNestedBlock = this.block.getInput('statements').connection
       .targetBlock();
-    const helenaSequence = HelenaMainpanel.blocklySeqToHelenaSeq(
+    const helenaSequence = window.helenaMainpanel.blocklySeqToHelenaSeq(
       firstNestedBlock);
     this.bodyStatements = helenaSequence;
 

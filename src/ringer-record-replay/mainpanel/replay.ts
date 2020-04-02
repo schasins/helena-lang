@@ -5,6 +5,8 @@ import { RingerMessage, ReplayAckStatus } from "../common/messages";
 import { RingerEvents, RecordedRingerEvent, RecordedRingerFrameInfo } from "../common/event";
 import { Utilities } from "../common/utils";
 import { HelenaConsole } from "../../common/utils/helena_console";
+import { Logs } from "../common/logs";
+import { BrokenPortStrategy, TimingStrategy, RingerParams } from "../common/params";
 
 enum ReplayState {
   STOPPED = 'stopped',
@@ -64,7 +66,7 @@ export class Replay {
   public firstEventReplayed: boolean;
   public index: number;       // current event index
   public listeners: ((msg: RingerMessage) => void)[];
-  private log = window.getLog('replay');
+  private log = Logs.getLog('replay');
 
   // whether a completed event has happened
   public matchedCompletedEvents: number[];
@@ -128,7 +130,7 @@ export class Replay {
    * Check if executing an event has timed out.
    */
   private checkTimeout() {
-    const eventTimeout = window.params.replay.eventTimeout;
+    const eventTimeout = RingerParams.params.replay.eventTimeout;
     if (eventTimeout !== null && eventTimeout > 0) {
       const timeoutInfo = this.timeoutInfo;
       const curTime = new Date().getTime();
@@ -172,7 +174,7 @@ export class Replay {
           this.setNextTimeout();
           this.updateStatus(ReplayState.REPLAYING);
         }
-        this.setNextTimeout(window.params.replay.defaultWait);
+        this.setNextTimeout(RingerParams.params.replay.defaultWait);
         this.log.log('continue waiting for replay ack');
         return;
       }
@@ -313,7 +315,7 @@ export class Replay {
       const replayEvents = self.record.getEvents();
       const scriptId = self.scriptId;
 
-      if (window.params.replay.saveReplay && scriptId &&
+      if (RingerParams.params.replay.saveReplay && scriptId &&
           replayEvents.length > 0) {
         self.scriptServer?.saveScript('replay ' + scriptId, replayEvents,
           scriptId, "");
@@ -376,7 +378,7 @@ export class Replay {
         portMapping[port] = replayPort;
       } else {
         // tab already seen, no port found
-        this.setNextTimeout(window.params.replay.defaultWait);
+        this.setNextTimeout(RingerParams.params.replay.defaultWait);
         
         // we can get into a loop here if (for example) we use a next button to
         //   try to get to the next page of a list
@@ -608,7 +610,7 @@ export class Replay {
       }
     }
 
-    const timing = window.params.replay.timingStrategy;
+    const timing = RingerParams.params.replay.timingStrategy;
 
     const curIndex = this.index;
     const nextIndex = this.getNextReplayableEventIndex();
@@ -1138,7 +1140,7 @@ export class Replay {
   private simulateDomEvent(ev: RecordedRingerEvent) {
     try {
       // check if event has been replayed, if so skip it
-      if (window.params.replay.cascadeCheck && this.checkReplayed(ev)) {
+      if (RingerParams.params.replay.cascadeCheck && this.checkReplayed(ev)) {
         this.log.debug('skipping event: ' + ev.type);
         this.incrementIndex();
         this.setNextTimeout();
@@ -1190,7 +1192,7 @@ export class Replay {
         }
 
         if (!matchedEvent) {
-          this.setNextTimeout(window.params.replay.defaultWait);
+          this.setNextTimeout(RingerParams.params.replay.defaultWait);
           return;
         }
       }
@@ -1209,7 +1211,7 @@ export class Replay {
           // group atomic events
           let eventGroup = [];
           const endEvent = meta.endEventId;
-          if (window.params.replay.atomic && endEvent) {
+          if (RingerParams.params.replay.atomic && endEvent) {
             let t = this.index;
             const events = this.events;
             const curEvent = events[t];
@@ -1239,7 +1241,7 @@ export class Replay {
         // a disconnected port generally means that the page has been
         //   navigated away from
         if (err.message === 'Attempting to use a disconnected port object') {
-          const strategy = window.params.replay.brokenPortStrategy;
+          const strategy = RingerParams.params.replay.brokenPortStrategy;
           //console.log("using broken port strategy: ", strategy);
           if (strategy === BrokenPortStrategy.RETRY) {
             if (ev.data.cascading) {

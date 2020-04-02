@@ -1,15 +1,18 @@
 import { ScrapeModeFilters } from "./filters/scrape_mode_filters";
 import { RecordingModeHandlers } from "./handlers/recording_mode_handlers";
 import { ScrapeModeHandlers } from "./handlers/scrape_mode_handlers";
-import { TabDetailsMessage, WindowsMessage,
-  WindowIdMessage, 
-  Messages,
-  FastModeMessage} from "../common/messages";
+import { TabDetailsMessage, WindowsMessage, WindowIdMessage, Messages,
+  FastModeMessage, ColumnIndexMessage, LikelyRelationMessage,
+  FreshRelationItemsMessage} from "../common/messages";
 import { RecordingModeFilters } from "./filters/recording_mode_filters";
 import { RelationHighlighter } from "./ui/relation_highlighter";
 import { Screenshot } from "./utils/screenshot";
 import { MiscUtilities } from "../common/misc_utilities";
 import { RecordState } from "../ringer-record-replay/common/messages";
+import { RelationSelector } from "./selector/relation_selector";
+import { RelationFinder } from "./selector/relation_finding";
+import { NextButtonSelector } from "./selector/next_button_selector";
+import { HelenaConsole } from "../common/utils/helena_console";
 
 /**
  * Stores Helena's global state variables for the content scripts.
@@ -79,8 +82,9 @@ export class HelenaContent {
   public activateScrapeMode() {
     this.scrapeMode = true;
 
-    window.additional_recording_handlers_on.scrape = true;
-    window.additional_recording_filters_on.ignoreExtraCtrlAlt = true;
+    window.ringerContent.additional_recording_handlers_on.scrape = true;
+    window.ringerContent.additional_recording_filters_on.ignoreExtraCtrlAlt =
+      true;
   }
 
   /**
@@ -89,8 +93,9 @@ export class HelenaContent {
   public disableScrapeMode() {
     this.scrapeMode = false;
 
-    window.additional_recording_handlers_on.scrape = false;
-    window.additional_recording_filters_on.ignoreExtraCtrlAlt = false;
+    window.ringerContent.additional_recording_handlers_on.scrape = false;
+    window.ringerContent.additional_recording_filters_on.ignoreExtraCtrlAlt =
+      false;
   }
 
   /**
@@ -122,6 +127,8 @@ export class HelenaContent {
 
     this.initializeRecordingModeHandlers();
     this.initializeScrapeModeHandlers();
+
+    this.listenForMainpanelMessages();
   }
 
   /**
@@ -132,9 +139,8 @@ export class HelenaContent {
     const self = this;
 
     /*
-     * 1. Set up listeners.
+     * 1. Set up initial listeners.
      */
-
     Messages.listenForMessage("background", "content", "tabID",
     function (msg: TabDetailsMessage) {
         self.tabId = msg.tab_id;
@@ -217,8 +223,9 @@ export class HelenaContent {
    * Initializes recording mode handlers.
    */
   private initializeRecordingModeHandlers() {
-    window.additional_recording_handlers_on.visualization = true;
-    window.additional_recording_handlers.visualization = Screenshot.take;
+    window.ringerContent.additional_recording_handlers_on.visualization = true;
+    window.ringerContent.additional_recording_handlers.visualization =
+      Screenshot.take;
 
     document.addEventListener('contextmenu',
       RecordingModeHandlers.preventOpeningContextMenu, true);
@@ -236,8 +243,9 @@ export class HelenaContent {
    * Initializes recording mode filters (i.e. things not to record).
    */
   private initializeRecordingModeFilters() {
-    window.additional_recording_filters_on.ignoreExtraKeydowns = true;
-    window.additional_recording_filters.ignoreExtraKeydowns = 
+    window.ringerContent.additional_recording_filters_on.ignoreExtraKeydowns =
+      true;
+    window.ringerContent.additional_recording_filters.ignoreExtraKeydowns = 
       RecordingModeFilters.ignoreExtraKeydowns;
   }
 
@@ -245,7 +253,7 @@ export class HelenaContent {
    * Initializes scrape mode filters (i.e. things not to record).
    */
   private initializeScrapeModeFilters() {
-    window.additional_recording_filters.ignoreExtraCtrlAlt =
+    window.ringerContent.additional_recording_filters.ignoreExtraCtrlAlt =
       ScrapeModeFilters.ignoreExtraCtrlAlt;
   }
 
@@ -253,12 +261,108 @@ export class HelenaContent {
    * Initializes scrape mode (e.g. when Alt button pressed) handlers.
    */
   private initializeScrapeModeHandlers() {
-    window.additional_recording_handlers.scrape =
+    window.ringerContent.additional_recording_handlers.scrape =
       ScrapeModeHandlers.sendScrapedDataToMainpanel;
   
     document.addEventListener('mousemove',
       ScrapeModeHandlers.updateMousemoveTarget, true);
     document.addEventListener('click',
       ScrapeModeHandlers.preventClickPropagation, true);
+  }
+
+  private listenForMainpanelMessages() {
+    Messages.listenForMessage("mainpanel", "content", "getRelationItems",
+      (selector: RelationSelector) => {
+        // let selector = RelationSelector.fromMessage(msg);
+        RelationFinder.sendMatchingRelationToMainpanel(selector);
+      }
+    );
+
+    Messages.listenForMessage("mainpanel", "content", "getFreshRelationItems",
+      (selector: RelationSelector) => {
+        // let selector = RelationSelector.fromMessage(msg);
+        RelationFinder.getFreshRelationItems(selector);
+      }
+    );
+
+    Messages.listenForMessage("mainpanel", "content", "editRelation",
+      (selector: RelationSelector) => {
+        // let selector = RelationSelector.fromMessage(msg);
+        RelationFinder.editRelation(selector);
+      }
+    );
+
+    Messages.listenForMessage("mainpanel", "content", "nextButtonSelector",
+      () => {
+        NextButtonSelector.listenForNextButtonClick();
+      }
+    );
+
+    Messages.listenForMessage("mainpanel", "content", "clearNextButtonSelector",
+      () => {
+        NextButtonSelector.unhighlightNextButton();
+      }
+    );
+
+    Messages.listenForMessage("mainpanel", "content", "backButton", () => {
+      history.back();
+    });
+
+    Messages.listenForMessage("mainpanel", "content", "pageStats", () => {
+      Messages.sendMessage("content", "mainpanel", "pageStats", {
+        numNodes: document.querySelectorAll('*').length
+      });
+    });
+
+    Messages.listenForMessage("mainpanel", "content", "runNextInteraction",
+      (selector: RelationSelector) => {
+        // let selector = RelationSelector.fromMessage(msg);
+        RelationFinder.getNextPage(selector);
+      }
+    );
+
+    Messages.listenForMessage("mainpanel", "content", "currentColumnIndex",
+      (msg: ColumnIndexMessage) => {
+        RelationFinder.setEditRelationIndex(msg.index);
+      }
+    );
+
+    Messages.listenForMessage("mainpanel", "content", "clearRelationInfo",
+      (selector: RelationSelector) => {
+        // let selector = RelationSelector.fromMessage(msg);
+        RelationFinder.clearRelationInfo(selector);
+      }
+    );
+
+    Messages.listenForFrameSpecificMessage("mainpanel", "content",
+      "likelyRelation", (msg: object, sendResponse: Function) => {
+        MiscUtilities.registerCurrentResponseRequested(msg,
+          (m: LikelyRelationMessage) => {
+            let likelyRel = RelationFinder.likelyRelation(m);
+            console.log('likelyRel', likelyRel);
+            if (likelyRel) {
+              sendResponse(likelyRel);
+            }
+          }
+        );
+      }
+    );
+
+    Messages.listenForFrameSpecificMessage("mainpanel", "content",
+    "getFreshRelationItems", (msg: object, sendResponse: Function) => {
+      MiscUtilities.registerCurrentResponseRequested(msg, 
+        (selector: RelationSelector) => {
+          // let selector = RelationSelector.fromMessage(m);
+          RelationFinder.getFreshRelationItemsHelper(selector,
+            (freshRelationItems: FreshRelationItemsMessage) => {
+              HelenaConsole.namedLog("getRelationItems",
+                'freshRelationItems, about to send', freshRelationItems.type,
+                freshRelationItems);
+              sendResponse(freshRelationItems);
+            }
+          );
+        });
+      }
+    );
   }
 }

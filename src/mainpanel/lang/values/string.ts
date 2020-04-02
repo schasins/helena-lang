@@ -39,26 +39,26 @@ export class HelenaString extends Value {
 
   public updateBlocklyBlock(program?: HelenaProgram,
       pageVars?: PageVariable[], relations?: GenericRelation[]) {
-    HelenaMainpanel.addToolboxLabel(this.blocklyLabel, "text");
+    window.helenaMainpanel.addToolboxLabel(this.blocklyLabel, "text");
     const text = this.currentVal;
     Blockly.Blocks[this.blocklyLabel] = {
       init: function(this: Blockly.Block) {
-        const helena = HelenaMainpanel.getHelenaStatement(this);
+        const helena = window.helenaMainpanel.getHelenaStatement(this);
         if (!helena) {
-          HelenaMainpanel.setHelenaStatement(this, new HelenaString());
+          window.helenaMainpanel.setHelenaStatement(this, new HelenaString());
         }
 
         this.appendDummyInput()
             .appendField(new Blockly.FieldTextInput(text,
               function (newStr: string) {
                 const helenaStr =
-                  <HelenaString> HelenaMainpanel.getHelenaStatement(this.sourceBlock_);
+                  <HelenaString> window.helenaMainpanel.getHelenaStatement(this.sourceBlock_);
                 helenaStr.currentVal = newStr;
               }), HelenaString.fieldName);
 
         this.setOutput(true, 'string');
         this.setColour(25);
-        const helenaStr = <HelenaString> HelenaMainpanel.getHelenaStatement(this);
+        const helenaStr = <HelenaString> window.helenaMainpanel.getHelenaStatement(this);
         helenaStr.currentVal = text;
       }
     };
@@ -67,7 +67,7 @@ export class HelenaString extends Value {
   public genBlocklyNode(prevBlock: Blockly.Block,
       workspace: Blockly.WorkspaceSvg) {
     this.block = workspace.newBlock(this.blocklyLabel);
-    HelenaMainpanel.setHelenaStatement(this.block, this);
+    window.helenaMainpanel.setHelenaStatement(this.block, this);
     if (this.currentVal) {
       this.block.setFieldValue(this.currentVal, HelenaString.fieldName);
     }

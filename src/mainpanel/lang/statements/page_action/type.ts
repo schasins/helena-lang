@@ -196,7 +196,7 @@ export class TypeStatement extends PageActionStatement {
       const pageVarStr = this.pageVar? this.pageVar.toString() : "undefined";
       this.block.setFieldValue(pageVarStr, "page");
       HelenaMainpanel.attachToPrevBlock(this.block, prevBlock);
-      HelenaMainpanel.setHelenaStatement(this.block, this);
+      window.helenaMainpanel.setHelenaStatement(this.block, this);
 
       if (this.currentTypedString) {
         HelenaMainpanel.attachToInput(this.block,
@@ -213,7 +213,7 @@ export class TypeStatement extends PageActionStatement {
       .connection.targetBlock();
     if (currentTypedString) {
       this.currentTypedString =
-        <HelenaString | Concatenate> HelenaMainpanel.getHelenaStatement(currentTypedString).
+        <HelenaString | Concatenate> window.helenaMainpanel.getHelenaStatement(currentTypedString).
           getHelena();
     } else {
       this.currentTypedString = null;
@@ -287,7 +287,7 @@ export class TypeStatement extends PageActionStatement {
       }
 
       const nodevaruse = new NodeVariableUse(
-        HelenaMainpanel.getNodeVariableByName(name)
+        window.helenaMainpanel.getNodeVariableByName(name)
       );
       components.push(nodevaruse);
 

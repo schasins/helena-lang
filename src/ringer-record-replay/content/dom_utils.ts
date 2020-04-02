@@ -1,3 +1,5 @@
+import { Logs } from "../common/logs";
+
 export namespace DOMUtils {
   /**
    * Convert a DOM node to a xpath expression representing the path from the
@@ -81,7 +83,7 @@ export namespace DOMUtils {
       }
       return results;
     } catch (e) {
-      window.getLog('misc').error('xPath throws error when evaluated:', xpath);
+      Logs.getLog('misc').error('xPath throws error when evaluated:', xpath);
     }
     return [];
   }
@@ -118,7 +120,7 @@ export namespace DOMUtils {
           }
         }
       }
-      window.getLog('misc').error('xpath child cannot be found', xpath);
+      Logs.getLog('misc').error('xpath child cannot be found', xpath);
       return null;
     }
     return [currentNode];
@@ -130,7 +132,7 @@ export namespace DOMUtils {
     var nodes = xPathToNodes(xpath);
     //if we don't successfully find nodes, let's alert
     if (nodes.length != 1)
-      getLog('misc').error("xpath doesn't return strictly one node", xpath);
+      Logs.getLog('misc').error("xpath doesn't return strictly one node", xpath);
 
     if (nodes.length >= 1)
       return nodes[0];

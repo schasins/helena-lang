@@ -2,6 +2,7 @@ import * as _ from "underscore";
 
 import { Indexable, Utilities } from "../common/utils";
 import { DOMUtils } from "./dom_utils";
+import { RingerParams } from "../common/params";
 
 /**
  * Records effects of events (i.e. changes to a node).
@@ -96,8 +97,8 @@ export namespace Snapshot {
     if (!(obj1 && obj2)) {
       throw new ReferenceError('divergingProps called with bad arguements');
     }
-    obj1 = _.omit(obj1, window.params.compensation.omittedProps);
-    obj2 = _.omit(obj2, window.params.compensation.omittedProps);
+    obj1 = _.omit(obj1, RingerParams.params.compensation.omittedProps);
+    obj2 = _.omit(obj2, RingerParams.params.compensation.omittedProps);
   
     const divergingProps = [];
     for (const prop in obj1) {
@@ -168,7 +169,7 @@ export namespace Snapshot {
       if (!nodeEquals(orig, changed)) {
         let props1 = orig.prop || [];
         let props2 = changed.prop || [];
-        const omittedProps = window.params.compensation.omittedProps;
+        const omittedProps = RingerParams.params.compensation.omittedProps;
   
         props1 = _.omit(props1, omittedProps);
         props2 = _.omit(props2, omittedProps);
@@ -277,7 +278,7 @@ export namespace Snapshot {
   function nodeEquals(node1: NodeSnapshot, node2: NodeSnapshot) {
     if (node1 && node2) {
       if ('prop' in node1 && 'prop' in node2) {
-        const omittedProps = window.params.compensation.omittedProps;
+        const omittedProps = RingerParams.params.compensation.omittedProps;
         const node1RelevantProps = _.omit(node1.prop, omittedProps);
         const node2RelevantProps = _.omit(node2.prop, omittedProps);
   

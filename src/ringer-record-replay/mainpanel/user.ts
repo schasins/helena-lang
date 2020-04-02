@@ -1,10 +1,13 @@
+import { Logs } from "../common/logs";
+import { RingerParams } from "../common/params";
+
 /**
  * The interface for the user to interact with the replayer. Can be used to
  *   directly query the user.
  */
 export class User {
-  public activeTab: TabInfo | null;
-  private log = window.getLog('user');
+  public activeTab: chrome.tabs.TabActiveInfo | null;
+  private log = Logs.getLog('user');
   public panel: null;
 
   constructor() {
@@ -49,7 +52,7 @@ export class User {
    */
   private question(prompt: string, validation: (ans: string) => boolean,
       defaultAnswer: string, callback: (ans: string) => void) {
-    if (window.params.replay.defaultUser) {
+    if (RingerParams.params.replay.defaultUser) {
       callback(defaultAnswer);
     } else {
       /*

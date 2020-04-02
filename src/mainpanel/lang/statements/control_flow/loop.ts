@@ -21,6 +21,7 @@ import { StatementContainer } from "../container";
 import { HelenaProgram } from "../../program";
 import { Revival } from "../../../revival";
 import { Environment } from "../../../environment";
+import { HelenaBlockUIEvent } from "../page_action/page_action";
 
 /**
  * Loop statements not executed by run method, although may ultimately want to refactor to that
@@ -103,8 +104,8 @@ export class LoopStatement extends StatementContainer {
     const self = this;
 
     const handleMaxRowsChange = (newMaxRows: number) => {
-      if (self.sourceBlock_ && HelenaMainpanel.getHelenaStatement(self.sourceBlock_)) {
-        const stmt = <LoopStatement> HelenaMainpanel.getHelenaStatement(self.sourceBlock_);
+      if (self.sourceBlock_ && window.helenaMainpanel.getHelenaStatement(self.sourceBlock_)) {
+        const stmt = <LoopStatement> window.helenaMainpanel.getHelenaStatement(self.sourceBlock_);
         stmt.maxRows = newMaxRows;
         // if you changed the maxRows and it's actually defined, should make
         //   sure the max rows actually used...
@@ -120,7 +121,7 @@ export class LoopStatement extends StatementContainer {
         block.setFieldValue("TRUE", "infiniteRowsCheckbox");
         block.setFieldValue("FALSE", "limitedRowsCheckbox");
       }, 0);
-      const stmt = <LoopStatement> HelenaMainpanel.getHelenaStatement(block);
+      const stmt = <LoopStatement> window.helenaMainpanel.getHelenaStatement(block);
       stmt.maxRows = null;
     };
 
@@ -130,7 +131,7 @@ export class LoopStatement extends StatementContainer {
         block.setFieldValue("FALSE", "infiniteRowsCheckbox");
         block.setFieldValue("TRUE", "limitedRowsCheckbox");
       }, 0);
-      const stmt = <LoopStatement> HelenaMainpanel.getHelenaStatement(block);
+      const stmt = <LoopStatement> window.helenaMainpanel.getHelenaStatement(block);
       stmt.maxRows =
         this.sourceBlock_.getFieldValue(LoopStatement.maxRowsFieldName);
     }
@@ -139,7 +140,7 @@ export class LoopStatement extends StatementContainer {
       const block = this.sourceBlock_;
       // getWAL(block).maxRows = this.sourceBlock_.getFieldValue(maxRowsFieldName);
       const newName = this.sourceBlock_.getFieldValue("relationName");
-      const loopStmt = <LoopStatement> HelenaMainpanel.getHelenaStatement(block);
+      const loopStmt = <LoopStatement> window.helenaMainpanel.getHelenaStatement(block);
       if (loopStmt) {
         setTimeout(() => {
           const relObj = loopStmt.relation;
@@ -149,8 +150,8 @@ export class LoopStatement extends StatementContainer {
           //UIObject.updateDisplayedScript();
 
           // update without updating how blockly appears
-          HelenaMainpanel.UIObject.updateDisplayedScript(false);
-          HelenaMainpanel.UIObject.updateDisplayedRelations();
+          window.helenaMainpanel.UIObject.updateDisplayedScript(false);
+          window.helenaMainpanel.UIObject.updateDisplayedRelations();
         }, 0);
       }
     }
@@ -176,7 +177,7 @@ export class LoopStatement extends StatementContainer {
             .appendField("in")
             .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");  
              
-        if (!window.demoMode) {
+        if (!window.helenaMainpanel.demoMode) {
           soFar.appendField("(")
           .appendField(new Blockly.FieldCheckbox("TRUE", useInfiniteRows),
             'infiniteRowsCheckbox')
@@ -207,7 +208,7 @@ export class LoopStatement extends StatementContainer {
           if (uiEv.element === "selected" && uiEv.oldValue === this.id) {
             // remember that if this block was selected, relation names may have
             //   changed.  so we should re-display everything
-            HelenaMainpanel.UIObject.updateDisplayedScript(true);
+            window.helenaMainpanel.UIObject.updateDisplayedScript(true);
           }
         }
       }
@@ -222,7 +223,7 @@ export class LoopStatement extends StatementContainer {
       this.block.setFieldValue(this.pageVar.toString(), "page");
     }
     
-    if (!window.demoMode) {
+    if (!window.helenaMainpanel.demoMode) {
       if (this.maxRows) {
         this.block.setFieldValue(this.maxRows.toString(),
           LoopStatement.maxRowsFieldName);
@@ -240,7 +241,7 @@ export class LoopStatement extends StatementContainer {
       this.bodyStatements, workspace);
     HelenaMainpanel.attachNestedBlocksToWrapper(this.block, firstNestedBlock);
 
-    HelenaMainpanel.setHelenaStatement(this.block, this);
+    window.helenaMainpanel.setHelenaStatement(this.block, this);
     return this.block;
   }
 
@@ -249,7 +250,7 @@ export class LoopStatement extends StatementContainer {
     //   need the bodyStatements updated
     const firstNestedBlock = this.block.getInput('statements').connection
       .targetBlock();
-    const nested = HelenaMainpanel.blocklySeqToHelenaSeq(firstNestedBlock);
+    const nested = window.helenaMainpanel.blocklySeqToHelenaSeq(firstNestedBlock);
     this.bodyStatements = nested;
     return this;
   }
@@ -276,7 +277,7 @@ export class LoopStatement extends StatementContainer {
     this.removeChildren(bodyStatements);
     this.appendChild(annotation);
     adjustAnnotationParents(currProg);
-    HelenaMainpanel.UIObject.updateDisplayedScript();
+    window.helenaMainpanel.UIObject.updateDisplayedScript();
   }
 
   public addAnnotation(annotationItems: AnnotationItem[],

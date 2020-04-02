@@ -161,7 +161,7 @@ export class LoadStatement extends HelenaLangObject {
     }
     this.block.setFieldValue(this.outputPageVar.toString(), "page");
     HelenaMainpanel.attachToPrevBlock(this.block, prevBlock);
-    HelenaMainpanel.setHelenaStatement(this.block, this);
+    window.helenaMainpanel.setHelenaStatement(this.block, this);
     return this.block;
   }
 
@@ -170,7 +170,7 @@ export class LoadStatement extends HelenaLangObject {
     const url = this.block.getInput('url').connection.targetBlock();
     if (url) {
       this.currentUrl = <HelenaString | Concatenate | NodeVariableUse>
-        HelenaMainpanel.getHelenaStatement(url).getHelena();
+        window.helenaMainpanel.getHelenaStatement(url).getHelena();
     } else {
       this.currentUrl = null;
     }
@@ -224,7 +224,7 @@ export class LoadStatement extends HelenaLangObject {
         }
 
         const nodevaruse = new NodeVariableUse(
-          HelenaMainpanel.getNodeVariableByName(name));
+          window.helenaMainpanel.getNodeVariableByName(name));
         this.currentUrl = nodevaruse; // new NodeVariable(name, firstRowNodeRepresentations[i], null, null, NodeSources.RELATIONEXTRACTOR);
         return [ column ];
       }

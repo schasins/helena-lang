@@ -131,7 +131,8 @@ export class Relation extends GenericRelation {
   public demonstrationTimeRelationText() {
     return this.demonstrationTimeRelation.map(
       (row: MainpanelNode.Interface[]) => {
-        return row.map((cell: MainpanelNode.Interface) => cell.text);
+        return row.map(
+          (cell: MainpanelNode.Interface) => cell.text? cell.text : "undefined");
       }
     );
   }
@@ -234,7 +235,7 @@ export class Relation extends GenericRelation {
       (cell) => cell.xpath? cell.xpath : "undefined"
     );
     this.firstRowTexts = this.demonstrationTimeRelation[0].map(
-      (cell) => cell.text
+      (cell) => cell.text? cell.text : "undefined"
     );
     this.firstRowValues = this.demonstrationTimeRelation[0].map(
       (cell) => <string> cell.value

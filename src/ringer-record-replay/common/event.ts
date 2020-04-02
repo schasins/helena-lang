@@ -11,7 +11,7 @@ export interface RingerFrameInfo {
   port?: string;
   tab?: number;
   topFrame?: boolean;
-  topURL?: string;
+  topURL?: string | ParameterizedTopURL;
   URL: string;
   windowId?: number;
 }
@@ -25,7 +25,7 @@ export interface RecordedRingerFrameInfo extends RingerFrameInfo {
   port: string;
   tab: number;
   topFrame: boolean;
-  topURL: string;
+  topURL: string | ParameterizedTopURL;
   URL: string;
   windowId: number;
 }
@@ -73,12 +73,12 @@ export interface RingerEvent {
     type: string;
   };
   deltas?: Delta[];
-  frame?: RingerFrameInfo;
+  frame?: RingerFrameInfo | ParameterizedFrame;
   pageEventId?: number;
   meta?: RingerEventMeta;
   relatedTarget?: TargetInfo;
   replayed?: boolean;
-  target?: TargetInfo;
+  target?: TargetInfo | ParameterizedTarget;
   targetTimeout?: number;
   timing?: RingerTiming;
   type: string;
@@ -90,7 +90,7 @@ export interface DOMRingerEvent extends RingerEvent {
   };
   frame: RingerFrameInfo;
   meta: RingerEventMeta;
-  target: TargetInfo;
+  target: TargetInfo | ParameterizedTarget;
   timing: RingerTiming;
   type: "dom";
 }
@@ -103,8 +103,40 @@ export interface RecordedRingerEvent extends RingerEvent {
   reset?: {
     alreadyForced?: boolean;
   };
-  target: TargetInfo;
+  target: TargetInfo | ParameterizedTarget;
   timing: RecordedRingerTiming;
+}
+
+export interface ParameterizedXPath {
+	name: string;
+	value: null;
+	orig_value: string;
+}
+
+export interface ParameterizedTopURL {
+  name: string;
+  value: string | null;
+}
+
+interface ParameterizedFrame extends RecordedRingerFrameInfo {
+  topURL: ParameterizedTopURL;
+}
+
+interface ParameterizedTarget {
+  xpath: ParameterizedXPath;
+}
+
+export interface ParameterizedRingerEvent extends RecordedRingerEvent {
+  frame: ParameterizedFrame;
+	target: ParameterizedTarget;
+}
+
+export interface StringParameterizeEvent {
+  orig_value: string;
+  parameter_name: string;
+  text_input_event: RecordedRingerEvent;
+  type: "string_parameterize";
+  value: string;
 }
 
 export namespace RingerEvents {

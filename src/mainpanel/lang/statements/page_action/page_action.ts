@@ -1,3 +1,5 @@
+import * as Blockly from "blockly";
+
 import { HelenaConsole } from "../../../../common/utils/helena_console";
 import { HelenaLangObject, StatementParameter } from "../../helena_lang";
 import { NodeVariable } from "../../../variables/node_variable";
@@ -10,6 +12,12 @@ import { Trace } from "../../../../common/utils/trace";
 import { Environment } from "../../../environment";
 import { TextRelation } from "../../../relation/text_relation";
 import { Relation } from "../../../relation/relation";
+
+
+export interface HelenaBlockUIEvent extends Blockly.Events.Ui {
+  element: string;
+  oldValue: any;
+}
 
 export class PageActionStatement extends HelenaLangObject {
   public cleanTrace: Trace;

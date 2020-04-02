@@ -63,19 +63,20 @@ export class NodeVariableUse extends Value {
     if (!program) {
       return;
     }
-    HelenaMainpanel.addToolboxLabel(this.blocklyLabel);
+    window.helenaMainpanel.addToolboxLabel(this.blocklyLabel);
     const handleVarChange = function(newVarName: string) {
       if (this.sourceBlock_) {
         console.log("updating node to ", newVarName);
         const nodeVarUse =
-          <NodeVariableUse> HelenaMainpanel.getHelenaStatement(this.sourceBlock_);
-        nodeVarUse.nodeVar = HelenaMainpanel.getNodeVariableByName(newVarName);
+          <NodeVariableUse> window.helenaMainpanel.getHelenaStatement(this.sourceBlock_);
+        nodeVarUse.nodeVar =
+          window.helenaMainpanel.getNodeVariableByName(newVarName);
       }
     };
     const handleAttributeChange = function(newAttribute: AttributeOptions) {
       if (this.sourceBlock_) {
         const nodeVarUse =
-          <NodeVariableUse> HelenaMainpanel.getHelenaStatement(this.sourceBlock_);
+          <NodeVariableUse> window.helenaMainpanel.getHelenaStatement(this.sourceBlock_);
         nodeVarUse.attributeOption = newAttribute;
       }
     };
@@ -105,13 +106,14 @@ export class NodeVariableUse extends Value {
             //   we'll overwrite the existing Helena stuff, which would lose
             //   important state (in this case, the information about the node
             //   variable/what node it actually represents)
-            const helena = HelenaMainpanel.getHelenaStatement(this);
+            const helena = window.helenaMainpanel.getHelenaStatement(this);
             if (!helena) {
               const name = varNamesDropDown[0][0];
-              HelenaMainpanel.setHelenaStatement(this, new NodeVariableUse(
-                HelenaMainpanel.getNodeVariableByName(name)
+              window.helenaMainpanel.setHelenaStatement(this,
+                new NodeVariableUse(
+                  window.helenaMainpanel.getNodeVariableByName(name)
               ));
-              const nodeVarUse = <NodeVariableUse> HelenaMainpanel.getHelenaStatement(this);
+              const nodeVarUse = <NodeVariableUse> window.helenaMainpanel.getHelenaStatement(this);
 
               if (!nodeVarUse.nodeVar) {
                 throw new ReferenceError("NodeVariableUse has no node var!");
@@ -127,7 +129,7 @@ export class NodeVariableUse extends Value {
       workspace: Blockly.WorkspaceSvg) {
     this.block = workspace.newBlock(this.blocklyLabel);
     // nope!  this one doesn't attach to prev! attachToPrevBlock(this.block, prevBlock);
-    HelenaMainpanel.setHelenaStatement(this.block, this);
+    window.helenaMainpanel.setHelenaStatement(this.block, this);
     
     let varName = this.nodeVar.getName();
     if (!varName) {
@@ -142,7 +144,8 @@ export class NodeVariableUse extends Value {
   }
 
   public getHelenaSeq(): NodeVariableUse[] {
-    const inputSeq = HelenaMainpanel.getInputSeq(this.block, "NodeVariableUse");
+    const inputSeq = window.helenaMainpanel.getInputSeq(this.block,
+      "NodeVariableUse");
     let fullSeq: NodeVariableUse[] = [this];
     fullSeq = fullSeq.concat(inputSeq);
     return fullSeq;
@@ -165,7 +168,8 @@ export class NodeVariableUse extends Value {
       return <string> this.currentVal;
     } else if (this.attributeOption === AttributeOptions.TEXT) {
       // ok, it's a normal nodevar, an actual dom node representation
-      return (<MainpanelNode.Interface> this.currentVal).text;
+      const text = (<MainpanelNode.Interface> this.currentVal).text;
+      return text? text : "undefined";
     } else if (this.attributeOption === AttributeOptions.LINK &&
                this.currentVal.link) {
       return <string> this.currentVal.link;

@@ -10,7 +10,7 @@ import { OutputRowStatement } from "../output_row";
 
 import { MainpanelNode } from "../../../../common/mainpanel_node";
 
-import { PageActionStatement } from "./page_action";
+import { PageActionStatement, HelenaBlockUIEvent } from "./page_action";
 import { GenericRelation } from "../../../relation/generic";
 import { PageVariable } from "../../../variables/page_variable";
 import { HelenaProgram, RunObject } from "../../program";
@@ -124,20 +124,20 @@ export class ScrapeStatement extends PageActionStatement {
       },
       onchange: function(ev: Blockly.Events.Abstract) {
         const newName = this.getFieldValue("node");
-        const scrapeStmt = <ScrapeStatement> HelenaMainpanel.getHelenaStatement(this);
+        const scrapeStmt = <ScrapeStatement> window.helenaMainpanel.getHelenaStatement(this);
         const currentName = scrapeStmt.currentNode.getName();
         if (newName !== currentName) {
           // new name so update all our program display stuff
           scrapeStmt.currentNode.setName(newName);
 
           // update without updating how blockly appears
-          HelenaMainpanel.UIObject.updateDisplayedScript(false);
+          window.helenaMainpanel.UIObject.updateDisplayedScript(false);
 
           // now make sure the relation column gets renamed too
           const colObj = scrapeStmt.currentColumnObj();
           if (colObj) {
             colObj.name = newName;
-            HelenaMainpanel.UIObject.updateDisplayedRelations();
+            window.helenaMainpanel.UIObject.updateDisplayedRelations();
           }
         }
 
@@ -146,7 +146,7 @@ export class ScrapeStatement extends PageActionStatement {
           
           // unselected
           if (uiEv.element === "selected" && uiEv.oldValue === this.id) {
-            HelenaMainpanel.UIObject.updateDisplayedScript(true);
+            window.helenaMainpanel.UIObject.updateDisplayedScript(true);
           }
         }
       }
@@ -182,20 +182,20 @@ export class ScrapeStatement extends PageActionStatement {
       },
       onchange: function(ev: Blockly.Events.Abstract) {
         const newName = this.getFieldValue("name");
-        const scrapeStmt = <ScrapeStatement> HelenaMainpanel.getHelenaStatement(this);
+        const scrapeStmt = <ScrapeStatement> window.helenaMainpanel.getHelenaStatement(this);
         const currentName = scrapeStmt.currentNode.getName();
         if (newName !== defaultName && (newName !== currentName)) {
           // new name so update all our program display stuff
           scrapeStmt.currentNode.setName(newName);
           // update without updating how blockly appears
-          HelenaMainpanel.UIObject.updateDisplayedScript(false);
+          window.helenaMainpanel.UIObject.updateDisplayedScript(false);
         }
         if (ev instanceof Blockly.Events.Ui) {
           const uiEv = <HelenaBlockUIEvent> ev;
           
           // unselected
           if (uiEv.element === "selected" && uiEv.oldValue === this.id) {
-            HelenaMainpanel.UIObject.updateDisplayedScript(true);
+            window.helenaMainpanel.UIObject.updateDisplayedScript(true);
           }
         }
       }
@@ -220,7 +220,7 @@ export class ScrapeStatement extends PageActionStatement {
     }
     this.block.setFieldValue(this.pageVar.toString(), "page");
     HelenaMainpanel.attachToPrevBlock(this.block, prevBlock);
-    HelenaMainpanel.setHelenaStatement(this.block, this);
+    window.helenaMainpanel.setHelenaStatement(this.block, this);
     return this.block;
   }
 

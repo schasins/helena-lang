@@ -94,6 +94,17 @@ export interface ServerSaveResponse {
   }
 }
 
+export interface SavedProgramMessage {
+  id: string;
+  date: number;
+  name: string;
+  serialized_program: string;
+}
+
+export interface ScheduledScriptMessage {
+  progId: string;
+}
+
 export interface DatasetSliceRequest {
   nodes: string;
   pass_start_time: number;

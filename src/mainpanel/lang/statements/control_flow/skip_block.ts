@@ -344,7 +344,7 @@ export class SkipBlock extends StatementContainer {
       },
       onchange: function(this: Blockly.Block, ev: Blockly.Events.Abstract) {
         const newName = this.getFieldValue("name");
-        const skipBlock = <SkipBlock> HelenaMainpanel.getHelenaStatement(this);
+        const skipBlock = <SkipBlock> window.helenaMainpanel.getHelenaStatement(this);
         if (newName !== skipBlock.name) {
           skipBlock.name = newName;
         }
@@ -358,7 +358,7 @@ export class SkipBlock extends StatementContainer {
       this.bodyStatements, workspace);
     HelenaMainpanel.attachNestedBlocksToWrapper(this.block, firstNestedBlock);
 
-    HelenaMainpanel.setHelenaStatement(this.block, this);
+    window.helenaMainpanel.setHelenaStatement(this.block, this);
     return this.block;
   }
 
@@ -367,7 +367,7 @@ export class SkipBlock extends StatementContainer {
     //   need the bodyStatements updated
     const firstNestedBlock = this.block.getInput('statements').connection
       .targetBlock();
-    const seq = HelenaMainpanel.blocklySeqToHelenaSeq(firstNestedBlock);
+    const seq = window.helenaMainpanel.blocklySeqToHelenaSeq(firstNestedBlock);
     this.bodyStatements = seq;
     return this;
   }

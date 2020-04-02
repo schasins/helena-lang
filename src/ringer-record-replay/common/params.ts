@@ -1,53 +1,107 @@
-/* -*- Mode: Java; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set shiftwidth=2 tabstop=2 autoindent cindent expandtab: */
+import { LogLevel } from "./logs";
 
-'use strict';
+/**
+ * Compensation actions scheme, should be used when element properties differ
+ *   between record and replay executions.
+ */
+export enum CompensationAction {
+  NONE = 'none',
+  FORCED = 'forced'
+}
 
-var params = null;
-var defaultParams = null; /* supposed to be read-only copy of parameters */
+/**
+ * Strategy to apply when an exception is thrown because of a disconnected
+ *   port.
+ */ 
+export enum BrokenPortStrategy {
+  RETRY = 'retry',
+  SKIP = 'skip'
+}
 
-/* Compensation actions scheme, should be used when element properties differ
- * between record and replay executions */
-var CompensationAction = {
-  NONE: 'none',
-  FORCED: 'forced'
-};
+/**
+ * Strategy for how much time should be spent between events
+ */
+export enum TimingStrategy {
+  MIMIC = 'mimic',
+  SPEED = 'speed',
+  SLOWER = 'slower',
+  SLOWEST = 'slower',
+  FIXED_1 = 'fixed_1',
+  RANDOM_0_3 = 'random_0_3',
+  PERTURB_0_3 = 'perturb_0_3',
+  PERTURB = 'purterb'
+}
 
-/* Strategy to apply when an exeception is thrown because of a disconnected
- * port */ 
-var BrokenPortStrategy = {
-  RETRY: 'retry',
-  SKIP: 'skip'
-};
+/**
+ * Strategy for action to take after a timeout
+ */
+export enum TimeoutStrategy {
+  ERROR = 'error',
+  SKIP = 'skip'
+}
 
-/* Strategy for how much time should be spent between events */
-var TimingStrategy = {
-  MIMIC: 'mimic',
-  SPEED: 'speed',
-  SLOWER: 'slower',
-  SLOWEST: 'slower',
-  FIXED_1: 'fixed_1',
-  RANDOM_0_3: 'random_0_3',
-  PERTURB_0_3: 'perturb_0_3',
-  PERTURB: 'purterb'
-};
 
-/* Strategy for action to take after a timeout */
-var TimeoutStrategy = {
-  ERROR: 'error',
-  SKIP: 'skip'
-};
+export interface IRingerParams {
+  capture: {
+    saveCaptureLocal: boolean;
+  };
+  compensation: {
+    enabled: boolean;
+    omittedProps: string[];
+  };
+  ctrlOnlyEvents: string[];
+  defaultProps: { [key: string]: any };
+  events: {
+    [key: string]: {
+      [key: string]: boolean
+    }
+  };
+  logging: {
+    level: LogLevel;
+    enabled: string;
+    print: boolean;
+    saved: boolean;
+  };
+  record: {
+    allEventProps?: boolean;
+    cancelUnrecordedEvents: boolean;
+    listenToAllEvents: boolean;
+    recordAllEventProps: boolean;
+  };
+  replay: {
+    atomic: boolean;
+    cascadeCheck: boolean;
+    brokenPortStrategy: BrokenPortStrategy;
+    cancelUnknownEvents: boolean;
+    captureWait: number;
+    compensation: CompensationAction;
+    defaultUser: boolean;
+    defaultWait: number;
+    defaultWaitNewTab: number;
+    defaultWaitNextEvent: number;
+    eventTimeout: null;
+    highlightTarget: boolean;
+    openNewTab: boolean;
+    saveReplay: boolean;
+    skipCascadingEvents: boolean;
+    targetTimeout: number;
+    timingStrategy: TimingStrategy;
+    urlSimilarity: number;
+  };
+}
 
-(function() {
-  /* List of all events and whether or not we should capture them */
-  var events = {
+export namespace RingerParams {
+  /**
+   * List of all events and whether or not we should capture them
+   */
+  let events = {
     'Event': {
       // 'abort': true,
-      'change': true,  /* change event occurs before focus is lost (blur) */
+      'change': true,  // change event occurs before focus is lost (blur)
       'copy': true,
       'cut': true,
       'error': false,
-      'input': true,  /* input event occurs on each keystroke (or cut/paste) */
+      'input': true,  // input event occurs on each keystroke (or cut/paste)
       'load': false,
       'paste': true,
       'reset': true,
@@ -83,7 +137,7 @@ var TimeoutStrategy = {
     }
   };
 
-  var defaultProps = {
+  let defaultProps = {
     'Event': {
       'type': true,
       'bubbles': true,
@@ -126,8 +180,8 @@ var TimeoutStrategy = {
       'keyCode': 0,
       'charCode': 0,
       'timeStamp': 0,
-      'keyIdentifier': '',  /* nonstandard to Chrome */
-      'keyLocation': 0  /* nonstandard to Chrome */
+      'keyIdentifier': '',  // nonstandard to Chrome
+      'keyLocation': 0      // nonstandard to Chrome
     },
     'TextEvent': {
       'type': true,
@@ -140,19 +194,15 @@ var TimeoutStrategy = {
     }
   };
 
-  var ctrlOnlyEvents = ["mouseover"];
-
-  /* There are a lot of random parameters, too many for comments. Best way to
-   * figure out what a parameter does, is to grep for that parameter in the
-   * source code. */
-  defaultParams = {
+  export let params: IRingerParams = {
     events: events,
-    ctrlOnlyEvents: ctrlOnlyEvents,
+    ctrlOnlyEvents: ["mouseover"],
     defaultProps: defaultProps,
+    /*
     panel: {
       enableEdit: true,
       enableRequest: true
-    },
+    },*/
     logging: {
       level: 4,
       enabled: 'all',
@@ -162,10 +212,10 @@ var TimeoutStrategy = {
     compensation: {
       enabled: true,
       omittedProps: ['innerHTML', 'outerHTML', 'innerText', 'outerText',
-          'textContent', 'className', 'childElementCount', 'clientHeight', 'clientWidth', 'clientTop',
-          'clientLeft', 'offsetHeight', 'offsetWidth', 'offsetTop',
-          'offsetLeft', 'text', 'valueAsNumber', 'id', 'class', 'xpath', 
-          'baseURI'],
+          'textContent', 'className', 'childElementCount', 'clientHeight',
+          'clientWidth', 'clientTop', 'clientLeft', 'offsetHeight',
+          'offsetWidth', 'offsetTop', 'offsetLeft', 'text', 'valueAsNumber',
+          'id', 'class', 'xpath', 'baseURI'],
     },
     record: {
       recordAllEventProps: true,
@@ -195,16 +245,11 @@ var TimeoutStrategy = {
     capture: {
       saveCaptureLocal: true,
     },
+    /*
     server: {
       // url: 'http://sbarman.webfactional.com/api/',
       url: 'http://127.0.0.1:8000/api/',
       user: 'sbarman',
-    },
+    },*/
   };
-
-  if (window.jQuery)
-    params = jQuery.extend(true, {}, defaultParams);
-  else
-    params = defaultParams;
-
-})();
+}

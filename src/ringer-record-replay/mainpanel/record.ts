@@ -2,6 +2,7 @@ import { PortManager } from "./port_manager";
 import { RingerMessage, UpdateEventMessage, RecordState } from "../common/messages";
 import { RingerEvent, RecordedRingerEvent } from "../common/event";
 import { Indexable } from "../common/utils";
+import { Logs } from "../common/logs";
 
 /**
  * Handles recording of events from the content scripts.
@@ -10,7 +11,7 @@ export class Record {
   public events: RecordedRingerEvent[];
   public lastTime: number;
   public listeners: ((msg: RingerMessage) => void)[];
-  public log = window.getLog('record');
+  public log = Logs.getLog('record');
   public ports: PortManager;
   public recordState: RecordState;
   public scriptId?: number;

@@ -15,7 +15,7 @@ import { NodeVariableUse } from "./lang/values/node_variable_use";
 
 import { RecorderUI } from "./ui/recorder_ui";
 import { PageVariable } from "./variables/page_variable";
-import { HelenaProgram } from "./lang/program";
+import { HelenaProgram, RunObject } from "./lang/program";
 import { Revival } from "./revival";
 import { Relation } from "./relation/relation";
 import { TextRelation } from "./relation/text_relation";
@@ -32,6 +32,8 @@ import { OutputRowStatement } from "./lang/statements/output_row";
 import { Trace, Traces, DisplayTraceEvent } from "../common/utils/trace";
 import { Environment } from "./environment";
 import { DOMRingerEvent } from "../ringer-record-replay/common/event";
+import { Utilities } from "../ringer-record-replay/common/utils";
+import { Messages } from "../common/messages";
 
 export enum NodeSources {
   RELATIONEXTRACTOR = 1,
@@ -40,25 +42,11 @@ export enum NodeSources {
   TEXTRELATION,
 };
 
+interface HelenaBlock extends Blockly.Block {
+  helena: HelenaLangObject;
+}
+
 export class HelenaMainpanel {
-  public static toolId = null;
-
-  public static blocklyLabels: {
-    [key: string]: string[]
-  } = { text: [], numbers: [], other: [] };
-
-  public static blocklyNames: string[] = [];
-
-
-  // when Blockly blocks are thrown away (in trash cah), you can undo it, but
-  //   undoing it doesn't bring back the walstatement property that we add
-  //   so...we'll keep track
-  public static blocklyToHelenaDict: {
-    [key: string]: HelenaLangObject
-  } = {};
-  
-  public static UIObject: RecorderUI;
-
   public static revivable: {
     [key: string]: Revival.Prototype
   } = {
@@ -83,9 +71,38 @@ export class HelenaMainpanel {
     "TypeStatement": TypeStatement,
     "OutputRowStatement": OutputRowStatement
   };
+  
+  public allNodeVariablesSeenSoFar: NodeVariable[];
+  public blocklyLabels: {
+    [key: string]: string[]
+  } = { text: [], numbers: [], other: [] };
+  public currentReplayWindowId: number | null;
+  public currentRunObjects: RunObject[];
+
+  public blocklyNames: string[] = [];
+  
+  // when Blockly blocks are thrown away (in trash cah), you can undo it, but
+  //   undoing it doesn't bring back the walstatement property that we add
+  //   so...we'll keep track
+  public blocklyToHelenaDict: {
+    [key: string]: HelenaLangObject
+  } = {};
+  public demoMode: boolean;
+
+  public recordingWindowIds: number[];
+  public toolId = null;
+  public UIObject: RecorderUI;
 
   constructor(obj: RecorderUI) {
-    HelenaMainpanel.UIObject = obj;
+    this.allNodeVariablesSeenSoFar = [];
+    this.currentReplayWindowId = null;
+    this.currentRunObjects = [];
+    this.demoMode = false;
+    this.recordingWindowIds = [];
+
+    this.addMessageListeners();
+
+    this.UIObject = obj;
     Environment.setUIObject(obj);
 
     // time to apply labels for revival purposes
@@ -96,6 +113,15 @@ export class HelenaMainpanel {
 
     // make one so we'll add the blocklylabel
     new WaitStatement();
+  }
+
+  private addMessageListeners() {
+    Messages.listenForMessage("content", "mainpanel",
+      "currentReplayWindowId", () => {
+        Messages.sendMessage("mainpanel", "content",
+          "currentReplayWindowId", { window: this.currentReplayWindowId });
+      }
+    );
   }
 
   // some of the things we do within the objects that represent the programs,
@@ -114,10 +140,10 @@ export class HelenaMainpanel {
     Tab tab = UIObject.newRunTab(RunObject ro)
   */
 
-  public static resetForNewScript() {
+  public resetForNewScript() {
     // if the user is going to be starting a fresh script, it shouldn't be
     //   allowed to use variables from a past script or scripts
-    window.allNodeVariablesSeenSoFar = [];
+    this.allNodeVariablesSeenSoFar = [];
   }
 
   // it's ok to just run with this unless you want to only load programs
@@ -169,10 +195,10 @@ export class HelenaMainpanel {
     return cleanTrace;
   }
 
-  public static addToolboxLabel(label: string, category = "other") {
-    HelenaMainpanel.blocklyLabels[category].push(label);
-    HelenaMainpanel.blocklyLabels[category] =
-      [...new Set(HelenaMainpanel.blocklyLabels[category])];
+  public addToolboxLabel(label: string, category = "other") {
+    this.blocklyLabels[category].push(label);
+    this.blocklyLabels[category] =
+      [...new Set(this.blocklyLabels[category])];
   }
 
   public static attachToPrevBlock(currBlock: Blockly.Block,
@@ -295,14 +321,14 @@ export class HelenaMainpanel {
     return getLoopIterationCountersHelper(stmt, []);
   }
 
-  public static blocklySeqToHelenaSeq(blocklyBlock: Blockly.Block):
+  public blocklySeqToHelenaSeq(blocklyBlock: Blockly.Block):
       HelenaLangObject[] {
     if (!blocklyBlock) {
       return [];
     }
     
     // grab the associated helena component and call the getHelena method
-    const thisNodeHelena = HelenaMainpanel.getHelenaStatement(blocklyBlock).getHelena();
+    const thisNodeHelena = this.getHelenaStatement(blocklyBlock).getHelena();
     let invisibleHead = thisNodeHelena.invisibleHead;
     if (!invisibleHead) {invisibleHead = [];}
     let invisibleTail = thisNodeHelena.invisibleTail;
@@ -314,33 +340,34 @@ export class HelenaMainpanel {
     if (!nextBlocklyBlock) {
       return helenaSeqForThisBlock;
     }
-    const suffix = HelenaMainpanel.blocklySeqToHelenaSeq(nextBlocklyBlock);
+    const suffix = this.blocklySeqToHelenaSeq(nextBlocklyBlock);
     return helenaSeqForThisBlock.concat(suffix);
   }
 
   public static getHelenaFromBlocklyRoot(blocklyBlock: Blockly.Block) {
-    return HelenaMainpanel.blocklySeqToHelenaSeq(blocklyBlock);
+    return window.helenaMainpanel.blocklySeqToHelenaSeq(blocklyBlock);
   }
 
-  public static getInputSeq(blocklyBlock: Blockly.Block, inputName: string) {
+  public getInputSeq(blocklyBlock: Blockly.Block, inputName: string) {
     const nextBlock = blocklyBlock.getInput(inputName).connection.targetBlock();
     if (!nextBlock) {
       return [];
     }
-    return (<NodeVariableUse> HelenaMainpanel.getHelenaStatement(nextBlock)).getHelenaSeq();
+    return (<NodeVariableUse> this.getHelenaStatement(nextBlock)).getHelenaSeq();
   }
 
-  public static setHelenaStatement(block: Blockly.Block, WALEquiv: HelenaLangObject) {
+  public setHelenaStatement(block: Blockly.Block,
+      helenaStmt: HelenaLangObject) {
     let helenaBlock = <HelenaBlock> block;
-    helenaBlock.helena = WALEquiv;
-    WALEquiv.block = helenaBlock;
-    HelenaMainpanel.blocklyToHelenaDict[block.id] = WALEquiv;
+    helenaBlock.helena = helenaStmt;
+    helenaStmt.block = helenaBlock;
+    this.blocklyToHelenaDict[block.id] = helenaStmt;
   }
 
-  public static getHelenaStatement(block: Blockly.Block): HelenaLangObject {
+  public getHelenaStatement(block: Blockly.Block): HelenaLangObject {
     let helenaBlock = <HelenaBlock> block;
     if (!helenaBlock.helena) {
-      helenaBlock.helena = HelenaMainpanel.blocklyToHelenaDict[helenaBlock.id];
+      helenaBlock.helena = this.blocklyToHelenaDict[helenaBlock.id];
       if (helenaBlock.helena) {
         helenaBlock.helena.block = helenaBlock;
         // the above line may look silly but when blockly drops blocks into the
@@ -396,8 +423,8 @@ export class HelenaMainpanel {
     return false;
   }
 
-  public static getNodeVariableByName(name: string) {
-    for (const nodeVar of window.allNodeVariablesSeenSoFar) {
+  public getNodeVariableByName(name: string) {
+    for (const nodeVar of this.allNodeVariablesSeenSoFar) {
       if (nodeVar.getName() === name) {
         return nodeVar;
       }
@@ -410,7 +437,7 @@ export class HelenaMainpanel {
    *   and so on.
    * @param program 
    */
-  public static updateToolboxBlocks(program: HelenaProgram | null) {
+  public updateToolboxBlocks(program: HelenaProgram | null) {
     // this is silly, but just making a new object for each of our statements is
     //   an easy way to get access to the updateBlocklyBlock function and still
     //   keep it an instance method/right next to the genBlockly function
@@ -424,7 +451,7 @@ export class HelenaMainpanel {
     
     // let's also add in other nodes which may not have been used in programs
     // so far, but which we want to include in the toolbox no matter what
-    const origBlocks = HelenaMainpanel.blocklyNames;
+    const origBlocks = this.blocklyNames;
     const allDesiredBlocks = origBlocks.concat(toolBoxBlocks);
     for (const prop of allDesiredBlocks) {
       try {
@@ -498,7 +525,7 @@ function urlMatchSymmetryHelper(t1: string, t2: string) {
 function cleanEvent(ev: DisplayTraceEvent): DisplayTraceEvent {
   const displayData = Traces.getDisplayInfo(ev);
   Traces.clearDisplayInfo(ev);
-  const cleanEvent = clone(ev);
+  const cleanEvent = Utilities.clone(ev);
   // now restore the true trace object
   Traces.setDisplayInfo(ev, displayData);
   return cleanEvent;

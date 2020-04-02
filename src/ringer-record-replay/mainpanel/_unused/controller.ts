@@ -4,7 +4,7 @@
 
 /*
 var Controller = (function ControllerClosure() {
-  var ctlLog = getLog('controller');
+  var ctlLog = Logs.getLog('controller');
 
   function Controller(record, replay, scriptServer, ports) {
     this.record = record;

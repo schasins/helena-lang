@@ -36,7 +36,7 @@ export class NodeVariable implements Revival.Revivable {
     if (source === NodeSources.PARAMETER) {
       this.nodeSource = source;
       // let's put this in our allNodeVariablesSeenSoFar record of all our nvs
-      window.allNodeVariablesSeenSoFar.push(this);
+      window.helenaMainpanel.allNodeVariablesSeenSoFar.push(this);
     }
   
     // ok, node variables are a little weird, because we have a special interest
@@ -63,7 +63,7 @@ export class NodeVariable implements Revival.Revivable {
     // go through here if they provided either a snapshot or a mainpanel rep
     if (this.recordedNodeSnapshot) {
       // actually go through and compare to all prior nodes
-      for (const node of window.allNodeVariablesSeenSoFar) {
+      for (const node of window.helenaMainpanel.allNodeVariablesSeenSoFar) {
         if (source !== NodeSources.TEXTRELATION &&
             this.sameNode(node)) {
           // ok, we already have a node variable for representing this. just
@@ -85,13 +85,13 @@ export class NodeVariable implements Revival.Revivable {
       this.nodeSource = source;
  
       // and let's put this in our allNodeVariablesSeenSoFar record of all our nvs
-      window.allNodeVariablesSeenSoFar.push(this);
+      window.helenaMainpanel.allNodeVariablesSeenSoFar.push(this);
     }
  
-   if (window.allNodeVariablesSeenSoFar.indexOf(this) < 0) {
+   if (window.helenaMainpanel.allNodeVariablesSeenSoFar.indexOf(this) < 0) {
      // ok, we're reconstructing a program, so we don't yet have this node variable in our
      // tracker of all node variables.  go ahead and add it
-     window.allNodeVariablesSeenSoFar.push(this);
+     window.helenaMainpanel.allNodeVariablesSeenSoFar.push(this);
    }
    
    this.requiredFeatures = [];
@@ -110,7 +110,7 @@ export class NodeVariable implements Revival.Revivable {
 
   public setName(name: string) {
     // don't set it to the original name unless nothing else has that name yet
-    const otherNode = HelenaMainpanel.getNodeVariableByName(name);
+    const otherNode = window.helenaMainpanel.getNodeVariableByName(name);
     if (!otherNode) {
       this.privateName = name;
     } else {
@@ -175,7 +175,8 @@ export class NodeVariable implements Revival.Revivable {
   }
 
   public currentText(environment: Environment.Frame) {
-    return this.currentNodeRep(environment).text;
+    const text = this.currentNodeRep(environment).text;
+    return text? text : "undefined";
   }
 
   public currentLink(environment: Environment.Frame) {

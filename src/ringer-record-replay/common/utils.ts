@@ -1,8 +1,18 @@
+import { RingerParams } from "./params";
+
 export interface Indexable {
   [key: string]: any;
 }
 
 export namespace Utilities {
+  /**
+   * Clone an object.
+   * @param obj 
+   */
+  export function clone(obj: object) {
+    return JSON.parse(JSON.stringify(obj));
+  }
+
   /**
    * Get the longest common sub-expression of two URLs.
    * @param x 
@@ -33,12 +43,14 @@ export namespace Utilities {
     //row[j] now contains the length of the lcs
     //recover the lcs from the table
     while (i > -1 && j > -1) {
-      switch (c[i][j]) {
-        default: j--;
-          lcs.unshift(x[i]);
-        case (i && c[i - 1][j]): i--;
-          continue;
-        case (j && c[i][j - 1]): j--;
+      if (i && c[i - 1][j]) {
+        i--;
+        continue;
+      } else if (j && c[i][j - 1]) {
+        j--;
+      } else {
+        j--;
+        lcs.unshift(x[i]);
       }
     }
     return lcs.join('');
@@ -90,7 +102,7 @@ export namespace Utilities {
   export function matchUrls(origUrl: string, matchedUrl: string,
       similarity: number) {
     if (!similarity) {
-      similarity = window.params.replay.urlSimilarity;
+      similarity = RingerParams.params.replay.urlSimilarity;
     }
 
     const commonUrl = lcs(origUrl, matchedUrl);

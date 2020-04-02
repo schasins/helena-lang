@@ -40,7 +40,7 @@ export class Concatenate extends Value {
 
   public updateBlocklyBlock(program?: HelenaProgram,
       pageVars?: PageVariable[], relations?: GenericRelation[]) {
-    HelenaMainpanel.addToolboxLabel(this.blocklyLabel, "text");
+    window.helenaMainpanel.addToolboxLabel(this.blocklyLabel, "text");
     Blockly.Blocks[this.blocklyLabel] = {
       init: function(this: Blockly.Block) {
         this.appendValueInput("left");
@@ -50,9 +50,9 @@ export class Concatenate extends Value {
         this.setOutput(true, 'Bool');
         this.setColour(25);
 
-        const helena = HelenaMainpanel.getHelenaStatement(this);
+        const helena = window.helenaMainpanel.getHelenaStatement(this);
         if (!helena) {
-          HelenaMainpanel.setHelenaStatement(this, new Concatenate());
+          window.helenaMainpanel.setHelenaStatement(this, new Concatenate());
         }
       }
     };
@@ -61,7 +61,7 @@ export class Concatenate extends Value {
   public genBlocklyNode(prevBlock: Blockly.Block,
       workspace: Blockly.WorkspaceSvg) {
     this.block = workspace.newBlock(this.blocklyLabel);
-    HelenaMainpanel.setHelenaStatement(this.block, this);
+    window.helenaMainpanel.setHelenaStatement(this.block, this);
 
     if (this.left) {
       const leftBlock = this.left.genBlocklyNode(this.block, workspace);
@@ -85,13 +85,13 @@ export class Concatenate extends Value {
     const leftBlock = this.block.getInput('left').connection.targetBlock();
     const rightBlock = this.block.getInput('right').connection.targetBlock();
     if (leftBlock) {
-      this.left = <HelenaString> HelenaMainpanel.getHelenaStatement(leftBlock).getHelena();
+      this.left = <HelenaString> window.helenaMainpanel.getHelenaStatement(leftBlock).getHelena();
     } else {
       this.left = undefined;
     }
 
     if (rightBlock) {
-      this.right = <HelenaString> HelenaMainpanel.getHelenaStatement(rightBlock).getHelena();
+      this.right = <HelenaString> window.helenaMainpanel.getHelenaStatement(rightBlock).getHelena();
     } else {
       this.right = undefined;
     }

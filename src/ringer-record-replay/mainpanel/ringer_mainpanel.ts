@@ -7,14 +7,11 @@ import { RingerMessage, RecordState } from "../common/messages";
 import { Indexable } from "../common/utils";
 import { HelenaConsole } from "../../common/utils/helena_console";
 import { RingerEvent, RecordedRingerEvent } from "../common/event";
+import { Logs } from "../common/logs";
+import { RingerParams } from "../common/params";
 
-declare global {
-  interface Window {
-    ringerMainpanel: RingerMainpanel;
-  }
-}
-
-interface WebRequestDetails extends chrome.webNavigation.WebNavigationCallbackDetails {
+interface WebRequestDetails
+    extends chrome.webNavigation.WebNavigationCallbackDetails {
   reqTimeStamp: number;
   type: string;
   windowId: number;
@@ -22,7 +19,7 @@ interface WebRequestDetails extends chrome.webNavigation.WebNavigationCallbackDe
 
 export class RingerMainpanel {
   // public controller: Controller;
-  private log = window.getLog('background');
+  private log = Logs.getLog('background');
   public ports: PortManager;
   public record: Record;
   public replay: Replay;
@@ -116,7 +113,7 @@ export class RingerMainpanel {
 
     this.ports.sendToAll({
       type: 'params',
-      value: window.params
+      value: RingerParams.params
     });
     this.stop();
   }
@@ -244,7 +241,7 @@ export class RingerMainpanel {
           port.postMessage({type: 'recording', value: RecordState.STOPPED});
         }
       } else if (type === 'getParams') {
-        port.postMessage({type: 'params', value: window.params});
+        port.postMessage({type: 'params', value: RingerParams.params});
       } else if (type === 'url') {
         this.ports.updateUrl(port, request.value);
       } else {
@@ -339,8 +336,6 @@ export class RingerMainpanel {
     this.replay.stopReplay();
   }
 }
-
-window.ringerMainpanel = new RingerMainpanel();
 
 /*
 function printEvents() {

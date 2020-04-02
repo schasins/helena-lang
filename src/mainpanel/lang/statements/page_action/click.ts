@@ -3,7 +3,7 @@ import * as Blockly from "blockly";
 import { HelenaMainpanel, NodeSources } from "../../../helena_mainpanel";
 
 import { NodeVariable } from "../../../variables/node_variable";
-import { PageActionStatement } from "./page_action";
+import { PageActionStatement, HelenaBlockUIEvent } from "./page_action";
 import { ColumnSelector } from "../../../../content/selector/column_selector";
 import { GenericRelation } from "../../../relation/generic";
 import { PageVariable } from "../../../variables/page_variable";
@@ -130,20 +130,20 @@ export class ClickStatement extends PageActionStatement {
         },
         onchange: function(ev: Blockly.Events.Abstract) {
           const newName = this.getFieldValue("node");
-          const clickStmt = <ClickStatement> HelenaMainpanel.getHelenaStatement(this);
+          const clickStmt = <ClickStatement> window.helenaMainpanel.getHelenaStatement(this);
           const currentName = clickStmt.currentNode.getName();
           if (newName !== currentName) {
             // new name so update all our program display stuff
             clickStmt.currentNode.setName(newName);
 
             // update without updating how blockly appears
-            HelenaMainpanel.UIObject.updateDisplayedScript(false);
+            window.helenaMainpanel.UIObject.updateDisplayedScript(false);
 
             // now make sure the relation column gets renamed too
             const colObj = clickStmt.currentColumnObj();
             if (colObj) {
               colObj.name = newName;
-              HelenaMainpanel.UIObject.updateDisplayedRelations();
+              window.helenaMainpanel.UIObject.updateDisplayedRelations();
             }
           }
           if (ev instanceof Blockly.Events.Ui) {
@@ -151,7 +151,7 @@ export class ClickStatement extends PageActionStatement {
             
             // unselected
             if (uiEv.element === "selected" && uiEv.oldValue === this.id) {
-              HelenaMainpanel.UIObject.updateDisplayedScript(true);
+              window.helenaMainpanel.UIObject.updateDisplayedScript(true);
             }
           }
         }
@@ -185,7 +185,7 @@ export class ClickStatement extends PageActionStatement {
     this.block.setFieldValue(this.pageVar.toString(), "page");
 
     HelenaMainpanel.attachToPrevBlock(this.block, prevBlock);
-    HelenaMainpanel.setHelenaStatement(this.block, this);
+    window.helenaMainpanel.setHelenaStatement(this.block, this);
     return this.block;
   }
 

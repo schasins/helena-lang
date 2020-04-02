@@ -38,10 +38,6 @@ export class HelenaUIBase {
     this.blocklyReadjustFunc();
   }
 
-  public resetForNewScriptInternal() {
-    HelenaMainpanel.resetForNewScript();
-  }
-
   private retrieveBlocklyComponent(componentId?: string) {
     if (!componentId) {
       return null;
@@ -62,11 +58,11 @@ export class HelenaUIBase {
 
     // before we can use the toolbox, we have to actually have all the relevant
     //   blocks
-    HelenaMainpanel.updateToolboxBlocks(this.helenaProg);
+    window.helenaMainpanel.updateToolboxBlocks(this.helenaProg);
     
     $toolboxDiv.html("");
-    for (const key in HelenaMainpanel.blocklyLabels){
-      let bls = HelenaMainpanel.blocklyLabels[key];
+    for (const key in window.helenaMainpanel.blocklyLabels){
+      let bls = window.helenaMainpanel.blocklyLabels[key];
       let $categoryDiv = $("<category name=" + key + ">");
       for (let i = 0; i < bls.length; i++){
         $categoryDiv.append($("<block type=\"" + bls[i] + "\"></block>"));
