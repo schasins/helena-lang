@@ -143,7 +143,7 @@ export namespace HelenaServer {
 
   export function loadSavedPrograms(handler: Function) {
     HelenaConsole.log("loading programs");
-    const toolId = HelenaMainpanel.toolId;
+    const toolId = window.helenaMainpanel.toolId;
     console.log("toolId", toolId);
     keepGetting(HelenaConfig.helenaServerUrl + '/programs/',
       {

@@ -25,7 +25,7 @@ export enum TimingStrategy {
   MIMIC = 'mimic',
   SPEED = 'speed',
   SLOWER = 'slower',
-  SLOWEST = 'slower',
+  SLOWEST = 'slowest',
   FIXED_1 = 'fixed_1',
   RANDOM_0_3 = 'random_0_3',
   PERTURB_0_3 = 'perturb_0_3',

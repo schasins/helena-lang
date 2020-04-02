@@ -89,7 +89,7 @@ export namespace Traces {
   }
 
   export function getDOMURL(ev: RecordedRingerEvent) {
-    const url = ev.frame.topURL;
+    const url = <string> ev.frame.topURL;
 
     // to canonicalize urls that'd be treated the same, remove slash at end
     return strip(url, "/");

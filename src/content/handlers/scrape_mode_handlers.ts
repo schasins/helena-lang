@@ -2,8 +2,7 @@ import { Messages } from "../../common/messages";
 import { MainpanelNode } from "../../common/mainpanel_node";
 import MainpanelNodeI = MainpanelNode.Interface;
 import { Highlight } from "../ui/highlight";
-import { TraceEvent } from "../../common/utils/trace";
-import { MiscUtilities } from "../../common/misc_utilities";
+import { DOMRingerEvent } from "../../ringer-record-replay/common/event";
 
 /**
  * Handlers during "scrape mode" when scraping is activated (e.g. when the Alt
@@ -15,7 +14,7 @@ export namespace ScrapeModeHandlers {
    *   after the Ringer content script runs so that the
    *   additional_recording_handlers object exists.
    */
-  export function sendScrapedDataToMainpanel(node: Node, ev: TraceEvent) {
+  export function sendScrapedDataToMainpanel(node: Node, ev: DOMRingerEvent) {
     let data: MainpanelNodeI = MainpanelNode.fromDOMNode(node);
     // convention is SHIFT means we want to scrape the link, not the text 
     let linkScraping = ev.data.shiftKey || ev.data.metaKey;

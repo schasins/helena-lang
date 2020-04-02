@@ -1,6 +1,5 @@
 import * as html2canvas from "html2canvas";
-
-import { TraceEvent } from "../../common/utils/trace";
+import { DOMRingerEvent } from "../../ringer-record-replay/common/event";
 
 interface ScreenshotHTMLElement extends HTMLElement {
   html2canvasDataUrl: string;
@@ -106,7 +105,7 @@ export namespace Screenshot {
    * @param traceEvent event message
    */
   export function take(element: ScreenshotHTMLElement,
-    traceEvent: TraceEvent) {
+    traceEvent: DOMRingerEvent) {
     if (!window.helenaContent.currentlyRecording()) {
       // don't want to run this visualization stuff if we're in replay mode
       //   rather than recording mode, even though of course we're recording
@@ -138,8 +137,8 @@ export namespace Screenshot {
     }
     if (element.waitingForRender) {
       setTimeout(function() {
-        window.additional_recording_handlers.visualization(element,
-          traceEvent);
+        window.ringerContent.additional_recording_handlers.visualization(
+          element, traceEvent);
       }, 100);
       return;
     }

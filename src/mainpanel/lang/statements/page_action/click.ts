@@ -32,8 +32,8 @@ export class ClickStatement extends PageActionStatement {
     // find the record-time constants that we'll turn into parameters
     const ev = Traces.firstVisibleEvent(trace);
     this.pageVar = Traces.getDOMInputPageVar(ev);
-    this.pageUrl = ev.frame.topURL;
-    this.node = ev.target.xpath;
+    this.pageUrl = <string> ev.frame.topURL;
+    this.node = <string> ev.target.xpath;
 
     // any event in the segment may have triggered a load
     const domEvents = trace.filter((ev) => ev.type === "dom");

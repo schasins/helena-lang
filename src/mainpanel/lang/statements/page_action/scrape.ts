@@ -48,8 +48,8 @@ export class ScrapeStatement extends PageActionStatement {
       // find the record-time constants that we'll turn into parameters
       const ev = Traces.firstVisibleEvent(trace);
       this.pageVar = Traces.getDOMInputPageVar(ev);
-      this.node = ev.target.xpath;
-      this.pageUrl = ev.frame.topURL;
+      this.node = <string> ev.target.xpath;
+      this.pageUrl = <string> ev.frame.topURL;
       // for now, assume the ones we saw at record time are the ones we'll want
       //   at replay
       // this.currentNode = this.node;
@@ -368,7 +368,7 @@ export class ScrapeStatement extends PageActionStatement {
         if (scrapedContentEvent) {
           const firstNodeUse = scrapedContentEvent;
           const xpath = firstNodeUse.target.xpath;
-          this.xpaths.push(xpath);
+          this.xpaths.push(<string> xpath);
           if (this.xpaths.length === 5) {
             // ok, we have enough data now that we might be able to decide to do
             //   something smarter

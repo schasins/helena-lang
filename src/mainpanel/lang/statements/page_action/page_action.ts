@@ -12,6 +12,7 @@ import { Trace } from "../../../../common/utils/trace";
 import { Environment } from "../../../environment";
 import { TextRelation } from "../../../relation/text_relation";
 import { Relation } from "../../../relation/relation";
+import { TargetInfo } from "../../../../ringer-record-replay/content/target";
 
 
 export interface HelenaBlockUIEvent extends Blockly.Events.Ui {
@@ -180,7 +181,7 @@ export class PageActionStatement extends HelenaLangObject {
 		// for (var i = 0; i< trace.length; i++){
     for (const ev of trace) {
 			if (ev.type !== "dom"){ continue; }
-      const xpathStr = ev.target.xpath;
+      const xpathStr = <string> ev.target.xpath;
       
       // sometimes it's a parameterized node, not a normal node
       if (!xpathStr.toUpperCase){ continue; }
@@ -189,7 +190,7 @@ export class PageActionStatement extends HelenaLangObject {
 			if (xpath === targetXpath) {
         HelenaConsole.log("requiring stability of features", features,
           targetXpath);
-				ev.target.requiredFeatures = features;
+				(<TargetInfo> ev.target).requiredFeatures = features;
 			}
 		}
   }

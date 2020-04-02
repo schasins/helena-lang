@@ -68,7 +68,7 @@ export class PulldownInteractionStatement extends PageActionStatement {
     this.cleanTrace = HelenaMainpanel.cleanTrace(trace);
     const ev = Traces.firstVisibleEvent(trace);
     this.pageVar = Traces.getDOMInputPageVar(ev);
-    this.node = ev.target.xpath;
+    this.node = <string> ev.target.xpath;
     this.origNode = this.node;
     // we want the currentNode to be a nodeVariable so we have a name for the
     //   scraped node

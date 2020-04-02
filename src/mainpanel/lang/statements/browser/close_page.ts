@@ -50,7 +50,7 @@ export class ClosePageStatement extends HelenaLangObject {
         }
         chrome.tabs.remove(tabId, () => {
           self.pageVarCurr.clearCurrentTabId();
-          const portManager = window.ports; // the ringer portsmanager object
+          const portManager = window.ringerMainpanel.ports;
           portManager.removeTabInfo(tabId);
           rbbcontinuation(rbboptions);
         });

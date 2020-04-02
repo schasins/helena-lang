@@ -88,8 +88,9 @@ export class HelenaLangObject implements Revival.Revivable {
     //   introduce a new function and forget to add it to a blacklist, it'll get
     //   called randomly, will be hard to debug
     const name = this.___revivalLabel___;
-    HelenaMainpanel.blocklyNames.push(name);
-    HelenaMainpanel.blocklyNames = [...new Set(HelenaMainpanel.blocklyNames)];
+    window.helenaMainpanel.blocklyNames.push(name);
+    window.helenaMainpanel.blocklyNames =
+      [...new Set(window.helenaMainpanel.blocklyNames)];
   }
 
   public toStringLines() {

@@ -18,6 +18,7 @@ import { RunObject, RunOptions, HelenaProgram } from "../../program";
 import { Revival } from "../../../revival";
 import { Trace, Traces, DisplayTraceEvent } from "../../../../common/utils/trace";
 import { Environment } from "../../../environment";
+import { TargetInfo } from "../../../../ringer-record-replay/content/target";
 
 /**
  * Statement representing a user taking the action of typing something.
@@ -44,8 +45,8 @@ export class TypeStatement extends PageActionStatement {
     // find the record-time constants that we'll turn into parameters
     const ev = Traces.firstVisibleEvent(trace);
     this.pageVar = Traces.getDOMInputPageVar(ev);
-    this.node = ev.target.xpath;
-    this.pageUrl = ev.frame.topURL;
+    this.node = <string> ev.target.xpath;
+    this.pageUrl = <string> ev.frame.topURL;
     // var acceptableEventTypes = HelenaMainpanel.statementToEventMapping.keyboard;
     const textEntryEvents = trace.filter((ev) => {
       const sType = Traces.statementType(ev);
@@ -55,7 +56,8 @@ export class TypeStatement extends PageActionStatement {
 
     if (textEntryEvents.length > 0) {
       const lastTextEntryEvent = textEntryEvents[textEntryEvents.length - 1];
-      this.typedString = lastTextEntryEvent.target.snapshot.value;
+      this.typedString =
+        (<TargetInfo> lastTextEntryEvent.target).snapshot.value;
       if (!this.typedString) {
         this.typedString = "";
       }

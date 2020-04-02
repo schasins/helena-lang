@@ -90,7 +90,7 @@ export interface DOMRingerEvent extends RingerEvent {
   };
   frame: RingerFrameInfo;
   meta: RingerEventMeta;
-  target: TargetInfo | ParameterizedTarget;
+  target: TargetInfo;
   timing: RingerTiming;
   type: "dom";
 }
