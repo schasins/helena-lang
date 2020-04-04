@@ -1,13 +1,12 @@
 import * as Blockly from "blockly";
 
-import { HelenaMainpanel } from "../../../helena_mainpanel";
-
 import { HelenaLangObject } from "../../helena_lang";
 
 import { GenericRelation } from "../../../relation/generic";
 import { PageVariable } from "../../../variables/page_variable";
 import { HelenaProgram, RunOptions, RunObject } from "../../program";
 import { Revival } from "../../../revival";
+import { HelenaBlocks } from "../../../ui/blocks";
 
 /**
  * No longer executed by Ringer but rather by own run method.
@@ -15,7 +14,6 @@ import { Revival } from "../../../revival";
 export class WaitStatement extends HelenaLangObject {
   public static waitFieldName = 'waitInSeconds';
 
-  public sourceBlock_: Blockly.Block;
   public wait: number;
 
   constructor() {
@@ -23,7 +21,10 @@ export class WaitStatement extends HelenaLangObject {
     Revival.addRevivalLabel(this);
     this.setBlocklyLabel("wait");
     this.wait = 0;
-  }  
+  }
+  public static createDummy() {
+    return new WaitStatement();
+  }
 
   public toStringLines() {
     return ["wait " + this.wait.toString() + " seconds"];
@@ -61,7 +62,7 @@ export class WaitStatement extends HelenaLangObject {
   public genBlocklyNode(prevBlock: Blockly.Block,
       workspace: Blockly.WorkspaceSvg) {
     this.block = workspace.newBlock(this.blocklyLabel);
-    HelenaMainpanel.attachToPrevBlock(this.block, prevBlock);
+    HelenaBlocks.attachToPrevBlock(this.block, prevBlock);
     window.helenaMainpanel.setHelenaStatement(this.block, this);
     this.block.setFieldValue(this.wait.toString(), WaitStatement.waitFieldName);
     return this.block;

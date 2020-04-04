@@ -15,7 +15,10 @@ export namespace Revival {
   export interface Revivable {
     ___revivalLabel___: string;
   }
-  export type Prototype = new(...args: any[]) => Revivable ;
+  export type Prototype = {
+    new(...args: any[]): Revivable;
+    createDummy: () => Revivable;
+  };
 
   const revivalLabels: {
     [key: string]: Prototype

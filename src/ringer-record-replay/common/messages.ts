@@ -18,6 +18,11 @@ export interface UpdateEventMessage {
   }[];
 }
 
+export interface GetIdMessage extends RingerMessage {
+  type: "id";
+  value: string;
+}
+
 export enum ReplayAckStatus {
   SUCCESS = 'success',
   PARTIAL ='partial' // only some of the commands replayed were successful

@@ -10,8 +10,6 @@ import { EditRelationMessage, NextButtonSelectorMessage, RelationResponse,
   ScheduledScriptMessage,
   SavedProgramMessage} from "../../common/messages";
 
-import { ColumnSelector } from "../../content/selector/column_selector";
-
 import { Relation } from "../relation/relation";
 import { TextRelation } from "../relation/text_relation";
 
@@ -21,12 +19,12 @@ import { HelenaProgram, RunObject } from "../lang/program";
 import { LoadStatement } from "../lang/statements/browser/load";
 import { ScheduledRun } from "../../common/scheduled_run";
 import { HelenaConfig } from "../../common/config/config";
-import { NextTypes } from "../../content/selector/next_button_selector";
 import { MiscUtilities } from "../../common/misc_utilities";
 import { Dataset } from "../dataset";
 import { HelenaServer } from "../utils/server";
 import { Indexable } from "../../ringer-record-replay/common/utils";
 import { Trace } from "../../common/utils/trace";
+import { NextButtonTypes, IColumnSelector } from "../../content/selector/interfaces";
 
 function activateButton(div: JQuery<HTMLElement>, selector: string,
   handler: JQuery.EventHandlerBase<HTMLElement,
@@ -1027,7 +1025,7 @@ export class RecorderUI extends HelenaUIBase {
     // let's highlight the appropriate next_type
     const currNextType = relation.nextType;
 
-    // remember we have to keep the NextTypes (in utilities) in line with the
+    // remember we have to keep the NextButtonTypes in line with the
     //   ids in the mainpanel html
     const checkedNode = div.find("#next_type_" + currNextType);
     checkedNode.prop("checked", true);
@@ -1044,11 +1042,11 @@ export class RecorderUI extends HelenaUIBase {
     radioButtons.change((event: JQuery.ChangeEvent) => {
       const target = <HTMLInputElement> event.currentTarget;
       relation.nextType = parseInt(target.value);
-      if (relation.nextType === NextTypes.NEXTBUTTON ||
-          relation.nextType === NextTypes.MOREBUTTON) {
+      if (relation.nextType === NextButtonTypes.NEXTBUTTON ||
+          relation.nextType === NextButtonTypes.MOREBUTTON) {
         // ok, we need the user to actually show us the button
         let buttonType = "next";
-        if (relation.nextType === NextTypes.MOREBUTTON) {
+        if (relation.nextType === NextButtonTypes.MOREBUTTON) {
           buttonType = "more";
         }
         const expl = div.find("#next_type_explanation");
@@ -1139,7 +1137,7 @@ export class RecorderUI extends HelenaUIBase {
     $relDiv.append(table);
   };
 
-  public setColumnColors(colors: string[], columnLs: ColumnSelector.Interface[],
+  public setColumnColors(colors: string[], columnLs: IColumnSelector[],
     tabid: number) {
     const $div = $("#new_script_content").find("#color_selector");
     $div.html("Select the right color for the cell you want to add:   ");
@@ -1272,12 +1270,11 @@ export class RecorderUI extends HelenaUIBase {
             if (attrRequired.prop("checked")) {
               annotationItems.push(element);
               // now update how we show the table, add green col
-              const rows = table.find("tr");
-              for (const row of rows) {
+              table.find("tr").each((i, row) => {
                 const cells = $(row).find("td");
                 const targetCell = $(cells[iColCount]);
                 targetCell.addClass("greentable");
-              }
+              });
             } else {
               // can't just use without bc element won't be exactly the same as
               //   the other object, so use findWhere to find the first element
@@ -1289,12 +1286,11 @@ export class RecorderUI extends HelenaUIBase {
                 );
               }
               // now update how we show the table, remove green col
-              const rows = table.find("tr");
-              for (const row of rows) {
+              table.find("tr").each((i, row) => {
                 const cells = $(row).find("td");
                 const targetCell = $(cells[iColCount]);
                 targetCell.removeClass("greentable");
-              }
+              });
             }
             console.log("annotationItems", annotationItems)});
 
@@ -1304,11 +1300,10 @@ export class RecorderUI extends HelenaUIBase {
         }
       }
       table.prepend(tr);
-      const tds = table.find("td");
-      for (const td of tds) {
+      table.find("td").each((i, td) => {
         $(td).css("max-width", "200px");
         $(td).css("word-wrap", "break-word");
-      }
+      });
       $div.append(table);
 
       const addAnnotationButton = $("<div>Add Skip Block</div>");
@@ -1636,8 +1631,7 @@ export class RecorderUI extends HelenaUIBase {
     if (!url) {
       url = "";
     }
-    // TODO: cjbaik: I am not sure if this is the correct way to initialize an
-    //   an empty, new relation.
+    // TODO: cjbaik: is this how you produce a dummy relation with these vars?
     const newRelation = new Relation("", "", {}, 1, 0, [], [], 0, pageVarName,
       url, 1, null, 0);
     this.editSelector(newRelation);

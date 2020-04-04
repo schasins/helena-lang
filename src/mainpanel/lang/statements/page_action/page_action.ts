@@ -2,18 +2,16 @@ import * as Blockly from "blockly";
 
 import { HelenaConsole } from "../../../../common/utils/helena_console";
 import { HelenaLangObject, StatementParameter } from "../../helena_lang";
-import { NodeVariable } from "../../../variables/node_variable";
+import { NodeSources, NodeVariable } from "../../../variables/node_variable";
 import { PageVariable } from "../../../variables/page_variable";
 import { TraceContributions, RunObject } from "../../program";
-import { NodeSources, HelenaMainpanel } from "../../../helena_mainpanel";
 import { GenericRelation } from "../../../relation/generic";
-import { ColumnSelector } from "../../../../content/selector/column_selector";
 import { Trace } from "../../../../common/utils/trace";
 import { Environment } from "../../../environment";
 import { TextRelation } from "../../../relation/text_relation";
 import { Relation } from "../../../relation/relation";
 import { TargetInfo } from "../../../../ringer-record-replay/content/target";
-
+import { IColumnSelector } from "../../../../content/selector/interfaces";
 
 export interface HelenaBlockUIEvent extends Blockly.Events.Ui {
   element: string;
@@ -22,7 +20,7 @@ export interface HelenaBlockUIEvent extends Blockly.Events.Ui {
 
 export class PageActionStatement extends HelenaLangObject {
   public cleanTrace: Trace;
-  public columnObj?: ColumnSelector.Interface;
+  public columnObj?: IColumnSelector;
   public contributesTrace?: TraceContributions;
   public currentNode: NodeVariable;
   public node?: string;
@@ -200,10 +198,19 @@ export class PageActionStatement extends HelenaLangObject {
       this.relation = undefined;
       const columnObject = this.columnObj;
       this.columnObj = undefined;
-      this.currentNode = HelenaMainpanel.makeNodeVariableForTrace(
-        this.trace);
+      this.currentNode = NodeVariable.fromTrace(this.trace);
       return columnObject;
     }
     return null;
+  }
+
+  public usesRelation(rel: GenericRelation) {
+    if (rel instanceof Relation) {
+      if (this.pageVar?.name === rel.pageVarName &&
+          this.node && rel.firstRowXPaths.includes(this.node)) {
+        return true;
+      }
+    }
+    return false;
   }
 }

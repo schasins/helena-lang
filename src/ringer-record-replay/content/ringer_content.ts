@@ -4,7 +4,7 @@ import { Indexable } from "../common/utils";
 import { Snapshot, Delta, NodeSnapshot, PropertyDifferentDelta } from "./snapshot";
 import { Target, TargetInfo, TargetStatus } from "./target";
 import { DOMUtils } from "./dom_utils";
-import { RingerMessage, PortInfo, ReplayAckStatus, RecordState } from "../common/messages";
+import { RingerMessage, PortInfo, ReplayAckStatus, RecordState, GetIdMessage } from "../common/messages";
 import { RingerEvent, RecordedRingerEvent, DOMRingerEvent } from "../common/event";
 import { Logs } from "../common/logs";
 import { CompensationAction, IRingerParams, RingerParams } from "../common/params";
@@ -127,6 +127,8 @@ export class RingerContent {
     this.recording = RecordState.STOPPED;
     this.pageEventId = 0;
 
+    this.additional_recording_filters = {};
+    this.additional_recording_filters_on = {};
     this.additional_recording_handlers = {
       ___additionalData___: () => {}
     };
@@ -168,12 +170,14 @@ export class RingerContent {
     };
 
     // Add all the other handlers
-    chrome.runtime.sendMessage({type: 'getId', value: value}, (resp) => {
+    chrome.runtime.sendMessage({type: 'getId', value: value},
+        (resp: GetIdMessage) => {
       if (!resp) return;
       
       this.log.log(resp);
 
-      this.frameId = resp.value;
+      this.frameId = parseInt(resp.value);
+      this.port = chrome.runtime.connect({ name: resp.value });
       this.port.onMessage.addListener(this.handleMessage.bind(this));
 
       // see if recording is going on

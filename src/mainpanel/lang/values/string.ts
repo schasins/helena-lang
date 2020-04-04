@@ -26,6 +26,10 @@ export class HelenaString extends Value {
     }
   }
 
+  public static createDummy() {
+    return new HelenaString();
+  }
+
   public toStringLines() {
     return [ this.currentVal ];
   }

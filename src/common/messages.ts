@@ -9,9 +9,8 @@ import GenericFeatureSet = Features.GenericFeatureSet;
 import { XPath } from "../content/utils/xpath";
 import SuffixXPathList = XPath.SuffixXPathList;
 
-import { NextButtonSelector } from "../content/selector/next_button_selector";
 import { RelationSelector } from "../content/selector/relation_selector";
-import { ColumnSelector } from "../content/selector/column_selector";
+import { INextButtonSelector, IColumnSelector } from "../content/selector/interfaces";
 
 export interface ColumnSelectorMessage {
   xpath: string;
@@ -57,7 +56,7 @@ export interface EditRelationMessage {
 }
 
 export interface NextButtonSelectorMessage {
-  selector: NextButtonSelector.Interface;
+  selector: INextButtonSelector;
 }
 
 export interface RelationMessage {
@@ -66,10 +65,10 @@ export interface RelationMessage {
   selector: GenericFeatureSet | GenericFeatureSet[];
   selector_version: number;
   exclude_first: number,
-  columns: ColumnSelector.Interface[],
+  columns: IColumnSelector[],
   url: string;
   next_type?: number;
-  next_button_selector?: NextButtonSelector.Interface | null;
+  next_button_selector?: INextButtonSelector | null;
   num_rows_in_demonstration?: number;
   relation_scrape_wait: number;
   prior_next_button_text?: string;
@@ -114,12 +113,12 @@ export interface DatasetSliceRequest {
 }
 
 export interface RelationResponse {
-  columns: ColumnSelector.Interface[];
+  columns: IColumnSelector[];
   exclude_first: number;
   first_page_relation: MainpanelNode.Interface[][];
   frame: number;
   name: string;
-  next_button_selector: NextButtonSelector.Interface;
+  next_button_selector: INextButtonSelector;
   next_type: number;
   num_rows_in_demonstration: number;
   page_var_name: string;

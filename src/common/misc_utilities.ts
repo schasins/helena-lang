@@ -166,4 +166,20 @@ export namespace MiscUtilities {
   export function dirtyDeepcopy(obj: object) {
     return JSON.parse(JSON.stringify(obj));
   }
+
+  export function urlMatch(text: string, currentUrl: string) {
+    return urlMatchSymmetryHelper(text, currentUrl) ||
+           urlMatchSymmetryHelper(currentUrl, text);
+  }
+
+  function urlMatchSymmetryHelper(t1: string, t2: string) {
+    // todo: there might be other ways that we could match the url. don't need to
+    //   match the whole thing
+    
+    // don't need www, etc, any lingering bits on the end that get added...
+    if (t1.replace("http://", "https://") === t2) {
+      return true;
+    }
+    return false;
+  }
 }

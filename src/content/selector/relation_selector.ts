@@ -7,8 +7,6 @@ import { LikelyRelationMessage } from "../../common/messages";
 
 import { ColumnSelector } from "./column_selector";
 
-import { NextButtonSelector, NextTypes } from "./next_button_selector";
-
 import { Features } from "../utils/features";
 import GenericFeatureSet = Features.GenericFeatureSet;
 import FeatureSet = Features.FeatureSet;
@@ -21,6 +19,9 @@ import SuffixXPathList = XPath.SuffixXPathList;
 
 import { HelenaConsole } from "../../common/utils/helena_console";
 import { Utilities } from "../../ringer-record-replay/common/utils";
+import { INextButtonSelector, NextButtonTypes,
+  IColumnSelector } from "./interfaces";
+import { ServerRelationMessage } from "../../mainpanel/utils/server";
 
 /**
  * Produce the powerset of the array.
@@ -135,12 +136,12 @@ function getCellsInRowMatchingSuffixes(
 
 /**
    * Adds necessary information for {@link SuffixXPathNode} to a list of
-   *   {@link ColumnSelector.Interface}s.
+   *   {@link IColumnSelector}s.
    * @param colSelectors column selectors 
    * @param selectorIndex selector index for suffix
    */
   function labelColumnSuffixesWithTheirSelectors(
-    colSelectors: ColumnSelector.Interface[], selectorIndex: number) {
+    colSelectors: IColumnSelector[], selectorIndex: number) {
   
     for (const col of colSelectors) {
       let curSuffixes = col.suffix;
@@ -172,11 +173,11 @@ export class RelationSelector {
   name?: string | null;
   exclude_first: number;
   id?: number;
-  columns: ColumnSelector.Interface[];
+  columns: IColumnSelector[];
   num_rows_in_demonstration?: number;
   next_type?: number;
   prior_next_button_text?: string;
-  next_button_selector?: NextButtonSelector.Interface | null;
+  next_button_selector?: INextButtonSelector | null;
   url?: string;
   
   positive_nodes?: HTMLElement[];
@@ -197,29 +198,40 @@ export class RelationSelector {
   numColumns?: number;
 
   constructor(featureSet: GenericFeatureSet | GenericFeatureSet[],
-    exclude_first: number, columns: ColumnSelector.Interface[], selector_version = 1) {
+    exclude_first: number, columns: IColumnSelector[], selector_version = 1) {
       this.selector_version = selector_version;
       this.selector = featureSet;
       this.exclude_first = exclude_first;
       this.columns = columns;
   }
 
-  public static fromJSON(json: object): RelationSelector {
-    // let's leave the original dictionary with it's JSONified attributes alone
-    //   by deepcopying first
-    const relation = JSON.parse(JSON.stringify(json)); // deepcopy
-    relation.selector = JSON.parse(relation.selector);
-    if (relation.next_button_selector){
-      relation.next_button_selector = JSON.parse(relation.next_button_selector);
+  public static fromJSON(msg: ServerRelationMessage): RelationSelector {
+    const columns: IColumnSelector[] = msg.columns.map((colMsg) => {
+      return {
+        id: colMsg.id,
+        name: colMsg.name,
+        suffix: JSON.parse(colMsg.suffix),
+        xpath: colMsg.xpath
+      };
+    });
+
+    const featureSet = JSON.parse(msg.selector);
+    let selector;
+    if (featureSet.table) {
+      selector = new TableSelector(featureSet, msg.exclude_first, columns,
+        msg.selector_version);
     } else {
-      relation.next_button_selector = null;
+      selector = new RelationSelector(featureSet, msg.exclude_first, columns,
+        msg.selector_version);
     }
-    for (const column of relation.columns) {
-      // is this the best place to deal with going between our object attributes
-      //   and the server strings?
-      column.suffix = JSON.parse(column.suffix);
+
+    if (msg.next_button_selector) {
+      selector.next_button_selector = JSON.parse(msg.next_button_selector);
+    } else {
+      selector.next_button_selector = null;
     }
-    return relation;
+
+    return selector;
   }
 
   /**
@@ -260,7 +272,7 @@ export class RelationSelector {
       return [];
     }
 
-    if (Array.isArray(this.selector)){
+    if (Array.isArray(this.selector)) {
       // the case where we need to recurse
       let selectorArray = this.selector;
       let rowNodeLists: HTMLElement[][] = [];
@@ -379,11 +391,11 @@ export class RelationSelector {
    * Create a {@link RelationSelector} given positive and negative elements.
    * @param positiveEls positive elements to include
    * @param negativeEls negative elements to exclude
-   * @param columns {@link ColumnSelector.Interface}s to include in selector
+   * @param columns {@link IColumnSelector}s to include in selector
    * @param features set of features to examine
    */
   public static fromPositiveAndNegativeElements(positiveEls: HTMLElement[],
-    negativeEls: HTMLElement[], columns: ColumnSelector.Interface[],
+    negativeEls: HTMLElement[], columns: IColumnSelector[],
     features = ["tag", "xpath"]): RelationSelector {
       let featureSet = Features.getFeatureSet(features, positiveEls);
 
@@ -426,6 +438,10 @@ export class RelationSelector {
       relSel.positive_nodes = positiveEls;
       relSel.negative_nodes = negativeEls;
       return relSel;
+  }
+
+  public highlight() {
+    return;
   }
   
   /**
@@ -518,6 +534,12 @@ export class ContentSelector extends RelationSelector {
   editingClickColumnIndex?: number;
   origSelector?: ContentSelector;
   currentIndividualSelector?: ContentSelector;
+  
+  constructor(featureSet: GenericFeatureSet | GenericFeatureSet[],
+    exclude_first: number, columns: IColumnSelector[],
+    selector_version = 1) {
+      super(featureSet, exclude_first, columns, selector_version);
+  }
 
   /**
    * Create {@link ContentSelector} from a subset of cell elements comprising a
@@ -613,10 +635,12 @@ export class ContentSelector extends RelationSelector {
     return <ContentSelector> selector;
   }
 
-  constructor(featureSet: GenericFeatureSet | GenericFeatureSet[],
-    exclude_first: number, columns: ColumnSelector.Interface[],
-    selector_version = 1) {
-      super(featureSet, exclude_first, columns, selector_version);
+  /**
+   * Highlight relation indicated by selector.
+   */
+  public highlight() {
+    window.helenaContent.relationHighlighter.highlightRelation(
+      this.relation, true, true);
   }
 }
 
@@ -626,47 +650,9 @@ export class ContentSelector extends RelationSelector {
 export class TableSelector extends ContentSelector {
   selector: TableFeatureSet;
 
-  /**
-   * Gets the document elements matching the features specified in selector for
-   *   a table element.
-   * @param excludeFirst exclude this many rows from extraction (e.g. headers)
-   */
-  public getMatchingElements() {
-    let selector = <TableFeatureSet> this.selector;
-
-    // we don't use this for nested tables! this is just for very simple tables,
-    //   otherwise we'd graduate to the standard approach
-    let nodes = XPath.getNodes(selector.xpath);
-    let table = null;
-    if (nodes.length > 0) {
-      // awesome, we have something at the exact xpath
-      table = <HTMLElement> nodes[0];
-    } else {
-      // ok, I guess we'll have to see which table on the page is closest
-      let tables = [].slice.call(document.getElementsByTagName("table"));
-      let bestTableScore = Number.POSITIVE_INFINITY;
-
-      for (const t of tables) {
-        let distance = Utilities.levenshteinDistance(XPath.fromNode(t),
-          selector.xpath);
-        if (distance < bestTableScore){
-          bestTableScore = distance;
-          table = t;
-        }
-      }
-    }
-
-    // ok, now we know which table to use
-
-    if (table === null) {
-      throw new ReferenceError(`Could not find table matching ${JSON.stringify(selector)}`);
-      // todo: why is this arising?
-      // return []; 
-    }
-
-    let rows = [].slice.call(table.querySelectorAll("tr"));
-    rows = rows.slice(this.exclude_first, rows.length);
-    return [rows];
+  constructor(featureSet: TableFeatureSet, exclude_first: number,
+    columns: IColumnSelector[], selector_version = 1) {
+      super(featureSet, exclude_first, columns, selector_version);
   }
 
   /**
@@ -733,9 +719,47 @@ export class TableSelector extends ContentSelector {
     return bestSelector;
   }
 
-  constructor(featureSet: TableFeatureSet, exclude_first: number,
-    columns: ColumnSelector.Interface[], selector_version = 1) {
-      super(featureSet, exclude_first, columns, selector_version);
+  /**
+   * Gets the document elements matching the features specified in selector for
+   *   a table element.
+   * @param excludeFirst exclude this many rows from extraction (e.g. headers)
+   */
+  public getMatchingElements() {
+    let selector = <TableFeatureSet> this.selector;
+
+    // we don't use this for nested tables! this is just for very simple tables,
+    //   otherwise we'd graduate to the standard approach
+    let nodes = XPath.getNodes(selector.xpath);
+    let table = null;
+    if (nodes.length > 0) {
+      // awesome, we have something at the exact xpath
+      table = <HTMLElement> nodes[0];
+    } else {
+      // ok, I guess we'll have to see which table on the page is closest
+      let tables = [].slice.call(document.getElementsByTagName("table"));
+      let bestTableScore = Number.POSITIVE_INFINITY;
+
+      for (const t of tables) {
+        let distance = Utilities.levenshteinDistance(XPath.fromNode(t),
+          selector.xpath);
+        if (distance < bestTableScore){
+          bestTableScore = distance;
+          table = t;
+        }
+      }
+    }
+
+    // ok, now we know which table to use
+
+    if (table === null) {
+      console.error(`Could not find table matching ${JSON.stringify(selector)}`);
+      // todo: why is this arising?
+      return [];
+    }
+
+    let rows = [].slice.call(table.querySelectorAll("tr"));
+    rows = rows.slice(this.exclude_first, rows.length);
+    return [rows];
   }
 }
 
@@ -812,7 +836,7 @@ export class PulldownSelector extends RelationSelector {
         selector.relation_id = null;
         selector.name = "pulldown_" + (index + 1);
         // for a pulldown menu, there better be no more items
-        selector.next_type = NextTypes.NONE;
+        selector.next_type = NextButtonTypes.NONE;
         selector.next_button_selector = null;
         selector.num_rows_in_demonstration = optionsRelation.length;
         featureSet.index = index;
@@ -831,7 +855,7 @@ export class PulldownSelector extends RelationSelector {
   }
 
   constructor(featureSet: GenericFeatureSet | GenericFeatureSet[],
-    exclude_first: number, columns: ColumnSelector.Interface[]) {
+    exclude_first: number, columns: IColumnSelector[]) {
       // selector_version is always 2 for PulldownSelector
       super(featureSet, exclude_first, columns, 2);
 

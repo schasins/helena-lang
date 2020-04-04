@@ -18,6 +18,10 @@ export class HelenaNumber extends Value {
     this.setBlocklyLabel("num");
     this.currentVal = null;
   }
+  
+  public static createDummy() {
+    return new HelenaNumber();
+  }
 
   public toStringLines() {
     if (this.currentVal) {

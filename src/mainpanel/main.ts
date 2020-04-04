@@ -33,3 +33,4 @@ window.ringerMainpanel = new RingerMainpanel();
 //   edits to the programs are allowed to call UI hooks that make the UI respond
 //   to program changes
 window.helenaMainpanel = new HelenaMainpanel(new RecorderUI());
+window.helenaMainpanel.afterInit();

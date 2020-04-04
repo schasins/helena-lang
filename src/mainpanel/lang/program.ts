@@ -5,8 +5,6 @@ import { ServerSaveResponse, RelationResponse,
   Messages} from "../../common/messages";
 import { HelenaConsole } from "../../common/utils/helena_console";
 
-import { HelenaMainpanel, NodeSources } from "../helena_mainpanel";
-
 import { SkipBlock, HashBasedParallel } from "./statements/control_flow/skip_block";
 import { Relation } from "../relation/relation";
 
@@ -19,19 +17,16 @@ import { TypeStatement } from "./statements/page_action/type";
 
 import { OutputRowStatement } from "./statements/output_row";
 
-import { NodeVariable } from "../variables/node_variable";
-import { HelenaLangObject, RingerStatement,
-  OutputPageVarStatement } from "./helena_lang";
+import { NodeSources, NodeVariable } from "../variables/node_variable";
+import { HelenaLangObject } from "./helena_lang";
 import { PageVariable } from "../variables/page_variable";
 import { GenericRelation } from "../relation/generic";
 import { PageActionStatement } from "./statements/page_action/page_action";
 import { StatementContainer } from "./statements/container";
-import { ColumnSelector } from "../../content/selector/column_selector";
 import { BackStatement } from "./statements/browser/back";
 import { ClosePageStatement } from "./statements/browser/close_page";
 import { Revival } from "../revival";
 import { RelationSelector } from "../../content/selector/relation_selector";
-import { NextTypes } from "../../content/selector/next_button_selector";
 import { Traces, Trace, DisplayTraceEvent } from "../../common/utils/trace";
 import { HelenaConfig } from "../../common/config/config";
 import { MiscUtilities } from "../../common/misc_utilities";
@@ -42,6 +37,9 @@ import { Environment } from "../environment";
 import { RingerEvents } from "../../ringer-record-replay/common/event";
 import { Replay } from "../../ringer-record-replay/mainpanel/replay";
 import { ParameterizedTrace } from "../parameterized_trace";
+import { NextButtonTypes, IColumnSelector } from "../../content/selector/interfaces";
+import { RingerStatement, OutputPageVarStatement } from "./types";
+import { HelenaBlocks } from "../ui/blocks";
 
 
 // TODO: move these somewhere safer
@@ -281,7 +279,7 @@ export class HelenaProgram extends StatementContainer {
     const rootBlocklyBlocks = workspace.getTopBlocks(false);
 
     // add new version
-    const rt = HelenaMainpanel.helenaSeqToBlocklySeq(statementLs, workspace);
+    const rt = HelenaBlocks.helenaSeqToBlocklySeq(statementLs, workspace);
     if (coords) {
       rt.moveBy(coords.x, coords.y); // make it show up in same spot as before
     }
@@ -305,7 +303,7 @@ export class HelenaProgram extends StatementContainer {
       const coords = block.getRelativeToSurfaceXY();
       block.dispose(false);
       // now display the new version
-      const r = HelenaMainpanel.helenaSeqToBlocklySeq(helenaSeq, workspace);
+      const r = HelenaBlocks.helenaSeqToBlocklySeq(helenaSeq, workspace);
       if (coords) {
         r.moveBy(coords.x, coords.y); // make it show up in same spot as before
       }
@@ -950,8 +948,7 @@ export class HelenaProgram extends StatementContainer {
       if (options.simulateError) {
         const targetIterations = options.simulateError;
         // gets the iterations of this loop and any ancestor loops
-        const currentIterations = HelenaMainpanel.getLoopIterationCounters(
-          loopStmt);
+        const currentIterations = loopStmt.getLoopIterationCounters();
         // first make sure we're actually on the right loop.  no need to check
         //   if we're still on the outermost loop but breaking in the innermost
         if (currentIterations.length >= targetIterations.length) {
@@ -1271,6 +1268,15 @@ export class HelenaProgram extends StatementContainer {
     return [...new Set(variableNames)];
   }
 
+  public makeVariableNamesDropdown() {
+    const varNames = this.getAllVariableNames();
+    const varNamesDropDown = [];
+    for (const varName of varNames) {
+      varNamesDropDown.push([varName, varName]);
+    }
+    return varNamesDropDown;
+  }
+
   public prepareToRun() {
     this.traverse((stmt: HelenaLangObject) => {
       stmt.prepareToRun();
@@ -1364,7 +1370,8 @@ export class HelenaProgram extends StatementContainer {
         if (curStmt.hasOutputPageVars()) {
           pageCount += 1;
           if (window.helenaMainpanel.UIObject.handleRelationFindingPageUpdate) {
-            window.helenaMainpanel.UIObject.handleRelationFindingPageUpdate(pageCount);
+            window.helenaMainpanel.UIObject.handleRelationFindingPageUpdate(
+              pageCount);
           }
 
           // todo: for now this code assumes there's exactly one outputPageVar.
@@ -1408,7 +1415,7 @@ export class HelenaProgram extends StatementContainer {
             const replayTrace = replayObj.record.events;
             const lastCompletedEvent = Traces.lastTopLevelCompletedEvent(
               replayTrace);
-            const lastCompletedEventTabId = Traces.tabId(lastCompletedEvent);
+            let lastCompletedEventTabId = Traces.tabId(lastCompletedEvent);
             // what tabs did we make in the interaction in general?
             tabsToCloseAfter = tabsToCloseAfter.concat(
               Traces.tabsInTrace(replayTrace));
@@ -1484,9 +1491,12 @@ export class HelenaProgram extends StatementContainer {
               // handle the actual data the page sent us, if we're still
               //   interested in adding loops
 
-              // if we're in this but the user has told us to stop trying to automatically add relations, let's stop
+              // if we're in this but the user has told us to stop trying to
+              //   automatically add relations, let's stop
               if (self.automaticLoopInsertionForbidden) {
-                return; // don't even go running more ringer stuff if we're not interested in seeing more loops inserted
+                // don't even go running more ringer stuff if we're not
+                //   interested in seeing more loops inserted
+                return;
               }
 
               // ok, normal processing.  we want to add a loop for this relation
@@ -1505,9 +1515,11 @@ export class HelenaProgram extends StatementContainer {
                 tabMapping, windowId, pageCount);
             };
 
-            if (window.helenaMainpanel.UIObject.handleFunctionForSkippingToNextPageOfRelationFinding) {
+            if (window.helenaMainpanel.UIObject.
+                handleFunctionForSkippingToNextPageOfRelationFinding) {
               window.helenaMainpanel.UIObject.
-                handleFunctionForSkippingToNextPageOfRelationFinding(handleSelectedRelation);
+                handleFunctionForSkippingToNextPageOfRelationFinding(
+                  handleSelectedRelation);
             }
 
             // this function will select the correct relation from amongst a
@@ -1520,7 +1532,9 @@ export class HelenaProgram extends StatementContainer {
 
               for (const key in framesHandled) {
                 if (!framesHandled[key]) {
-                  return; // nope, not ready yet.  wait till all the frames have given answers
+                  // nope, not ready yet.  wait till all the frames have given
+                  //   answers
+                  return;
                 }
               }
               // todo: this is just debugging
@@ -1649,6 +1663,9 @@ export class HelenaProgram extends StatementContainer {
               // let's get some info from the pages, and when we get that info
               //   back we can come back and deal with more script segments
               const checkFramesFunc = () => {
+                if (!lastCompletedEventTabId) {
+                  return;
+                }
                 chrome.webNavigation.getAllFrames({
                   tabId: lastCompletedEventTabId
                 }, (details) => {
@@ -1728,7 +1745,7 @@ export class HelenaProgram extends StatementContainer {
     this.pagesProcessed[data.page_var_name] = true;
 
     if (data.num_rows_in_demonstration < 2 &&
-        data.next_type === NextTypes.NONE) {
+        data.next_type === NextButtonTypes.NONE) {
       // what's the point of showing a relation with only one row?
     } else {
       // if we have a normal selector, let's add that to our set of relations
@@ -1779,7 +1796,7 @@ export class HelenaProgram extends StatementContainer {
     for (const relation of this.relations) {
       for (let j = 0; j < this.statements.length; j++) {
         const statement = this.statements[j];
-        if (relation.usedByStatement(statement)) {
+        if (statement.usesRelation(relation)) {
           let loopStartIndex = j;
           // let's do something a little different in cases where there's a
           //   keydown right before the loop, since the keyups will definitely
@@ -2087,8 +2104,7 @@ function makeTraceFromStatements(stmts: RingerStatement[]) {
       //   safe to throw away events
       // we just need to be sure to have one event that actually finds the node
       //   and grabs its contets
-      const nodeUsingEvent = HelenaMainpanel.firstScrapedContentEventInTrace(
-        cleanTrace);
+      const nodeUsingEvent = Traces.firstScrapedContentEventInTrace(cleanTrace);
       if (nodeUsingEvent) {
         cleanTrace = [ nodeUsingEvent ];
       }
@@ -2705,7 +2721,7 @@ function markNonTraceContributingStatements(stmts: HelenaLangObject[]):
 
 function parameterizeBodyStatementsForRelation(bodyStmts: HelenaLangObject[],
   relation: GenericRelation) {
-  let relationColumnsUsed: (ColumnSelector.Interface | null)[] = [];
+  let relationColumnsUsed: (IColumnSelector | null)[] = [];
   for (const bodyStmt of bodyStmts) {
     relationColumnsUsed = relationColumnsUsed.concat(
       bodyStmt.parameterizeForRelation(relation)
@@ -2774,7 +2790,7 @@ function tryAddingRelationHelper(relation: GenericRelation,
       }
     }
     
-    if (relation.usedByStatement(stmt)) {
+    if (stmt.usesRelation(relation)) {
       // ok, let's assume the rest of this loop's body should be nested
       const bodyStatementLs = bodyStmts.slice(i, bodyStmts.length);
       if (!(stmt instanceof PageActionStatement) || !stmt.pageVar) {

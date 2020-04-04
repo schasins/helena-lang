@@ -3,7 +3,7 @@ import { PortManager } from "./port_manager";
 import { Record } from "./record";
 import { Replay, ErrorContinuations, ReplayConfig } from "./replay";
 import { User } from "./user";
-import { RingerMessage, RecordState } from "../common/messages";
+import { RingerMessage, RecordState, GetIdMessage } from "../common/messages";
 import { Indexable } from "../common/utils";
 import { HelenaConsole } from "../../common/utils/helena_console";
 import { RingerEvent, RecordedRingerEvent } from "../common/event";
@@ -42,7 +42,7 @@ export class RingerMainpanel {
     chrome.runtime.onMessage.addListener(this.handleIdMessage.bind(this));
 
     chrome.runtime.onConnect.addListener((port) => {
-      this.ports.connectPort(port);
+      self.ports.connectPort(port);
     });
 
     chrome.tabs.getCurrent((curTab) => {
@@ -66,16 +66,16 @@ export class RingerMainpanel {
 
     chrome.webRequest.onBeforeRequest.addListener((details) => {
       self.log.log('request start', details);
-      this.addWebRequestEvent(details, 'start');
+      self.addWebRequestEvent(details, 'start');
     }, filter, ['blocking']);
 
     chrome.webRequest.onCompleted.addListener((details) => {
-      this.log.log('completed', details);
-      this.addWebRequestEvent(details, 'completed');
+      self.log.log('completed', details);
+      self.addWebRequestEvent(details, 'completed');
     }, filter);
 
     chrome.webNavigation.onCommitted.addListener((details) => {
-      this.log.log('onCommitted', details);
+      self.log.log('onCommitted', details);
       const manuallyLoadedPageTypes = ["auto_bookmark",
         "reload", "typed"];
       if (manuallyLoadedPageTypes.includes(details.transitionType)) {
@@ -85,12 +85,12 @@ export class RingerMainpanel {
         //   automatically when we just open a new tab (loading the new tab
         //   contents)
         console.log(details);
-        this.addWebRequestEvent(details, 'manualload');
+        self.addWebRequestEvent(details, 'manualload');
       }
       if (details.transitionQualifiers.includes("from_address_bar")) {
         // same deal.  this is a manual one
         console.log(details);
-        this.addWebRequestEvent(details, 'manualload');
+        self.addWebRequestEvent(details, 'manualload');
       }
     });
 
@@ -103,7 +103,7 @@ export class RingerMainpanel {
           (data: WebRequestDetails) => {
         if (typeof data) {
           data.type = e;
-          this.addWebRequestEvent(data, 'webnavigation');
+          self.addWebRequestEvent(data, 'webnavigation');
           //console.log(e, data);
         } else {
           console.error(chrome.i18n.getMessage('inHandlerError'), e);
@@ -183,10 +183,11 @@ export class RingerMainpanel {
     if (msg.type == 'getId') {
       const portId = this.ports.getNewId(msg.value, sender);
       if (portId) {
-        sendResponse({
+        const getIdMsg: GetIdMessage = {
           type: 'id',
           value: portId
-        });
+        }
+        sendResponse(getIdMsg);
       }
     }
   }
@@ -202,7 +203,8 @@ export class RingerMainpanel {
 
     this.log.log('handle message:', request, type, state);
 
-    if (state === RecordState.RECORDING) {
+    if (state === RecordState.RECORDING &&
+        ['event', 'updateEvent'].includes(type)) {
       if (type === 'event') {
         this.record.addEvent(request.value, port.name);
       } else if (type === 'updateEvent') {
@@ -212,7 +214,7 @@ export class RingerMainpanel {
       }
     } else if (state === RecordState.REPLAYING || 
       // todo: is this ok?  the stopped acks are breaking everything...
-      state === RecordState.STOPPED && ['ack', 'updateEvent'].includes(type)) {
+      (state === RecordState.STOPPED && ['ack', 'updateEvent'].includes(type))) {
         if (type === 'event') {
           this.replay.record.addEvent(request.value, port.name);
         } else if (type === 'updateEvent') {

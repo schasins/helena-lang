@@ -2,9 +2,7 @@ import * as Blockly from "blockly";
 
 import { HelenaConsole } from "../../../../common/utils/helena_console";
 
-import { HelenaMainpanel, NodeSources } from "../../../helena_mainpanel";
-
-import { NodeVariable } from "../../../variables/node_variable";
+import { NodeSources, NodeVariable } from "../../../variables/node_variable";
 
 import { OutputRowStatement } from "../output_row";
 
@@ -17,6 +15,7 @@ import { HelenaProgram, RunObject } from "../../program";
 import { Revival } from "../../../revival";
 import { Trace, Traces } from "../../../../common/utils/trace";
 import { Environment } from "../../../environment";
+import { HelenaBlocks } from "../../../ui/blocks";
 
 export class ScrapeStatement extends PageActionStatement {
   public static maxDim = 50;
@@ -30,17 +29,23 @@ export class ScrapeStatement extends PageActionStatement {
   public scrapeLink?: boolean;    // true if scraping link, not just text
   public xpaths: string[];
 
-  constructor(trace: Trace) {
+  constructor(trace?: Trace) {
     super();
     Revival.addRevivalLabel(this);
     this.setBlocklyLabel("scrape");
 
     this.alternativeBlocklyLabel = "scrape_ringer";
     this.associatedOutputStatements = [];
-    this.trace = trace;
-    this.cleanTrace = HelenaMainpanel.cleanTrace(this.trace);
     this.scrapeLink = false;
     this.xpaths = [];
+
+    // Prematurely end, for the `createDummy` method
+    if (!trace) {
+      return;
+    }
+
+    this.trace = trace;
+    this.cleanTrace = Traces.cleanTrace(this.trace);
 
     // may get 0-length trace if we're just adding a scrape statement by editing
     //   (as for a known column in a relation)
@@ -66,8 +71,12 @@ export class ScrapeStatement extends PageActionStatement {
 
       // actually we want the currentNode to be a nodeVariable so we have a name
       //   for the scraped node
-      this.currentNode = HelenaMainpanel.makeNodeVariableForTrace(trace);
+      this.currentNode = NodeVariable.fromTrace(trace);
     }
+  }
+
+  public static createDummy() {
+    return new ScrapeStatement();
   }
 
   public remove() {
@@ -107,7 +116,7 @@ export class ScrapeStatement extends PageActionStatement {
       return;
     }
     // addToolboxLabel(this.blocklyLabel, "web");
-    const pageVarsDropDown = HelenaMainpanel.makePageVarsDropdown(pageVars);
+    const pageVarsDropDown = PageVariable.makePageVarsDropdown(pageVars);
     Blockly.Blocks[this.blocklyLabel] = {
       init: function(this: Blockly.Block) {
         this.appendDummyInput()
@@ -164,7 +173,7 @@ export class ScrapeStatement extends PageActionStatement {
       return;
     }
 
-    const pageVarsDropDown = HelenaMainpanel.makePageVarsDropdown(pageVars);
+    const pageVarsDropDown = PageVariable.makePageVarsDropdown(pageVars);
     const defaultName = "name";
     Blockly.Blocks[this.alternativeBlocklyLabel] = {
       init: function(this: Blockly.Block) {
@@ -219,7 +228,7 @@ export class ScrapeStatement extends PageActionStatement {
       throw new ReferenceError("Page variable not set.");
     }
     this.block.setFieldValue(this.pageVar.toString(), "page");
-    HelenaMainpanel.attachToPrevBlock(this.block, prevBlock);
+    HelenaBlocks.attachToPrevBlock(this.block, prevBlock);
     window.helenaMainpanel.setHelenaStatement(this.block, this);
     return this.block;
   }
@@ -297,7 +306,7 @@ export class ScrapeStatement extends PageActionStatement {
     //   the removed scraping events, which won't always be necessary
     // should really do it on a relation by relation basis, only remove the ones
     //   related to the current relation
-    this.cleanTrace = HelenaMainpanel.cleanTrace(this.trace);
+    this.cleanTrace = Traces.cleanTrace(this.trace);
   }
 
   public args(environment: Environment.Frame) {
@@ -341,7 +350,7 @@ export class ScrapeStatement extends PageActionStatement {
         (ev) => Traces.getTemporaryStatementIdentifier(ev) ===
           temporaryStatementIdentifier);
       const scrapedContentEvent =
-        HelenaMainpanel.firstScrapedContentEventInTrace(stmtTraceSegment);
+        Traces.firstScrapedContentEventInTrace(stmtTraceSegment);
       if (scrapedContentEvent) {
         // for now, all scrape statements have a NodeVariable as currentNode, so
         //   can call setCurrentNodeRep to bind name in current environment

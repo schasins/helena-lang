@@ -1,7 +1,7 @@
 export namespace XPath {
   export interface XPathNode {
     nodeName: string;
-    index: number | string;
+    index: string;
     iterable: boolean;
   }
 
@@ -78,14 +78,11 @@ export namespace XPath {
     
     // start at the end of the xpath, move back towards root
     for (let i = (elXPath.length - 1); i >= 0; i--) {
-      let index = elXPath[i].index;
-      if (typeof index === "string") {
-        index = parseInt(index);
-      }
+      let index = parseInt(elXPath[i].index);
       
-      elXPath[i].index = index + 1; // modify XPath, try next sibling
+      elXPath[i].index = (index + 1).toString(); // modify XPath, try next sibling
       let siblingNodes = getNodes(XPath.toString(elXPath));
-      elXPath[i].index = index;     // return index to original value
+      elXPath[i].index = index.toString();     // return index to original value
     
       if (siblingNodes.length > 0) {
         // [cjbaik: I presume it's not possible to have > 1 node here?]
@@ -251,7 +248,7 @@ export namespace XPath {
         let index = xpath.slice(start + 1, end);
         xpathList.push({
           nodeName: nodeName, 
-          index: parseInt(index),
+          index: index,
           iterable: false
         });
       }
@@ -306,7 +303,7 @@ export namespace XPath {
         indicesToMarkIterable.push(i);
       }
     }
-    for (const index in indicesToMarkIterable) {
+    for (const index of indicesToMarkIterable) {
       withIterables[index].iterable = true;
     }
     return true;

@@ -1,34 +1,14 @@
-import { RelationFinder } from "./relation_finding";
 import { XPath } from "../utils/xpath";
 import { NextButtonSelectorMessage, Messages } from "../../common/messages";
 import { HelenaConsole } from "../../common/utils/helena_console";
 import { Highlight } from "../ui/highlight";
 import { Utilities } from "../../ringer-record-replay/common/utils";
-
-/**
- * Types of next or more buttons.
- */
-export enum NextTypes {
-  NONE = 1,
-  NEXTBUTTON,
-  MOREBUTTON,
-  SCROLLFORMORE
-}
+import { INextButtonSelector } from "./interfaces";
 
 /**
  * Methods for selecting a next/pagination button on a page.
  */
 export namespace NextButtonSelector {
-  export interface Interface {
-    id: string;
-    class: string;
-    src: string | null;
-    frame_id?: number;
-    tag: string;
-    text: string | null;
-    xpath: string;
-  }
-
   export let listeningForNextButtonClick = false;
   /**
    * Activate state of listening for a click on the next button.
@@ -39,7 +19,7 @@ export namespace NextButtonSelector {
     unhighlightNextButton(); // unhighlight existing one if present
     
     // in case the highlighting of cells blocks the next button, hide this
-    RelationFinder.clearCurrentSelectorHighlight(); 
+    window.helenaContent.relationHighlighter.clearCurrentlyHighlighted(); 
   }
 
   /**
@@ -58,7 +38,7 @@ export namespace NextButtonSelector {
     }
     
     let nextOrMoreButton = <HTMLElement> event.target;
-    let data: NextButtonSelector.Interface = {
+    let data: INextButtonSelector = {
       tag: nextOrMoreButton.tagName,
       text: nextOrMoreButton.textContent,
       id: nextOrMoreButton.id,
@@ -72,7 +52,9 @@ export namespace NextButtonSelector {
     Messages.sendMessage("content", "mainpanel", "nextButtonSelector", msg);
     highlightNextButton(data);
 
-    RelationFinder.highlightCurrentSelector(); // rehighlight the relaiton items
+    if (window.helenaContent.currentSelectorToEdit) {
+      window.helenaContent.currentSelectorToEdit.highlight();
+    }
   }
 
   /**
@@ -82,7 +64,7 @@ export namespace NextButtonSelector {
    * @param priorPageIndexText if traversing to pagination, the string of the
    *   last page index clicked
    */
-  function isPromisingNextButton(nextSelector: NextButtonSelector.Interface,
+  function isPromisingNextButton(nextSelector: INextButtonSelector,
     candEl: HTMLElement, priorPageIndexText?: string) {
     // either there's an actual image and it's the same, or the text is the same
     if (nextSelector.src) {
@@ -120,7 +102,7 @@ export namespace NextButtonSelector {
    * @param priorPageIndexText if page button, a string indicating the number of
    *   the last page index
    */
-  export function findNextButton(selector: NextButtonSelector.Interface,
+  export function findNextButton(selector: INextButtonSelector,
     priorPageIndexText?: string): HTMLElement | null {
     HelenaConsole.log(selector);
 
@@ -218,7 +200,7 @@ export namespace NextButtonSelector {
    * Highlights the next button given by the selector.
    * @param selector the next button selector
    */
-  export function highlightNextButton(selector: NextButtonSelector.Interface) {
+  export function highlightNextButton(selector: INextButtonSelector) {
     HelenaConsole.log(selector);
     let button = findNextButton(selector);
     if (button) {

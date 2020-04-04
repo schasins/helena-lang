@@ -9,7 +9,7 @@ import { RelationHighlighter } from "./ui/relation_highlighter";
 import { Screenshot } from "./utils/screenshot";
 import { MiscUtilities } from "../common/misc_utilities";
 import { RecordState } from "../ringer-record-replay/common/messages";
-import { RelationSelector } from "./selector/relation_selector";
+import { RelationSelector, ContentSelector } from "./selector/relation_selector";
 import { RelationFinder } from "./selector/relation_finding";
 import { NextButtonSelector } from "./selector/next_button_selector";
 import { HelenaConsole } from "../common/utils/helena_console";
@@ -21,39 +21,40 @@ export class HelenaContent {
   /** 
    * Whether scraping is enabled/disabled.
    */
-  scrapeMode: boolean;
+  public scrapeMode: boolean;
 
   /**
    * Information about the Tab in which the content script is running.
    */
-  tabId?: number;
-  windowId?: number;
-  tabTopUrl?: string;
+  public tabId?: number;
+  public windowId?: number;
+  public tabTopUrl?: string;
 
   /**
    * Keep track of the last Element the user was hovering over so that it can be
    *   highlighted when the user enters scrape mode.
    */
-  mostRecentMousemoveTarget?: EventTarget | null;
+  public mostRecentMousemoveTarget?: EventTarget | null;
 
   /**
    * Keep track of keys currently being pressed down as a map from keyCode to
    *   boolean (true means pressed).
    */
-  currentlyPressedKeys?: { [key: number]: boolean };
+  public currentlyPressedKeys?: { [key: number]: boolean };
 
   /**
    * Highlighted element when in scrape mode.
    */
-  highlightedElement?: JQuery<HTMLElement>;
+  public highlightedElement?: JQuery<HTMLElement>;
 
   /**
    * Record and replay state.
    */
-  currentRecordingWindows?: number[];
-  currentReplayWindowId?: number;
+  public currentRecordingWindows?: number[];
+  public currentReplayWindowId?: number;
 
-  relationHighlighter: RelationHighlighter;
+  public currentSelectorToEdit: ContentSelector | null;
+  public relationHighlighter: RelationHighlighter;
 
 
   /**

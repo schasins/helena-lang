@@ -3,7 +3,7 @@ import * as Blockly from "blockly";
 
 import { HelenaConsole } from "../common/utils/helena_console";
 
-import { NodeVariable } from "./variables/node_variable";
+import { NodeVariable, NodeSources } from "./variables/node_variable";
 
 import { HelenaLangObject } from "./lang/helena_lang";
 
@@ -29,18 +29,8 @@ import { ClickStatement } from "./lang/statements/page_action/click";
 import { PulldownInteractionStatement } from "./lang/statements/page_action/pulldown_interaction";
 import { ScrapeStatement } from "./lang/statements/page_action/scrape";
 import { OutputRowStatement } from "./lang/statements/output_row";
-import { Trace, Traces, DisplayTraceEvent } from "../common/utils/trace";
 import { Environment } from "./environment";
-import { DOMRingerEvent } from "../ringer-record-replay/common/event";
-import { Utilities } from "../ringer-record-replay/common/utils";
 import { Messages } from "../common/messages";
-
-export enum NodeSources {
-  RELATIONEXTRACTOR = 1,
-  RINGER,
-  PARAMETER,
-  TEXTRELATION,
-};
 
 interface HelenaBlock extends Blockly.Block {
   helena: HelenaLangObject;
@@ -100,6 +90,8 @@ export class HelenaMainpanel {
     this.demoMode = false;
     this.recordingWindowIds = [];
 
+    this.setupBlocklyCustomBlocks();
+
     this.addMessageListeners();
 
     this.UIObject = obj;
@@ -110,9 +102,6 @@ export class HelenaMainpanel {
       HelenaConsole.log("making revival label for ", prop);
       Revival.introduceRevivalLabel(prop, HelenaMainpanel.revivable[prop]);
     }
-
-    // make one so we'll add the blocklylabel
-    new WaitStatement();
   }
 
   private addMessageListeners() {
@@ -122,6 +111,15 @@ export class HelenaMainpanel {
           "currentReplayWindowId", { window: this.currentReplayWindowId });
       }
     );
+  }
+
+  /**
+   * Initialization that has to happen after the HelenaMainpanel object is
+   *   created.
+   */
+  public afterInit() {
+    // make one so we'll add the blocklylabel
+    new WaitStatement();
   }
 
   // some of the things we do within the objects that represent the programs,
@@ -166,159 +164,10 @@ export class HelenaMainpanel {
     return opsDropdown;
   }
 
-  public static makeNodeVariableForTrace(trace: Trace) {
-    let recordTimeNodeSnapshot = null;
-    let imgData = null;
-    // may get 0-length trace if we're just adding a scrape statement by editing
-    //   (as for a known column in a relation)
-    if (trace.length > 0) {
-      // 0 bc this is the first ev that prompted us to turn it into the given
-      //   statement, so must use the right node
-      const ev = <DOMRingerEvent> trace[0];
-      recordTimeNodeSnapshot = ev.target.snapshot;
-      imgData = ev.additional.visualization;
-    }
-    return new NodeVariable(null, null, recordTimeNodeSnapshot, imgData,
-      NodeSources.RINGER); // null bc no preferred name
-  }
-
-  public static urlMatch(text: string, currentUrl: string) {
-    return urlMatchSymmetryHelper(text, currentUrl) ||
-           urlMatchSymmetryHelper(currentUrl, text);
-  }
-
-  public static cleanTrace(trace: Trace) {
-    const cleanTrace = [];
-    for (const event of trace) {
-      cleanTrace.push(cleanEvent(<DisplayTraceEvent> event));
-    }
-    return cleanTrace;
-  }
-
   public addToolboxLabel(label: string, category = "other") {
     this.blocklyLabels[category].push(label);
     this.blocklyLabels[category] =
       [...new Set(this.blocklyLabels[category])];
-  }
-
-  public static attachToPrevBlock(currBlock: Blockly.Block,
-      prevBlock: Blockly.Block) {
-    if (currBlock && prevBlock) {
-      const prevBlockConnection = prevBlock.nextConnection;
-      const thisBlockConnection = currBlock.previousConnection;
-      prevBlockConnection.connect(thisBlockConnection);
-    } else {
-      HelenaConsole.warn("Woah, tried to attach to a null prevBlock!");
-    }
-  }
-
-  // for things like loops that have bodies, attach the nested blocks
-  public static attachNestedBlocksToWrapper(wrapperBlock: Blockly.Block | null,
-      firstNestedBlock: Blockly.Block | null) {
-    if (!wrapperBlock || !firstNestedBlock) {
-      HelenaConsole.warn("Woah, tried attachNestedBlocksToWrapper with",
-        wrapperBlock, firstNestedBlock);
-      return;
-    }
-    const parentConnection = wrapperBlock.getInput('statements').connection;
-    const childConnection = firstNestedBlock.previousConnection;
-    parentConnection.connect(childConnection);
-  }
-
-  public static attachToInput(leftBlock: Blockly.Block,
-      rightBlock: Blockly.Block, name: string) {
-    if (!leftBlock || !rightBlock || !name) {
-      HelenaConsole.warn("Woah, tried attachToInput with", leftBlock,
-        rightBlock, name);
-      return;
-    }
-    const parentConnection = leftBlock.getInput(name).connection;
-    const childConnection = rightBlock.outputConnection;
-    parentConnection.connect(childConnection);
-  }
-
-  public static attachInputToOutput(leftBlock: Blockly.Block,
-      rightBlock: Blockly.Block) {
-    if (!leftBlock || !rightBlock) {
-      HelenaConsole.warn("Woah, tried attachInputToOutput with", leftBlock,
-        rightBlock);
-      return;
-    }
-    const outputBlockConnection = rightBlock.outputConnection;
-    const inputBlockConnection = leftBlock.inputList[0].connection;
-    outputBlockConnection.connect(inputBlockConnection);
-  }
-
-  public static helenaSeqToBlocklySeq(stmts: HelenaLangObject[],
-    workspace: Blockly.WorkspaceSvg) {
-    // get the individual statements to produce their corresponding blockly
-    //   blocks
-
-    // the one we'll ultimately return, in case it needs to be attached to
-    //   something outside
-    let firstNonNull = null;
-
-    let lastBlock = null;
-    let lastStatement = null;
-
-    let invisibleHead = [];
-
-    // for (var i = 0; i < statementsLs.length; i++) {
-    for (const stmt of stmts) {
-      const newBlock = stmt.genBlocklyNode(lastBlock, workspace);
-      // within each statement, there can be other program components that will
-      //   need blockly representations but the individual statements are
-      //   responsible for traversing those
-      if (newBlock !== null) {
-        // handle the fact that there could be null-producing nodes in the
-        //   middle, and need to connect around those
-        lastBlock = newBlock;
-        lastStatement = stmt;
-        lastStatement.invisibleHead = [];
-        lastStatement.invisibleTail = [];
-        // also, if this is our first non-null block it's the one we'll want to
-        //   return
-        if (!firstNonNull) {
-          firstNonNull = newBlock;
-          // oh, and let's go ahead and set that invisible head now
-          stmt.invisibleHead = invisibleHead;
-        }
-      } else {
-        // ok, a little bit of special stuff when we do have null nodes
-        // we want to still save them, even though we'll be using the blockly
-        //   code to generate future versions of the program so we'll need to
-        //   associate these invibislbe statements with others and then the only
-        //   thing we'll need to do is when we go the other direction
-        //   (blockly->helena)
-        // we'll have to do some special processing to put them back in the
-        //   normal structure
-        stmt.nullBlockly = true;
-
-        // one special case.  if we don't have a non-null lastblock, we'll have
-        //   to keep this for later
-        // we prefer to make things tails of earlier statements, but we can make
-        //   some heads if necessary
-        if (!lastBlock || !lastStatement) {
-          invisibleHead.push(stmt);
-        } else {
-          lastStatement.invisibleTail?.push(stmt);
-        }
-      }
-    }
-
-    if (!firstNonNull) {
-      throw new ReferenceError("Did not find any non-null blocks.");
-    }
-
-    return firstNonNull;
-    // todo: the whole invisible head, invisible tail thing isn't going to be
-    //   any good if we have no visible statements in this segment.  So rare
-    //   that spending time on it now is probably bad, but should be considered
-    //   eventually
-  }
-
-  public static getLoopIterationCounters(stmt: HelenaLangObject) {
-    return getLoopIterationCountersHelper(stmt, []);
   }
 
   public blocklySeqToHelenaSeq(blocklyBlock: Blockly.Block):
@@ -372,55 +221,12 @@ export class HelenaMainpanel {
         helenaBlock.helena.block = helenaBlock;
         // the above line may look silly but when blockly drops blocks into the
         //   trashcan, they're restored with the same id but with a fresh object
-        //   and the fresh object doesn't have WAL stored anymore, which is why
-        //   we have to look in the dict but that also means the block object
-        //   stored by the wal object is out of date, must be refreshed
+        //   and the fresh object doesn't have Helena stored anymore, which is
+        //   why we have to look in the dict but that also means the block
+        //   object stored by the wal object is out of date, must be refreshed
       }
     }
     return helenaBlock.helena;
-  }
-
-  public static firstScrapedContentEventInTrace(trace: Trace) {
-    for (const event of trace) {
-      if (event.additional && event.additional.scrape &&
-          event.additional.scrape.text) {
-        return event;
-      }
-    }
-    return null;
-  }
-
-  public static usedByTextStatement(stmt: HelenaLangObject,
-      parameterizeableStrings: (string | null)[]) {
-    if (!parameterizeableStrings) {
-      return false;
-    }
-
-    if (!(stmt instanceof TypeStatement ||
-          stmt instanceof LoadStatement)) {
-      return false;
-    }
-
-    for (const curString of parameterizeableStrings) {
-      if (!curString) continue;
-
-      const lowerString = curString.toLowerCase();
-      if (stmt instanceof TypeStatement &&
-          stmt.typedStringLower?.includes(lowerString)) {
-        // for typestatement
-        return true;
-      }
-
-      if (stmt instanceof LoadStatement) {
-        const currURL = stmt.cUrl();
-        if (currURL &&
-            HelenaMainpanel.urlMatch(currURL.toLowerCase(), lowerString)) {
-          // for loadstatement
-          return true;
-        }
-      }
-    }
-    return false;
   }
 
   public getNodeVariableByName(name: string) {
@@ -429,9 +235,69 @@ export class HelenaMainpanel {
         return nodeVar;
       }
     }
-    throw new ReferenceError("Invalid NodeVariable name.");
+    return null;
   }
 
+  private setupBlocklyCustomBlocks() {
+    Blockly.Blocks['scraping_for_each'] = {
+      init: function() {
+        this.jsonInit({
+      "type": "scraping_for_each",
+      "message0": "for each COLUMN_NAMES in %1 in %2 %3 do %4",
+      "args0": [
+        {
+          "type": "field_dropdown",
+          "name": "list",
+          "options": [
+            [
+              "list1",
+              "list1"
+            ],
+            [
+              "list2",
+              "list2"
+            ],
+            [
+              "list3",
+              "list3"
+            ]
+          ]
+        },
+        {
+          "type": "field_dropdown",
+          "name": "tab",
+          "options": [
+            [
+              "tab1",
+              "tab1"
+            ],
+            [
+              "tab2",
+              "tab2"
+            ],
+            [
+              "tab3",
+              "tab3"
+            ]
+          ]
+        },
+        {
+          "type": "input_dummy"
+        },
+        {
+          "type": "input_statement",
+          "name": "statements"
+        }
+      ],
+      "previousStatement": null,
+      "nextStatement": null,
+      "colour": 44,
+      "tooltip": "",
+      "helpUrl": ""
+    });
+      }
+    };
+  }
   /**
    * Updates blocks available for the toolbox based on our pageVars, relations,
    *   and so on.
@@ -455,8 +321,9 @@ export class HelenaMainpanel {
     const allDesiredBlocks = origBlocks.concat(toolBoxBlocks);
     for (const prop of allDesiredBlocks) {
       try {
-        let obj = new HelenaMainpanel.revivable[prop]();
+        const obj = HelenaMainpanel.revivable[prop].createDummy();
 
+        // if (obj && obj instanceof HelenaLangObject) {
         if (obj && obj instanceof HelenaLangObject) {
           if (program) {
             obj.updateBlocklyBlock(program, program.pageVars,
@@ -481,24 +348,6 @@ export class HelenaMainpanel {
     }
     return;
   }
-
-  public static makeVariableNamesDropdown(prog: HelenaProgram) {
-    const varNames = prog.getAllVariableNames();
-    const varNamesDropDown = [];
-    for (const varName of varNames) {
-      varNamesDropDown.push([varName, varName]);
-    }
-    return varNamesDropDown;
-  }
-
-  public static makePageVarsDropdown(pageVars: PageVariable[]) {
-    let pageVarsDropDown = [];
-    for (const pageVar of pageVars) {
-      const pageVarStr = pageVar.toString();
-      pageVarsDropDown.push([pageVarStr, pageVarStr]);
-    }
-    return pageVarsDropDown;
-  }
 }
 
 /*
@@ -510,34 +359,3 @@ function makeRelationsDropdown(relations) {
   }
   return relationsDropDown;
 }*/
-
-function urlMatchSymmetryHelper(t1: string, t2: string) {
-  // todo: there might be other ways that we could match the url. don't need to
-  //   match the whole thing
-  
-  // don't need www, etc, any lingering bits on the end that get added...
-  if (t1.replace("http://", "https://") === t2) {
-    return true;
-  }
-  return false;
-}
-
-function cleanEvent(ev: DisplayTraceEvent): DisplayTraceEvent {
-  const displayData = Traces.getDisplayInfo(ev);
-  Traces.clearDisplayInfo(ev);
-  const cleanEvent = Utilities.clone(ev);
-  // now restore the true trace object
-  Traces.setDisplayInfo(ev, displayData);
-  return cleanEvent;
-}
-
-function getLoopIterationCountersHelper(s: HelenaLangObject, acc: number[]):
-    number[] {
-  if (s === null || s === undefined) {
-    return acc;
-  }
-  if (s instanceof LoopStatement) {
-    acc.unshift(s.rowsSoFar);
-  }
-  return getLoopIterationCountersHelper(s.parent, acc);
-}

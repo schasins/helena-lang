@@ -1,14 +1,11 @@
 import { HelenaConsole } from "../../common/utils/helena_console";
-import { HelenaMainpanel, NodeSources } from "../helena_mainpanel";
-import { ColumnSelector } from "../../content/selector/column_selector";
-import { NodeVariable } from "../variables/node_variable";
-import { HelenaLangObject } from "../lang/helena_lang";
+import { NodeSources, NodeVariable } from "../variables/node_variable";
 import { GenericRelation } from "./generic";
 import { PageVariable } from "../variables/page_variable";
 import { RunObject } from "../lang/program";
 import { Revival } from "../revival";
-import { RelationMessage } from "../../common/messages";
 import { Environment } from "../environment";
+import { IColumnSelector } from "../../content/selector/interfaces";
 
 // used for relations that only have text in cells, as when user uploads the relation
 export class TextRelation extends GenericRelation {
@@ -36,6 +33,10 @@ export class TextRelation extends GenericRelation {
       this.nodeVariables();
     }
     this.currentRowsCounter = -1;
+  }
+
+  public static createDummy() {
+    return new TextRelation();
   }
 
   public demonstrationTimeRelationText() {
@@ -99,11 +100,6 @@ export class TextRelation extends GenericRelation {
     return stringifiedTextRelation;
   }
 
-  public usedByStatement(statement: HelenaLangObject) {
-    return HelenaMainpanel.usedByTextStatement(statement,
-      this.relation[0]);
-  }
-
   // has to be called on a page, to match the signature for the non-text
   //   relations, but we'll ignore the pagevar
   public getNextRow(runObject: RunObject, pageVar: PageVariable,
@@ -127,7 +123,7 @@ export class TextRelation extends GenericRelation {
     return cells;
   }
 
-  public getCurrentText(columnObject: ColumnSelector.Interface) {
+  public getCurrentText(columnObject: IColumnSelector) {
     if (!columnObject.index) {
       throw new ReferenceError("Column object contains no index.");
     }
@@ -137,7 +133,7 @@ export class TextRelation extends GenericRelation {
   };
 
   public getCurrentLink(pageVar: PageVariable,
-    columnObject: ColumnSelector.Interface) {
+    columnObject: IColumnSelector) {
     HelenaConsole.log("yo, why are you trying to get a link from a text " +
       "relation???");
     return "";

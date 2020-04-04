@@ -1,7 +1,5 @@
 import * as Blockly from "blockly";
 
-import { HelenaMainpanel } from "../../helena_mainpanel";
-
 import { HelenaString } from "./string";
 import { Value } from "./value";
 
@@ -10,6 +8,7 @@ import { GenericRelation } from "../../relation/generic";
 import { PageVariable } from "../../variables/page_variable";
 import { RunObject, HelenaProgram, RunOptions } from "../program";
 import { Revival } from "../../revival";
+import { HelenaBlocks } from "../../ui/blocks";
 
 export class Concatenate extends Value {
   public currentVal: string;
@@ -25,6 +24,10 @@ export class Concatenate extends Value {
   
     this.left = left;
     this.right = right;
+  }
+
+  public static createDummy() {
+    return new Concatenate();
   }
 
   public toStringLines() {
@@ -68,14 +71,14 @@ export class Concatenate extends Value {
       if (!leftBlock) {
         throw new ReferenceError("Could not create left block.");
       }
-      HelenaMainpanel.attachToInput(this.block, leftBlock, "left");
+      HelenaBlocks.attachToInput(this.block, leftBlock, "left");
     }
     if (this.right) {
       const rightBlock = this.right.genBlocklyNode(this.block, workspace);
       if (!rightBlock) {
         throw new ReferenceError("Could not create right block.");
       }
-      HelenaMainpanel.attachToInput(this.block, rightBlock, "right");
+      HelenaBlocks.attachToInput(this.block, rightBlock, "right");
     }
     return this.block;
   }

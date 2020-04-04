@@ -4,6 +4,7 @@ import { StatementTypes } from "../../mainpanel/lang/statements/statement_types"
 import { RingerEvents,
   RecordedRingerEvent,
   DOMRingerEvent} from "../../ringer-record-replay/common/event";
+import { Utilities } from "../../ringer-record-replay/common/utils";
 
 export type Trace = RecordedRingerEvent[];
 
@@ -43,7 +44,8 @@ export namespace Traces {
     throw new ReferenceError("No top level completed event!");
   }
 
-  export function tabId(ev: RecordedRingerEvent) {
+  export function tabId(ev: RecordedRingerEvent | undefined) {
+    if (!ev) { return undefined; }
     return ev.data.tabId;
   }
 
@@ -169,12 +171,30 @@ export namespace Traces {
     return ev.additionalDataTmp.display.causedBy;
   }
 
-  export function setLoadCausedBy(ev: DisplayTraceEvent, val: RecordedRingerEvent) {
+  export function setLoadCausedBy(ev: DisplayTraceEvent,
+      val: RecordedRingerEvent) {
     ev.additionalDataTmp.display.causedBy = val;
   }
 
   export function getDisplayInfo(ev: DisplayTraceEvent) {
     return ev.additionalDataTmp.display;
+  }
+
+  function cleanEvent(ev: DisplayTraceEvent): DisplayTraceEvent {
+    const displayData = Traces.getDisplayInfo(ev);
+    Traces.clearDisplayInfo(ev);
+    const cleanEvent = Utilities.clone(ev);
+    // now restore the true trace object
+    Traces.setDisplayInfo(ev, displayData);
+    return cleanEvent;
+  }
+
+  export function cleanTrace(trace: Trace) {
+    const cleanTrace = [];
+    for (const event of trace) {
+      cleanTrace.push(cleanEvent(<DisplayTraceEvent> event));
+    }
+    return cleanTrace;
   }
 
   export function clearDisplayInfo(ev: DisplayTraceEvent) {
@@ -186,7 +206,8 @@ export namespace Traces {
     ev.additionalDataTmp.display = displayInfo;
   }
 
-  export function setTemporaryStatementIdentifier(ev: RecordedRingerEvent, id: number) {
+  export function setTemporaryStatementIdentifier(ev: RecordedRingerEvent,
+      id: number) {
     if (!ev.additional) {
       // not a dom event, can't copy this stuff around
       return;
@@ -197,6 +218,17 @@ export namespace Traces {
     //   because cascading events will appear in the same statement, so can
     //   have same statement id, but be careful
     ev.additional.___additionalData___.temporaryStatementIdentifier = id;
+  }
+
+
+  export function firstScrapedContentEventInTrace(trace: Trace) {
+    for (const event of trace) {
+      if (event.additional && event.additional.scrape &&
+          event.additional.scrape.text) {
+        return event;
+      }
+    }
+    return null;
   }
 
   export function getTemporaryStatementIdentifier(ev: RecordedRingerEvent) {

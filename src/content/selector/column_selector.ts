@@ -2,27 +2,15 @@ import { XPath } from "../utils/xpath";
 import SuffixXPathList = XPath.SuffixXPathList;
 import { ColumnSelectorMessage } from "../../common/messages";
 import { MiscUtilities } from "../../common/misc_utilities";
+import { IColumnSelector } from "./interfaces";
 
 /**
   * A selector describing how to extract a column of a relation with respect to
   *   some kind of common ancestor describing a row.
   */
 export namespace ColumnSelector {
-  export interface Interface {
-    xpath?: string;
-    suffix?: SuffixXPathList[]; // not single suffix, but a list of candidates
-    name?: string;
-    id?: number | null;
-    index?: number;
-    scraped?: boolean;
-
-    firstRowXpath?: string;
-    firstRowText?: string;
-    firstRowValue?: string;
-  }
-
   export function fromMessage(msgCols: ColumnSelectorMessage[]) {
-    let result: Interface[] = [];
+    let result: IColumnSelector[] = [];
 
     for (const msgCol of msgCols) {
       if (MiscUtilities.depthOf(msgCol.suffix) < 3) {
@@ -47,14 +35,14 @@ export namespace ColumnSelector {
   }
   
   /**
-   * Gets array of {@link ColumnSelector.Interface} of each descendant element
+   * Gets array of {@link IColumnSelector} of each descendant element
    *   given the ancestor element.
    * @param ancestor ancestor element
    * @param descendants descendant elements
    */
   export function compute(ancestor: HTMLElement,
     descendants: (HTMLElement | null)[]) {
-    let columns: ColumnSelector.Interface[] = [];
+    let columns: IColumnSelector[] = [];
     for (const descendant of descendants) {
       if (!descendant) {
         throw new ReferenceError('TODO: This descendant is null. Handle it?');

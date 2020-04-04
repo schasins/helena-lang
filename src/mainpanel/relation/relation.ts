@@ -1,38 +1,25 @@
 import * as _ from "underscore";
 import * as stringify from "json-stable-stringify";
 
+import { HelenaConfig } from "../../common/config/config";
+import { MainpanelNode } from "../../common/mainpanel_node";
+import { FreshRelationItemsMessage, NextButtonTextMessage, RelationMessage,
+  Messages } from "../../common/messages";
+import { MiscUtilities } from "../../common/misc_utilities";
 import { HelenaConsole } from "../../common/utils/helena_console";
 
-import { HelenaMainpanel, NodeSources } from "../helena_mainpanel";
-
-import { ColumnSelector } from "../../content/selector/column_selector";
-import { NextButtonSelector, NextTypes } from "../../content/selector/next_button_selector";
-
-import { FreshRelationItemsMessage,
-  NextButtonTextMessage, 
-  Messages} from "../../common/messages";
-
-import { MainpanelNode } from "../../common/mainpanel_node";
-
-import { NodeVariable } from "../../mainpanel/variables/node_variable";
-
+import { INextButtonSelector, NextButtonTypes,
+  IColumnSelector } from "../../content/selector/interfaces";
 import { Features } from "../../content/utils/features";
 import GenericFeatureSet = Features.GenericFeatureSet;
 
-import { HelenaLangObject } from "../lang/helena_lang";
-
-import { LoadStatement } from "../lang/statements/browser/load";
-import { PulldownInteractionStatement } from "../lang/statements/page_action/pulldown_interaction";
-import { RelationMessage } from "../../common/messages";
-import { GenericRelation } from "./generic";
-import { PageActionStatement } from "../lang/statements/page_action/page_action";
-import { PageRelation, PageVariable } from "../variables/page_variable";
+import { Environment } from "../environment";
 import { RunObject } from "../lang/program";
 import { Revival } from "../revival";
-import { HelenaConfig } from "../../common/config/config";
-import { MiscUtilities } from "../../common/misc_utilities";
+import { NodeSources, NodeVariable } from "../variables/node_variable";
+import { PageRelation, PageVariable } from "../variables/page_variable";
 import { HelenaServer } from "../utils/server";
-import { Environment } from "../environment";
+import { GenericRelation } from "./generic";
 
 /**
  * State of the current scraped relation items.
@@ -55,7 +42,7 @@ export class Relation extends GenericRelation {
   public pageVarName: string;
   public url: string;
   public nextType: number;
-  public nextButtonSelector: NextButtonSelector.Interface | null;
+  public nextButtonSelector: INextButtonSelector | null;
   public frame: number;
   
   public firstRowXPaths: string[];
@@ -84,10 +71,10 @@ export class Relation extends GenericRelation {
   constructor(relationId: string, name: string,
       selector: GenericFeatureSet | GenericFeatureSet[],
       selectorVersion: number, excludeFirst: number,
-      columns: ColumnSelector.Interface[],
+      columns: IColumnSelector[],
       demonstrationTimeRelation: MainpanelNode.Interface[][],
       numRowsInDemo: number, pageVarName: string, url: string,
-      nextType: number, nextButtonSelector: NextButtonSelector.Interface | null,
+      nextType: number, nextButtonSelector: INextButtonSelector | null,
       frame: number) {
     super();
     
@@ -126,6 +113,10 @@ export class Relation extends GenericRelation {
     this.missesSoFar = {};
 
     this.getNextRowCounter = 0;
+  }
+
+  public static createDummy() {
+    return new Relation("", "", {}, 1, 0, [], [], 0, "", "", 1, null, 0);
   }
 
   public demonstrationTimeRelationText() {
@@ -169,15 +160,15 @@ export class Relation extends GenericRelation {
     HelenaConsole.log("updateNodeVariables Relation completed");
   }
 
-  public processColumns(oldColumns?: ColumnSelector.Interface[]) {
+  public processColumns(oldColumns?: IColumnSelector[]) {
     for (let i = 0; i < this.columns.length; i++) {
       // should later look at whether this index is good enough
       this.processColumn(this.columns[i], i, oldColumns);
     }
   };
 
-  private processColumn(colObject: ColumnSelector.Interface, index: number,
-    oldColObjects?: ColumnSelector.Interface[]) {
+  private processColumn(colObject: IColumnSelector, index: number,
+    oldColObjects?: IColumnSelector[]) {
     let oldColObject;
     if (colObject.name === null || colObject.name === undefined) {
       // a filler name that we'll use for now
@@ -189,7 +180,7 @@ export class Relation extends GenericRelation {
 
         // let's search the old col objects, see if any share an xpath and have
         //   a name for us
-        oldColObject = <ColumnSelector.Interface> findByXpath(oldColObjects,
+        oldColObject = <IColumnSelector> findByXpath(oldColObjects,
           colObject.xpath);
         if (oldColObject) {
           colObject.name = oldColObject.name;
@@ -244,10 +235,10 @@ export class Relation extends GenericRelation {
 
   public setNewAttributes(selector: GenericFeatureSet | GenericFeatureSet[],
     selectorVersion: number, excludeFirst: number,
-    columns: ColumnSelector.Interface[],
+    columns: IColumnSelector[],
     demonstrationTimeRelation: MainpanelNode.Interface[][],
     numRowsInDemo: number, nextType: number,
-    nextButtonSelector: NextButtonSelector.Interface | null) {
+    nextButtonSelector: INextButtonSelector | null) {
       this.selector = selector;
       this.selectorVersion = selectorVersion;
       this.excludeFirst = excludeFirst;
@@ -263,30 +254,6 @@ export class Relation extends GenericRelation {
       const oldColumns = this.columns;
       this.columns = columns;
       this.processColumns(oldColumns);
-  }
-
-  public usedByStatement(stmt: HelenaLangObject) {
-    if (!(stmt instanceof PageActionStatement ||
-          stmt instanceof LoadStatement)) {
-      return false;
-    }
-
-    if (stmt instanceof PageActionStatement &&
-        stmt.pageVar?.name === this.pageVarName &&
-        stmt.node && this.firstRowXPaths?.includes(stmt.node)) {
-      return true;
-    }
-
-    if (HelenaMainpanel.usedByTextStatement(stmt, this.firstRowTexts)) {
-      return true;
-    }
-
-    if (usedByPulldownStatement(stmt, this.firstRowXPaths)) {
-      return true;
-    }
-    
-    // ok, neither the node nor the typed text looks like this relation's cells
-    return false;
   }
 
   public messageRelationRepresentation(): RelationMessage {
@@ -690,8 +657,8 @@ export class Relation extends GenericRelation {
 
   // has to be called on a page, since a relation selector can be applied to
   //   many pages. higher-level tool must control where to apply
-  public getNextRow(runObject: RunObject,
-    pageVar: PageVariable, callback: Function) {
+  public getNextRow(runObject: RunObject, pageVar: PageVariable,
+      callback: Function) {
     const self = this;
 
     // ok, what's the page info on which we're manipulating this relation?
@@ -743,7 +710,7 @@ export class Relation extends GenericRelation {
       //   additional pages.  in that case, just know the loop is done and call
       //   the callback with false as the moreRows argument
       if (!this.nextButtonSelector &&
-           this.nextType !== NextTypes.SCROLLFORMORE) {
+           this.nextType !== NextButtonTypes.SCROLLFORMORE) {
         callback(false);
         return;
       }
@@ -849,7 +816,7 @@ export class Relation extends GenericRelation {
   }
 
   public getCurrentNodeRep(pageVar: PageVariable,
-    columnObject: ColumnSelector.Interface) {
+    columnObject: IColumnSelector) {
     const prinfo = pageVar.pageRelations[this.name + "_" + this.id]
     HelenaConsole.namedLog("prinfo",
       "change prinfo, finding it for getCurrentNodeRep", this.name, this.id);
@@ -937,27 +904,11 @@ function domain(url: string) {
 }
 
 function findByXpath(
-  objectList: (ColumnSelector.Interface | MainpanelNode.Interface)[],
+  objectList: (IColumnSelector | MainpanelNode.Interface)[],
   xpath: string) {
     const objs = objectList.filter((obj) => obj.xpath === xpath);
     if (objs.length === 0) { return null; }
     return objs[0];
-}
-
-
-function usedByPulldownStatement(statement: HelenaLangObject,
-  firstRowXPaths: string[]) {
-  if (statement instanceof PulldownInteractionStatement) {
-    const xpath = (<PulldownInteractionStatement> statement).node;
-    for (const cXpath of firstRowXPaths) {
-      // so if the xpath of the pulldown menu appears in the xpath of the first
-      //   row cell
-      if (cXpath.includes(xpath)) {
-        return true;
-      }
-    }
-  }
-  return false;
 }
 
 function highestPercentOfHasXpathPerRow(relation: MainpanelNode.Interface[][],

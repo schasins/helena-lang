@@ -1,22 +1,12 @@
 import * as Blockly from "blockly";
 
-import { ColumnSelector } from "../../content/selector/column_selector";
-
 import { GenericRelation } from "../relation/generic";
 
 import { PageVariable } from "../variables/page_variable";
 import { StatementContainer } from "./statements/container";
-import { PageActionStatement } from "./statements/page_action/page_action";
-import { LoadStatement } from "./statements/browser/load";
 import { RunObject, RunOptions, HelenaProgram } from "./program";
-import { ClickStatement } from "./statements/page_action/click";
-import { TypeStatement } from "./statements/page_action/type";
-import { HelenaMainpanel } from "../helena_mainpanel";
 import { Revival } from "../revival";
-
-export type RingerStatement = (PageActionStatement | LoadStatement);
-export type OutputPageVarStatement = (LoadStatement | ClickStatement |
-  TypeStatement);
+import { IColumnSelector } from "../../content/selector/interfaces";
 
 export interface StatementParameter {
   type: string;
@@ -34,6 +24,10 @@ export class HelenaLangObject implements Revival.Revivable {
 
   public parent: StatementContainer;
 
+  public static createDummy() {
+    return new HelenaLangObject();
+  }
+
   public clearRunningState() {
     return;
   }
@@ -45,6 +39,14 @@ export class HelenaLangObject implements Revival.Revivable {
 
   public getHelena() {
     return this;
+  }
+
+  public getLoopIterationCounters(acc: number[] = []): number[] {
+    if (this.parent === null || this.parent === undefined) {
+      return acc;
+    } else {
+      return this.parent.getLoopIterationCounters(acc);
+    }
   }
 
   public hasOutputPageVars() {
@@ -88,9 +90,9 @@ export class HelenaLangObject implements Revival.Revivable {
     //   introduce a new function and forget to add it to a blacklist, it'll get
     //   called randomly, will be hard to debug
     const name = this.___revivalLabel___;
-    window.helenaMainpanel.blocklyNames.push(name);
-    window.helenaMainpanel.blocklyNames =
-      [...new Set(window.helenaMainpanel.blocklyNames)];
+    if (!window.helenaMainpanel.blocklyNames.includes(name)) {
+      window.helenaMainpanel.blocklyNames.push(name);
+    }
   }
 
   public toStringLines() {
@@ -107,8 +109,12 @@ export class HelenaLangObject implements Revival.Revivable {
     return;
   }
 
+  public usesRelation(rel: GenericRelation) {
+    return false;
+  }
+
   public parameterizeForRelation(relation: GenericRelation):
-      (ColumnSelector.Interface | null)[] {
+      (IColumnSelector | null)[] {
     return [];
   }
 

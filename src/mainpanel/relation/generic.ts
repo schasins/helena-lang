@@ -1,22 +1,17 @@
 import { HelenaConsole } from "../../common/utils/helena_console";
-import { ColumnSelector } from "../../content/selector/column_selector";
 import { MainpanelNode } from "../../common/mainpanel_node";
 import { NodeVariable } from "../variables/node_variable";
-import { HelenaMainpanel } from "../helena_mainpanel";
-import { HelenaLangObject } from "../lang/helena_lang";
 import { PageVariable } from "../variables/page_variable";
 import { RunObject } from "../lang/program";
 import { Revival } from "../revival";
 import { RelationMessage } from "../../common/messages";
-import { TextRelation } from "./text_relation";
-import { Relation } from "./relation";
-import { RelationSelector } from "../../content/selector/relation_selector";
 import { Environment } from "../environment";
+import { IColumnSelector } from "../../content/selector/interfaces";
 
 export class GenericRelation implements Revival.Revivable {
   public ___revivalLabel___: string;
   public name: string;
-  public columns: ColumnSelector.Interface[];
+  public columns: IColumnSelector[];
   public firstRowTexts: string[];
   public nodeVars: NodeVariable[];
 
@@ -24,7 +19,7 @@ export class GenericRelation implements Revival.Revivable {
     return;
   }
 
-  public columnName(colObj: (ColumnSelector.Interface | null) []) {
+  public columnName(colObj: (IColumnSelector | null) []) {
     return colObj.map((colObj) => {
       if (colObj && colObj.name) {
         return colObj.name;
@@ -42,7 +37,7 @@ export class GenericRelation implements Revival.Revivable {
     return [];
   }
 
-  public firstRowNodeRepresentation(colObj: ColumnSelector.Interface) {
+  public firstRowNodeRepresentation(colObj: IColumnSelector) {
     if (!colObj.index) {
       throw new ReferenceError("ColumnSelector has no index.");
     }
@@ -83,7 +78,7 @@ export class GenericRelation implements Revival.Revivable {
                        .map((colObj) => colObj.name? colObj.name : "undefined");
   }
 
-  public setColumnName(columnObj: ColumnSelector.Interface, v: string) {
+  public setColumnName(columnObj: IColumnSelector, v: string) {
     columnObj.name = v;
 
     if (!columnObj.index) {
@@ -100,9 +95,5 @@ export class GenericRelation implements Revival.Revivable {
   public updateNodeVariables(environment: Environment.Frame,
     pageVar: PageVariable) {
       return;
-  }
-
-  public usedByStatement(statement: HelenaLangObject): boolean {
-    return false;
   }
 }

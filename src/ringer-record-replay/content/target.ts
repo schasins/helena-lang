@@ -171,10 +171,11 @@ export namespace Target {
     // ok, let's go one more up to get to that parent node that has different
     //   text.
     currentNode = $(currentNode).parent();
-    const children = currentNode.children();
+    const children = currentNode[0].children;
     let possibleHeading = undefined;
-    for (const child of children) {
-      if (child.textContent){
+    for (let i = 0; i < children.length; i++) {
+      const child = children.item(i);
+      if (child?.textContent) {
         possibleHeading = child.textContent.trim();
         break;
       }

@@ -93,6 +93,7 @@ export class Replay {
   public user: User;
 
   constructor(ports: PortManager, scriptServer: null, user: User) {
+    this.addonReset = [];
     this.addonTiming = [];
     this.currentCompletedObservationFailures = 0;
     this.currentPortMappingFailures = 0;
@@ -209,8 +210,8 @@ export class Replay {
     const type = e.type;
     // console.log("event running", e);
 
-    /* Find the replay function associated with the event type */
-    if (type in Replay.replayableEvents) {
+    // Find the replay function associated with the event type
+    if (Replay.replayableEvents.includes(type)) {
       if (type === 'dom') {
         this.simulateDomEvent(e);
       } else if (type === 'completed') {

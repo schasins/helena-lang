@@ -1,19 +1,16 @@
 import { HelenaConfig } from "../../common/config/config";
 import { HelenaConsole } from "../../common/utils/helena_console";
-import { HelenaMainpanel } from "../helena_mainpanel";
-import { MiscUtilities } from "../../common/misc_utilities";
 import { Dataset } from "../dataset";
 import { DatasetSliceRequest, RelationMessage,
   Messages } from "../../common/messages";
 import { ServerTransaction } from "../lang/statements/control_flow/skip_block";
-import { KnownRelation } from "../../content/ui/relation_highlighter";
 
 export interface KnownRelationRequest {
   url: string;
 }
 
 export interface KnownRelationResponse {
-  relations: KnownRelation[];
+  relations: ServerRelationMessage[];
 }
 
 interface ProgramIdResponse {
@@ -29,12 +26,29 @@ interface RetrieveRelationsRequest {
   }[];
 }
 
+export interface ServerRelationMessage {
+  selector_version: number;
+  selector: string;
+  name: string;
+  exclude_first: number;
+  id: number;
+  columns: {
+    xpath: string;
+    suffix: string;
+    name: string;
+    id: number
+  }[];
+  num_rows_in_demonstration: number;
+  next_type: number;
+  next_button_selector?: string;
+}
+
 export interface RetrieveRelationsResponse {
   pages: {
     page_var_name: string;
     relations: {
-      same_domain_best_relation: object | null;
-      same_url_best_relation: object | null;
+      same_domain_best_relation: ServerRelationMessage | null;
+      same_url_best_relation: ServerRelationMessage | null;
     }
   }[];
 }

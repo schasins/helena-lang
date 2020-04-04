@@ -1,16 +1,13 @@
 import * as Blockly from "blockly";
 
-import { HelenaMainpanel, NodeSources } from "../../../helena_mainpanel";
-
 import { StatementTypes } from "../statement_types";
 
-import { NodeVariable } from "../../../variables/node_variable";
+import { NodeSources, NodeVariable } from "../../../variables/node_variable";
 import { NodeVariableUse } from "../../values/node_variable_use";
 
 import { Concatenate } from "../../values/concatenate";
 import { HelenaString } from "../../values/string";
 import { PageActionStatement } from "./page_action";
-import { ColumnSelector } from "../../../../content/selector/column_selector";
 import { MainpanelNode } from "../../../../common/mainpanel_node";
 import { GenericRelation } from "../../../relation/generic";
 import { PageVariable } from "../../../variables/page_variable";
@@ -19,6 +16,10 @@ import { Revival } from "../../../revival";
 import { Trace, Traces, DisplayTraceEvent } from "../../../../common/utils/trace";
 import { Environment } from "../../../environment";
 import { TargetInfo } from "../../../../ringer-record-replay/content/target";
+import { IColumnSelector } from "../../../../content/selector/interfaces";
+import { Relation } from "../../../relation/relation";
+import { TextRelation } from "../../../relation/text_relation";
+import { HelenaBlocks } from "../../../ui/blocks";
 
 /**
  * Statement representing a user taking the action of typing something.
@@ -35,12 +36,18 @@ export class TypeStatement extends PageActionStatement {
   public typedStringLower?: string;
   public typedStringParameterizationRelation?: GenericRelation;
 
-  constructor(trace: Trace) {
+  constructor(trace?: Trace) {
     super();
     Revival.addRevivalLabel(this);
     this.setBlocklyLabel("type");
+    
+    // Prematurely end, for the `createDummy` method
+    if (!trace) {
+      return;  
+    }
+  
     this.trace = trace;
-    this.cleanTrace = HelenaMainpanel.cleanTrace(trace);
+    this.cleanTrace = Traces.cleanTrace(trace);
 
     // find the record-time constants that we'll turn into parameters
     const ev = Traces.firstVisibleEvent(trace);
@@ -83,7 +90,7 @@ export class TypeStatement extends PageActionStatement {
 
     // for now, assume the ones we saw at record time are the ones we'll want at
     //   replay
-    this.currentNode = HelenaMainpanel.makeNodeVariableForTrace(trace);
+    this.currentNode = NodeVariable.fromTrace(trace);
     this.origNode = this.node;
     this.currentTypedString = new HelenaString(this.typedString);
 
@@ -105,6 +112,10 @@ export class TypeStatement extends PageActionStatement {
       this.keyEvents = textEntryEvents;
       this.keyCodes = this.keyEvents.map((ev) => <number> ev.data.keyCode);
     }
+  }
+
+  public static createDummy() {
+    return new TypeStatement();
   }
 
   public getOutputPagesRepresentation() {
@@ -167,7 +178,7 @@ export class TypeStatement extends PageActionStatement {
       return;
     }
     // addToolboxLabel(this.blocklyLabel, "web");
-    const pageVarsDropDown = HelenaMainpanel.makePageVarsDropdown(pageVars);
+    const pageVarsDropDown = PageVariable.makePageVarsDropdown(pageVars);
     Blockly.Blocks[this.blocklyLabel] = {
       init: function(this: Blockly.Block) {
         this.appendDummyInput()
@@ -197,11 +208,11 @@ export class TypeStatement extends PageActionStatement {
       
       const pageVarStr = this.pageVar? this.pageVar.toString() : "undefined";
       this.block.setFieldValue(pageVarStr, "page");
-      HelenaMainpanel.attachToPrevBlock(this.block, prevBlock);
+      HelenaBlocks.attachToPrevBlock(this.block, prevBlock);
       window.helenaMainpanel.setHelenaStatement(this.block, this);
 
       if (this.currentTypedString) {
-        HelenaMainpanel.attachToInput(this.block,
+        HelenaBlocks.attachToInput(this.block,
           this.currentTypedString.genBlocklyNode(this.block, workspace),
           "currentTypedString");
       }
@@ -264,7 +275,7 @@ export class TypeStatement extends PageActionStatement {
   }
 
   public parameterizeForString(relation: GenericRelation,
-      column: ColumnSelector.Interface, nodeRep: MainpanelNode.Interface,
+      column: IColumnSelector, nodeRep: MainpanelNode.Interface,
       string?: string) {
     if (string === null || string === undefined) {
       // can't parameterize for a cell that has null text
@@ -288,9 +299,11 @@ export class TypeStatement extends PageActionStatement {
         components.push(new HelenaString(left));
       }
 
-      const nodevaruse = new NodeVariableUse(
-        window.helenaMainpanel.getNodeVariableByName(name)
-      );
+      const nodevar = window.helenaMainpanel.getNodeVariableByName(name);
+      if (!nodevar) {
+        throw new ReferenceError("NodeVariable is invalid.");
+      }
+      const nodevaruse = new NodeVariableUse(nodevar);
       components.push(nodevaruse);
 
       const right = string.slice(startIndex +
@@ -345,6 +358,36 @@ export class TypeStatement extends PageActionStatement {
     if (this.typedStringParameterizationRelation === relation) {
       this.currentTypedString = new HelenaString(this.typedString);
     }
+  }
+
+  public usesRelation(rel: GenericRelation) {
+    if (rel instanceof Relation) {
+      if (this.pageVar?.name === rel.pageVarName &&
+          this.node && rel.firstRowXPaths.includes(this.node)) {
+        return true;
+      }
+      return this.usesRelationText(rel.firstRowTexts);
+    } else if (rel instanceof TextRelation) {
+      return this.usesRelationText(rel.relation[0]);
+    }
+    return false;
+  }
+
+  public usesRelationText(parameterizeableStrings: (string | null)[]) {
+    if (!parameterizeableStrings) {
+      return false;
+    }
+
+    for (const curString of parameterizeableStrings) {
+      if (!curString) continue;
+
+      const lowerString = curString.toLowerCase();
+      if (this.typedStringLower?.includes(lowerString)) {
+        // for typestatement
+        return true;
+      }
+    }
+    return false;
   }
 
   public run(runObject: RunObject, rbbcontinuation: Function,

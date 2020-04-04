@@ -1,14 +1,9 @@
-import * as $ from "jquery";
-
 import { Messages } from "../../common/messages";
 
 import { PulldownSelector, ContentSelector, ComparisonSelector,
   RelationSelector, TableSelector } from "./relation_selector";
 
-import { ColumnSelector } from "./column_selector";
-import ColumnSelectorI = ColumnSelector.Interface;
-
-import { NextButtonSelector, NextTypes } from "./next_button_selector";
+import { NextButtonSelector } from "./next_button_selector";
 
 import { MainpanelNode } from "../../common/mainpanel_node";
 import MainpanelNodeI = MainpanelNode.Interface;
@@ -23,6 +18,8 @@ import { HelenaConsole } from "../../common/utils/helena_console";
 import { HelenaConfig } from "../../common/config/config";
 import { Highlight } from "../ui/highlight";
 import { ScrapedRelationState } from "../../mainpanel/relation/relation";
+import { NextButtonTypes, INextButtonSelector, IColumnSelector } from "./interfaces";
+import { ColumnSelector } from "./column_selector";
 
 export interface ScrapedElement extends HTMLElement {
   ___relationFinderId___?: number;
@@ -92,7 +89,7 @@ export namespace RelationFinder {
           continue;
         }
         let columns = rel.columns;
-        let relXpaths = columns.map((col: ColumnSelectorI) => col.xpath);
+        let relXpaths = columns.map((col: IColumnSelector) => col.xpath);
         HelenaConsole.log(relXpaths);
 
         let matched = 0;
@@ -199,7 +196,7 @@ export namespace RelationFinder {
       resultSelector.name = null;
       // we always guess that there are no more items (no more pages), and user
       //   has to correct it if this is not the case
-      resultSelector.next_type = NextTypes.NONE;
+      resultSelector.next_type = NextButtonTypes.NONE;
       resultSelector.next_button_selector = null;
     } else {
       resultSelector.relation_id = curBestSelector.id;
@@ -250,17 +247,16 @@ export namespace RelationFinder {
  * Everything we need for editing a relation selector
  **********************************************************************/
 
-  let currentSelectorToEdit: ContentSelector | null = null;
   let currentSelectorEmptyOnThisPage = false;
   export function editRelation(selector: RelationSelector) {
-    if (currentSelectorToEdit !== null) {
+    if (window.helenaContent.currentSelectorToEdit !== null) {
       // we've already set up to edit a selector, and we should never use the
       //   same tab to edit multiples always close tab and reload.  so don't run
       //   setup again
       return;
     }
     // Messages.sendMessage("mainpanel", "content", "editRelation", {selector: this.selector, selector_version: this.selectorVersion, exclude_first: this.excludeFirst, columns: this.columns}, null, null, [tab.id]);};
-    currentSelectorToEdit = <ContentSelector> selector;
+    window.helenaContent.currentSelectorToEdit = <ContentSelector> selector;
 
     // TODO: cjbaik: do we need to remove this listener at any point?
     document.addEventListener('click', editingClick, true);
@@ -268,11 +264,11 @@ export namespace RelationFinder {
     // don't try to process the page till it's loaded!  jquery onloaded stuff
     //   will run immediately if page already loaded, once loaded else
     let editingSetup = function() {
-      if (!currentSelectorToEdit) {
+      if (!window.helenaContent.currentSelectorToEdit) {
         throw new ReferenceError('Current selector to edit is null!');
       }
 
-      let contentSelector = currentSelectorToEdit.toContentSelector();
+      let contentSelector = window.helenaContent.currentSelectorToEdit.toContentSelector();
       if (contentSelector.relation.length < 1) {
         // ugh, but maybe the page just hasn't really finished loading, so try again in a sec
         // setTimeout(editingSetup, 1000);
@@ -281,7 +277,7 @@ export namespace RelationFinder {
         currentSelectorEmptyOnThisPage = true;
         return;
       }
-      highlightSelector(contentSelector);
+      contentSelector.highlight();
       // start with the assumption that the first row should definitely be included
       selector.positive_nodes = [
         XPath.findCommonAncestor(contentSelector.relation[0]),
@@ -289,10 +285,10 @@ export namespace RelationFinder {
       ];
       selector.negative_nodes = [];
       sendEditedSelectorToMainpanel(contentSelector);
-      if (selector.next_type === NextTypes.NEXTBUTTON ||
-          selector.next_type === NextTypes.MOREBUTTON) {
+      if (selector.next_type === NextButtonTypes.NEXTBUTTON ||
+          selector.next_type === NextButtonTypes.MOREBUTTON) {
         NextButtonSelector.highlightNextButton(
-          <NextButtonSelector.Interface> selector.next_button_selector);
+          <INextButtonSelector> selector.next_button_selector);
       }
 
       // we want to highlight the currently hovered node
@@ -326,10 +322,10 @@ export namespace RelationFinder {
   }
 
   export function setEditRelationIndex(index: number) {
-    if (!currentSelectorToEdit) {
+    if (!window.helenaContent.currentSelectorToEdit) {
       throw new ReferenceError('No selector to edit!');
     }
-    currentSelectorToEdit.editingClickColumnIndex = index;
+    window.helenaContent.currentSelectorToEdit.editingClickColumnIndex = index;
   }
 
   let currentHoverHighlight: JQuery<HTMLElement> | undefined = undefined;
@@ -348,20 +344,13 @@ export namespace RelationFinder {
     }
   }
 
-  let currentSelectorHighlightNodes: JQuery<HTMLElement>[] = [];
-  export function highlightSelector(selector: ContentSelector) {
+  // let currentSelectorHighlightNodes: JQuery<HTMLElement>[] = [];
+  /*export function highlightSelector(selector: ContentSelector) {
     // we want to allow clicks on the highlights (see editingClick)
     currentSelectorHighlightNodes =
       window.helenaContent.relationHighlighter.highlightRelation(
         selector.relation, true, true);
-  };
-
-  export function highlightCurrentSelector() {
-    if (!currentSelectorToEdit) {
-      throw new ReferenceError('No selector to highlight!');
-    }
-    highlightSelector(currentSelectorToEdit);
-  }
+  };*/
 
   /**
    * Send edited selector to the mainpanel.
@@ -386,17 +375,18 @@ export namespace RelationFinder {
       mainpanelSelector);
   }
 
+  /*
   export function clearCurrentSelectorHighlight(){
     for (var i = 0; i < currentSelectorHighlightNodes.length; i++) {
       Highlight.clearHighlight(currentSelectorHighlightNodes[i]);
     }
     currentSelectorHighlightNodes = [];
-  };
+  };*/
 
   export function newSelectorGuess(selector: RelationSelector) {
     let contentSelector = selector.toContentSelector();
-    clearCurrentSelectorHighlight();
-    highlightSelector(contentSelector);
+    window.helenaContent.relationHighlighter.clearCurrentlyHighlighted();
+    contentSelector.highlight();
     sendEditedSelectorToMainpanel(contentSelector);
   }
 
@@ -415,7 +405,7 @@ export namespace RelationFinder {
 
   let targetsSoFar: HTMLElement[] = [];
   function editingClick(event: MouseEvent) {
-    if (!currentSelectorToEdit) {
+    if (!window.helenaContent.currentSelectorToEdit) {
       throw new ReferenceError('No selector to edit!');
     }
 
@@ -432,31 +422,31 @@ export namespace RelationFinder {
 
     if (currentSelectorEmptyOnThisPage) {
       // ok, it's empty right now, need to make a new one
-      if (currentSelectorToEdit.origSelector === undefined) {
+      if (window.helenaContent.currentSelectorToEdit.origSelector === undefined) {
         // deepcopy
-        currentSelectorToEdit.origSelector = JSON.parse(
-          JSON.stringify(currentSelectorToEdit)
+        window.helenaContent.currentSelectorToEdit.origSelector = JSON.parse(
+          JSON.stringify(window.helenaContent.currentSelectorToEdit)
         );
       }
       targetsSoFar.push(target);
 
       let newSelector = ContentSelector.fromRow(targetsSoFar);
       // just the individual selector that we want to play with
-      currentSelectorToEdit.currentIndividualSelector = newSelector;
-      currentSelectorToEdit.origSelector!.merge(newSelector);
-      currentSelectorToEdit.selector = currentSelectorToEdit.origSelector!.selector;
-      currentSelectorToEdit.columns = currentSelectorToEdit.origSelector!.columns;
-      //currentSelectorToEdit = newSelector;
-      newSelectorGuess(currentSelectorToEdit);
+      window.helenaContent.currentSelectorToEdit.currentIndividualSelector = newSelector;
+      window.helenaContent.currentSelectorToEdit.origSelector!.merge(newSelector);
+      window.helenaContent.currentSelectorToEdit.selector = window.helenaContent.currentSelectorToEdit.origSelector!.selector;
+      window.helenaContent.currentSelectorToEdit.columns = window.helenaContent.currentSelectorToEdit.origSelector!.columns;
+      //window.helenaContent.currentSelectorToEdit = newSelector;
+      newSelectorGuess(window.helenaContent.currentSelectorToEdit);
       // and let's go back to using .selector as the current one we want to edit and play with
-      currentSelectorToEdit.selector =
-        currentSelectorToEdit.currentIndividualSelector;
-      currentSelectorToEdit.positive_nodes = [ target ];
+      window.helenaContent.currentSelectorToEdit.selector =
+        window.helenaContent.currentSelectorToEdit.currentIndividualSelector;
+      window.helenaContent.currentSelectorToEdit.positive_nodes = [ target ];
       currentSelectorEmptyOnThisPage = false;
       return;
     }
 
-    if (!currentSelectorToEdit.positive_nodes) {
+    if (!window.helenaContent.currentSelectorToEdit.positive_nodes) {
       throw new ReferenceError('Selector contains no positive_nodes.');
     }
 
@@ -469,12 +459,12 @@ export namespace RelationFinder {
       // recall the target itself may be the positive example, as when there's
       //   only one column
       let nodeToRemove = hiliteEl; 
-      if (!currentSelectorToEdit.positive_nodes.includes(target)) {
+      if (!window.helenaContent.currentSelectorToEdit.positive_nodes.includes(target)) {
         // ok it's not the actual node, better check the parents
         let parents = $(target).parents(); 
         for (let i = parents.length - 1; i > 0; i--){
           let parent = parents[i];
-          let index = currentSelectorToEdit.positive_nodes.indexOf(parent);
+          let index = window.helenaContent.currentSelectorToEdit.positive_nodes.indexOf(parent);
           if (index > -1) {
             // ok, so this click is for removing a node.  removing the row?
             //   removing the column? not that useful to remove a column, so 
@@ -486,17 +476,17 @@ export namespace RelationFinder {
       }
       if (nodeToRemove) {
         // actually remove the node from positive, add to negative
-        let ind = currentSelectorToEdit.positive_nodes.indexOf(nodeToRemove);
-        currentSelectorToEdit.positive_nodes.splice(ind, 1);
-        if (!currentSelectorToEdit.negative_nodes){
-          currentSelectorToEdit.negative_nodes = [];
+        let ind = window.helenaContent.currentSelectorToEdit.positive_nodes.indexOf(nodeToRemove);
+        window.helenaContent.currentSelectorToEdit.positive_nodes.splice(ind, 1);
+        if (!window.helenaContent.currentSelectorToEdit.negative_nodes){
+          window.helenaContent.currentSelectorToEdit.negative_nodes = [];
         }
-        currentSelectorToEdit.negative_nodes.push(nodeToRemove);
+        window.helenaContent.currentSelectorToEdit.negative_nodes.push(nodeToRemove);
       }
     }
     // we've done all our highlight stuff, know we no longer need that
     // dehighlight our old list
-    currentSelectorHighlightNodes.forEach(Highlight.clearHighlight);
+    window.helenaContent.relationHighlighter.clearCurrentlyHighlighted();
 
     if (!removalClick) {
       // ok, so we're trying to add a node.  is the node another cell in an
@@ -521,7 +511,7 @@ export namespace RelationFinder {
         // go through all rows, find common ancestor of the cells in the row +
         //   our new item, pick whichever row produces an ancestor deepest in
         //   the tree
-        let currRelation = currentSelectorToEdit.relation;
+        let currRelation = window.helenaContent.currentSelectorToEdit.relation;
         let deepestCommonAncestor = null;
         let deepestCommonAncestorDepth = 0;
         let currRelationIndex = 0;
@@ -542,7 +532,7 @@ export namespace RelationFinder {
 
         let columns = ColumnSelector.compute(deepestCommonAncestor,
           currRelation[currRelationIndex].concat([ target ]));
-        currentSelectorToEdit.columns = columns;
+        window.helenaContent.currentSelectorToEdit.columns = columns;
 
         // let's check whether the common ancestor has actually changed.
         //   if no, this is easy and we can just change the columns
@@ -553,7 +543,7 @@ export namespace RelationFinder {
           currRelation[currRelationIndex].concat([target]));
         if (origAncestor === newAncestor) {
           // we've already updated the columns, so we're ready
-          newSelectorGuess(currentSelectorToEdit);
+          newSelectorGuess(window.helenaContent.currentSelectorToEdit);
           return;
         }
         // drat, the ancestor has actually changed.
@@ -567,18 +557,18 @@ export namespace RelationFinder {
         let xpathO = <string> XPath.fromNode(origAncestor);
         let xpathlenO = xpathO.split("/").length;
         let depthDiff = xpathlenO - xpathlen;
-        for (let i = 0; i < currentSelectorToEdit.positive_nodes.length; i++) {
+        for (let i = 0; i < window.helenaContent.currentSelectorToEdit.positive_nodes.length; i++) {
           let ixpath = <string> XPath.fromNode(
-            currentSelectorToEdit.positive_nodes[i]);
+            window.helenaContent.currentSelectorToEdit.positive_nodes[i]);
           let components = ixpath.split("/");
           components = components.slice(0, components.length - depthDiff);
           let newxpath = components.join("/");
-          currentSelectorToEdit.positive_nodes[i] =
+          window.helenaContent.currentSelectorToEdit.positive_nodes[i] =
             <HTMLElement> XPath.getNodes(newxpath)[0];
         }
-        if (!currentSelectorToEdit.positive_nodes.includes(
+        if (!window.helenaContent.currentSelectorToEdit.positive_nodes.includes(
           deepestCommonAncestor)) {
-          currentSelectorToEdit.positive_nodes.push(deepestCommonAncestor);
+          window.helenaContent.currentSelectorToEdit.positive_nodes.push(deepestCommonAncestor);
         }
       } else {
         // this one's the easy case!  the click is telling us to add a row,
@@ -589,12 +579,12 @@ export namespace RelationFinder {
         //   bc won't find appropriate ancestor
         // TODO: better structure available here?  maybe merge this and the above?
         let appropriateAncestor = findAncestorLikeSpec(
-          currentSelectorToEdit.positive_nodes[0], target);
-        if (!currentSelectorToEdit.editingClickColumnIndex) {
+          window.helenaContent.currentSelectorToEdit.positive_nodes[0], target);
+        if (!window.helenaContent.currentSelectorToEdit.editingClickColumnIndex) {
           throw new ReferenceError('editingClickColumnIndex not set');
         }
-        let currColumnObj = currentSelectorToEdit.columns[
-          currentSelectorToEdit.editingClickColumnIndex];
+        let currColumnObj = window.helenaContent.currentSelectorToEdit.columns[
+          window.helenaContent.currentSelectorToEdit.editingClickColumnIndex];
         let currSuffixes = <XPath.SuffixXPathList[]> currColumnObj.suffix;
 
         // is this suffix already in our suffixes?  if yes, we can just add the
@@ -623,32 +613,32 @@ export namespace RelationFinder {
     
         // is this ancestor node already in our positive_nodes?  if no, make new
         //   selector.  if yes, we're already set
-        if (!currentSelectorToEdit.positive_nodes.includes(
+        if (!window.helenaContent.currentSelectorToEdit.positive_nodes.includes(
           appropriateAncestor)) {
           // this ancestor node (row node) is new to us, better add it to the
           //   positive examples
-          currentSelectorToEdit.positive_nodes.push(appropriateAncestor);
+          window.helenaContent.currentSelectorToEdit.positive_nodes.push(appropriateAncestor);
         }
       }
     }
 
-    if (!currentSelectorToEdit.negative_nodes) {
+    if (!window.helenaContent.currentSelectorToEdit.negative_nodes) {
       throw new ReferenceError('Selector does not contain any negative nodes.');
     }
 
     let newSelector = RelationSelector.fromPositiveAndNegativeElements(
-      currentSelectorToEdit.positive_nodes,
-      currentSelectorToEdit.negative_nodes,
-      currentSelectorToEdit.columns);
-    newSelector.next_type = currentSelectorToEdit.next_type;
+      window.helenaContent.currentSelectorToEdit.positive_nodes,
+      window.helenaContent.currentSelectorToEdit.negative_nodes,
+      window.helenaContent.currentSelectorToEdit.columns);
+    newSelector.next_type = window.helenaContent.currentSelectorToEdit.next_type;
     newSelector.next_button_selector =
-      currentSelectorToEdit.next_button_selector;
-    newSelector.name = currentSelectorToEdit.name;
-    newSelector.id = currentSelectorToEdit.id;
-    newSelector.url = currentSelectorToEdit.url;
+      window.helenaContent.currentSelectorToEdit.next_button_selector;
+    newSelector.name = window.helenaContent.currentSelectorToEdit.name;
+    newSelector.id = window.helenaContent.currentSelectorToEdit.id;
+    newSelector.url = window.helenaContent.currentSelectorToEdit.url;
     
     newSelectorGuess(newSelector);
-    currentSelectorToEdit = <ContentSelector> newSelector;
+    window.helenaContent.currentSelectorToEdit = <ContentSelector> newSelector;
   }
 
 /**********************************************************************
@@ -762,24 +752,24 @@ export namespace RelationFinder {
 
     let nextButtonType = selector.next_type;
 
-    if (nextButtonType === NextTypes.SCROLLFORMORE) {
+    if (nextButtonType === NextButtonTypes.SCROLLFORMORE) {
       HelenaConsole.namedLog("nextInteraction", "scrolling for more");
       let crd = currentRelationData[sid];
       scrollThroughRowsOrSpace(crd);
-    } else if (nextButtonType === NextTypes.MOREBUTTON ||
-      nextButtonType === NextTypes.NEXTBUTTON) {
+    } else if (nextButtonType === NextButtonTypes.MOREBUTTON ||
+      nextButtonType === NextButtonTypes.NEXTBUTTON) {
       HelenaConsole.namedLog("nextInteraction", "msg.next_button_selector",
         selector.next_button_selector);
 
       let crd = currentRelationData[sid];
-      if (nextButtonType === NextTypes.MOREBUTTON) {
+      if (nextButtonType === NextButtonTypes.MOREBUTTON) {
         // for user understanding what's happening, it's convenient if we're using the more button for us to actually scroll through the elements
         // this isn't critical, but probably can't hurt
         scrollThroughRowsOrSpace(crd);
       }
 
       let button = NextButtonSelector.findNextButton(
-        <NextButtonSelector.Interface> selector.next_button_selector,
+        <INextButtonSelector> selector.next_button_selector,
         selector.prior_next_button_text);
       if (button) {
         Messages.sendMessage("content", "mainpanel", "nextButtonText",
@@ -793,7 +783,7 @@ export namespace RelationFinder {
           "next or more button was null");
         noMoreItemsAvailable[sid] = true;
       }
-    } else if (nextButtonType === NextTypes.NONE) {
+    } else if (nextButtonType === NextButtonTypes.NONE) {
       // there's no next button, so it's usually safe to assume there are no
       //   more items exception is when we have, for instance, a dropdown that
       //   gets updated because of other dropdowns when that happens, don't want
@@ -949,9 +939,9 @@ export namespace RelationFinder {
     }
     // if there's supposed to be a next button or more button, or scroll for
     //   more, we have to do some special processing
-    if (selector.next_type === NextTypes.NEXTBUTTON ||
-        selector.next_type === NextTypes.MOREBUTTON ||
-        selector.next_type === NextTypes.SCROLLFORMORE) {
+    if (selector.next_type === NextButtonTypes.NEXTBUTTON ||
+        selector.next_type === NextButtonTypes.MOREBUTTON ||
+        selector.next_type === NextButtonTypes.SCROLLFORMORE) {
       // retrieve the list of ids we've already scraped
       let alreadySeenRelationNodeIds = currentRelationSeenNodes[sid];
       // figure out if the new rows include nodes that were already scraped
@@ -977,7 +967,7 @@ export namespace RelationFinder {
 
       // ok, now that we know which rows are actually new, what do we want to do
       //   with that information?
-      if (selector.next_type === NextTypes.NEXTBUTTON) {
+      if (selector.next_type === NextButtonTypes.NEXTBUTTON) {
         // this is a next interaction, so we should never have overlap.
         //   wait until everything is new
         if (relationNodes.length !== newRows.length) {

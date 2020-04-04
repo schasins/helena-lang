@@ -3,8 +3,6 @@ import * as _ from "underscore";
 
 import { HelenaConsole } from "../../../common/utils/helena_console";
 
-import { HelenaMainpanel } from "../../helena_mainpanel";
-
 import { HelenaLangObject } from "../helena_lang";
 import { NodeVariableUse } from "../values/node_variable_use";
 import { ScrapeStatement } from "./page_action/scrape";
@@ -17,6 +15,7 @@ import { RunObject, HelenaProgram, RunOptions } from "../program";
 import { Revival } from "../../revival";
 import { Trace } from "../../../common/utils/trace";
 import { Environment } from "../../environment";
+import { HelenaBlocks } from "../../ui/blocks";
 
 export class OutputRowStatement extends HelenaLangObject {
   public cleanTrace: Trace;
@@ -25,7 +24,7 @@ export class OutputRowStatement extends HelenaLangObject {
   public trace: Trace;
   public nodeUseVariables: NodeVariableUse[];
 
-  constructor(scrapeStatements: ScrapeStatement[]) {
+  constructor(scrapeStatements?: ScrapeStatement[]) {
     super();
     Revival.addRevivalLabel(this);
     this.setBlocklyLabel("output");
@@ -33,11 +32,21 @@ export class OutputRowStatement extends HelenaLangObject {
     this.cleanTrace = [];
     this.scrapeStatements = [];
     this.nodeUseVariables = [];
+    this.relations = [];
+
+    // Prematurely end, for the `createDummy` method
+    if (!scrapeStatements) {
+      return;
+    }
+  
     for (const scrapeStmt of scrapeStatements) {
       this.addAssociatedScrapeStatement(scrapeStmt);
       this.nodeUseVariables.push(NodeVariableUse.fromScrapeStmt(scrapeStmt));
     }
-    this.relations = [];
+  }
+
+  public static createDummy() {
+    return new OutputRowStatement();
   }
 
   public remove() {
@@ -87,12 +96,12 @@ export class OutputRowStatement extends HelenaLangObject {
   public genBlocklyNode(prevBlock: Blockly.Block,
       workspace: Blockly.WorkspaceSvg) {
     this.block = workspace.newBlock(this.blocklyLabel);
-    HelenaMainpanel.attachToPrevBlock(this.block, prevBlock);
+    HelenaBlocks.attachToPrevBlock(this.block, prevBlock);
     window.helenaMainpanel.setHelenaStatement(this.block, this);
     let priorBlock = this.block;
     for (const vun of this.nodeUseVariables) {
       const block = vun.genBlocklyNode(this.block, workspace);
-      HelenaMainpanel.attachInputToOutput(priorBlock, block);
+      HelenaBlocks.attachInputToOutput(priorBlock, block);
       priorBlock = block;
     }
     return this.block;
@@ -186,10 +195,9 @@ export class OutputRowStatement extends HelenaLangObject {
 
     // for now we're assuming we always want to show the number of iterations of
     //   each loop as the final columns
-    const loopIterationCounterTexts =
-      HelenaMainpanel.getLoopIterationCounters(this).map(
+    const loopIterationCounterTexts = this.getLoopIterationCounters().map(
         (i: number) => i.toString()
-      );
+    );
     for (const ic of loopIterationCounterTexts) {
       cells.push(ic);
     }

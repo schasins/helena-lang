@@ -3,15 +3,11 @@ import * as _ from "underscore";
 
 import { HelenaConsole } from "../../../../common/utils/helena_console";
 
-import { HelenaMainpanel } from "../../../helena_mainpanel";
-
 import { HelenaLangObject } from "../../helena_lang";
 
 import { SkipBlock, AnnotationItem } from "./skip_block";
 
 import { ScrapeStatement } from "../page_action/scrape";
-
-import { ColumnSelector } from "../../../../content/selector/column_selector";
 
 import { GenericRelation } from "../../../relation/generic";
 import { Relation } from "../../../relation/relation";
@@ -22,6 +18,8 @@ import { HelenaProgram } from "../../program";
 import { Revival } from "../../../revival";
 import { Environment } from "../../../environment";
 import { HelenaBlockUIEvent } from "../page_action/page_action";
+import { IColumnSelector } from "../../../../content/selector/interfaces";
+import { HelenaBlocks } from "../../../ui/blocks";
 
 /**
  * Loop statements not executed by run method, although may ultimately want to refactor to that
@@ -33,12 +31,11 @@ export class LoopStatement extends StatementContainer {
   public maxRows: number | null;
   public pageVar: PageVariable;
   public relation: GenericRelation;
-  public relationColumnsUsed: (ColumnSelector.Interface | null)[];
+  public relationColumnsUsed: (IColumnSelector | null)[];
   public rowsSoFar: number;
-  public sourceBlock_: Blockly.Block;
 
   constructor(relation: GenericRelation,
-      relationColumnsUsed: (ColumnSelector.Interface | null)[],
+      relationColumnsUsed: (IColumnSelector | null)[],
       bodyStatements: HelenaLangObject[],
       cleanupStatements: HelenaLangObject[],
       pageVar: PageVariable) {
@@ -52,8 +49,6 @@ export class LoopStatement extends StatementContainer {
     this.updateChildStatements(bodyStatements);
     this.pageVar = pageVar;
 
-    this.bodyStatements = [];
-
     // note: for now, can only be set through js console.
     //   todo: eventually should have ui interaction for this.
     this.maxRows = null;
@@ -61,8 +56,23 @@ export class LoopStatement extends StatementContainer {
     this.cleanupStatements = cleanupStatements;
   }
 
+  public static createDummy() {
+    return new LoopStatement(new GenericRelation(), [], [], [],
+      new PageVariable("", ""));
+  }
+
   public getChildren() {
     return this.bodyStatements;
+  }
+
+  public getLoopIterationCounters(acc: number[] = []): number[] {
+    acc.unshift(this.rowsSoFar);
+
+    if (this.parent === null || this.parent === undefined) {
+      return acc;
+    } else {
+      return this.parent.getLoopIterationCounters(acc);
+    }
   }
 
   public clearRunningState() {
@@ -101,42 +111,51 @@ export class LoopStatement extends StatementContainer {
       return;
     }
 
-    const self = this;
-
-    const handleMaxRowsChange = (newMaxRows: number) => {
-      if (self.sourceBlock_ && window.helenaMainpanel.getHelenaStatement(self.sourceBlock_)) {
-        const stmt = <LoopStatement> window.helenaMainpanel.getHelenaStatement(self.sourceBlock_);
+    const handleMaxRowsChange = function(newMaxRows: number) {
+      if (this.sourceBlock_ && window.helenaMainpanel.getHelenaStatement(this.sourceBlock_)) {
+        const stmt = <LoopStatement> window.helenaMainpanel.getHelenaStatement(this.sourceBlock_);
         stmt.maxRows = newMaxRows;
         // if you changed the maxRows and it's actually defined, should make
         //   sure the max rows actually used...
         if (newMaxRows !== null && newMaxRows !== undefined) {
-          dontUseInfiniteRows();
+          this.sourceBlock_.setFieldValue('TRUE', 'limitedRowsCheckbox');
+          // dontUseInfiniteRows();
         }
       }
     };
   
-    const useInfiniteRows = () => {
-      const block = self.sourceBlock_;
+    const useInfiniteRows = function(val: string) {
+      if (val === 'FALSE') { return 'FALSE'; }
+
+      const block = this.sourceBlock_;
       setTimeout(() => {
-        block.setFieldValue("TRUE", "infiniteRowsCheckbox");
+        // block.setFieldValue("TRUE", "infiniteRowsCheckbox");
         block.setFieldValue("FALSE", "limitedRowsCheckbox");
       }, 0);
       const stmt = <LoopStatement> window.helenaMainpanel.getHelenaStatement(block);
-      stmt.maxRows = null;
+      if (stmt) {
+        stmt.maxRows = null;
+      }
+      return 'TRUE';
     };
 
-    const dontUseInfiniteRows = () => {
+    const dontUseInfiniteRows = function(val: string) {
+      if (val === 'FALSE') { return val; }
+  
       const block = this.sourceBlock_;
       setTimeout(() => {
         block.setFieldValue("FALSE", "infiniteRowsCheckbox");
-        block.setFieldValue("TRUE", "limitedRowsCheckbox");
+        // block.setFieldValue("TRUE", "limitedRowsCheckbox");
       }, 0);
       const stmt = <LoopStatement> window.helenaMainpanel.getHelenaStatement(block);
-      stmt.maxRows =
-        this.sourceBlock_.getFieldValue(LoopStatement.maxRowsFieldName);
+      if (stmt) {
+        stmt.maxRows =
+          this.sourceBlock_.getFieldValue(LoopStatement.maxRowsFieldName);
+      }
+      return 'TRUE';
     }
 
-    const handleNewRelationName = () => {
+    const handleNewRelationName = function() {
       const block = this.sourceBlock_;
       // getWAL(block).maxRows = this.sourceBlock_.getFieldValue(maxRowsFieldName);
       const newName = this.sourceBlock_.getFieldValue("relationName");
@@ -162,7 +181,7 @@ export class LoopStatement extends StatementContainer {
       throw new ReferenceError("Page vars not set!");
     }
   
-    const pageVarsDropDown = HelenaMainpanel.makePageVarsDropdown(pageVars);
+    const pageVarsDropDown = PageVariable.makePageVarsDropdown(pageVars);
     let startName = "relation_name";
     if (this.relation && this.relation.name) {
       startName = this.relation.name;
@@ -178,6 +197,11 @@ export class LoopStatement extends StatementContainer {
             .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");  
              
         if (!window.helenaMainpanel.demoMode) {
+          // TODO: cjbaik: 04/04/20 - the useInfiniteRows and dontUseInfiniteRows
+          //   are very strange as validators. They don't actually validate and
+          //   also keep resetting maxRows to invalid values... so why is it
+          //   even here? It also conflicts with the "setFieldValue" in `genBlocklyNode`
+          //   below.
           soFar.appendField("(")
           .appendField(new Blockly.FieldCheckbox("TRUE", useInfiniteRows),
             'infiniteRowsCheckbox')
@@ -227,19 +251,19 @@ export class LoopStatement extends StatementContainer {
       if (this.maxRows) {
         this.block.setFieldValue(this.maxRows.toString(),
           LoopStatement.maxRowsFieldName);
-        this.block.setFieldValue("FALSE", "infiniteRowsCheckbox");
+        this.block.setFieldValue("TRUE", "limitedRowsCheckbox");
       } else {
         // we're using infinite rows
-        this.block.setFieldValue("FALSE", "limitedRowsCheckbox");
+        this.block.setFieldValue("TRUE", "infiniteRowsCheckbox");
       }
     }
     
-    HelenaMainpanel.attachToPrevBlock(this.block, prevBlock);
+    HelenaBlocks.attachToPrevBlock(this.block, prevBlock);
 
     // handle the body statements
-    const firstNestedBlock = HelenaMainpanel.helenaSeqToBlocklySeq(
+    const firstNestedBlock = HelenaBlocks.helenaSeqToBlocklySeq(
       this.bodyStatements, workspace);
-    HelenaMainpanel.attachNestedBlocksToWrapper(this.block, firstNestedBlock);
+    HelenaBlocks.attachNestedBlocksToWrapper(this.block, firstNestedBlock);
 
     window.helenaMainpanel.setHelenaStatement(this.block, this);
     return this.block;

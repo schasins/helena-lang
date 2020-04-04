@@ -1,9 +1,9 @@
-import { RelationSelector } from "../selector/relation_selector";
+import { RelationSelector, ContentSelector } from "../selector/relation_selector";
 
 import { HelenaConsole } from "../../common/utils/helena_console";
 import { Messages } from "../../common/messages";
 import { Highlight } from "./highlight";
-import { KnownRelationResponse } from "../../mainpanel/utils/server";
+import { KnownRelationResponse, ServerRelationMessage } from "../../mainpanel/utils/server";
 
 export interface KnownRelation {
   selectorObj: RelationSelector;
@@ -18,13 +18,22 @@ export interface KnownRelation {
  * Highlight relations that can be found on the page on hover.
  */
 export class RelationHighlighter {
-  highlightColors: string[];
-  knownRelations: KnownRelation[];
+  public currentlyHighlighted: JQuery<HTMLElement>[] = [];
+  public highlightColors: string[];
+  public knownRelations: KnownRelation[];
 
   constructor () {
+    this.currentlyHighlighted = [];
     this.knownRelations = [];
     this.highlightColors = ["#9EE4FF","#9EB3FF", "#BA9EFF", "#9EFFEA",
       "#E4FF9E", "#FFBA9E", "#FF8E61"];
+  }
+
+  public clearCurrentlyHighlighted() {
+    for (const node of this.currentlyHighlighted) {
+      Highlight.clearHighlight(node);
+    }
+    this.currentlyHighlighted = [];
   }
 
   /**
@@ -46,12 +55,12 @@ export class RelationHighlighter {
       }
     );
   }
-  
+
   /**
    * Massage and reformat server response about known relations.
    * @param resp server response
    */
-  private preprocessKnownRelations(resp: KnownRelation[]) {
+  private preprocessKnownRelations(resp: ServerRelationMessage[]) {
     for (let i = 0; i < resp.length; i++) {
       let selector = RelationSelector.fromJSON(resp[i]);
       // first let's apply each of our possible relations to see which nodes
@@ -90,9 +99,8 @@ export class RelationHighlighter {
     //   the largest number of nodes on the current page
     let winningRelation = null;
     let winningRelationSize = 0;
-    for (let i = 0; i < this.knownRelations.length; i++) {
-      let relationInfo = this.knownRelations[i];
-      if (relationInfo.nodes.indexOf(element) > -1) {
+    for (const relationInfo of this.knownRelations) {
+      if (relationInfo.nodes.includes(element)) {
         if (relationInfo.nodes.length > winningRelationSize) {
           winningRelation = relationInfo;
           winningRelationSize = relationInfo.nodes.length;
@@ -157,6 +165,7 @@ export class RelationHighlighter {
         }
       }
     }
+    this.currentlyHighlighted = nodes;
     return nodes;
   }
 

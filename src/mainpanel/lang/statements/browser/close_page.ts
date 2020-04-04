@@ -16,6 +16,10 @@ export class ClosePageStatement extends HelenaLangObject {
     this.pageVarCurr = pageVarCurr;
   }
 
+  public static createDummy() {
+    return new ClosePageStatement(new PageVariable("", ""));
+  }
+
   public toStringLines() {
     // close statements are now invisible cleanup, not normal statements, so
     //   don't use the line below for now

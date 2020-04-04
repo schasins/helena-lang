@@ -3,8 +3,6 @@ import * as _ from "underscore";
 
 import { HelenaConsole } from "../../../../common/utils/helena_console";
 
-import { HelenaMainpanel } from "../../../helena_mainpanel";
-
 import { HelenaLangObject } from "../../helena_lang";
 
 import { NodeVariable } from "../../../variables/node_variable";
@@ -18,6 +16,7 @@ import { Revival } from "../../../revival";
 import { HelenaConfig } from "../../../../common/config/config";
 import { HelenaServer } from "../../../utils/server";
 import { Environment } from "../../../environment";
+import { HelenaBlocks } from "../../../ui/blocks";
 
 enum SkippingStrategies {
   ALWAYS = "always",
@@ -120,6 +119,10 @@ export class SkipBlock extends StatementContainer {
 
     // make sure to set this to 0 at the beginning of a loop!
     this.duplicatesInARow = 0;
+  }
+
+  public static createDummy() {
+    return new SkipBlock([], [], []);
   }
 
   public clearRunningState() {
@@ -351,12 +354,12 @@ export class SkipBlock extends StatementContainer {
       }
     };
     this.block = workspace.newBlock(customBlocklyLabel);
-    HelenaMainpanel.attachToPrevBlock(this.block, prevBlock);
+    HelenaBlocks.attachToPrevBlock(this.block, prevBlock);
 
     // handle the body statements
-    const firstNestedBlock = HelenaMainpanel.helenaSeqToBlocklySeq(
+    const firstNestedBlock = HelenaBlocks.helenaSeqToBlocklySeq(
       this.bodyStatements, workspace);
-    HelenaMainpanel.attachNestedBlocksToWrapper(this.block, firstNestedBlock);
+    HelenaBlocks.attachNestedBlocksToWrapper(this.block, firstNestedBlock);
 
     window.helenaMainpanel.setHelenaStatement(this.block, this);
     return this.block;

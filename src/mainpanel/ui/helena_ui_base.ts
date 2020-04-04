@@ -1,5 +1,4 @@
 import * as Blockly from "blockly";
-import * as $ from "jquery";
 
 import { HelenaConsole } from "../../common/utils/helena_console";
 import { HelenaMainpanel } from "../helena_mainpanel";

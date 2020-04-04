@@ -23,7 +23,7 @@ export class ConditionalStatement extends ControlFlowStatement {
     }
     
     // handle the body statements
-    const firstNestedBlock = HelenaMainpanel.helenaSeqToBlocklySeq(
+    const firstNestedBlock = HelenaBlocks.helenaSeqToBlocklySeq(
       this.bodyStatements, workspace);
     HelenaMainpanel.attachNestedBlocksToWrapper(this.block, firstNestedBlock);
 

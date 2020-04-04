@@ -1,7 +1,5 @@
 import * as Blockly from "blockly";
 
-import { HelenaMainpanel } from "../../../helena_mainpanel";
-
 import { NodeVariable } from "../../../variables/node_variable";
 import { NodeVariableUse } from "../../values/node_variable_use";
 
@@ -17,6 +15,10 @@ import { RunObject, HelenaProgram, RunOptions,
 import { Revival } from "../../../revival";
 import { Trace, Traces, DisplayTraceEvent } from "../../../../common/utils/trace";
 import { Environment } from "../../../environment";
+import { MiscUtilities } from "../../../../common/misc_utilities";
+import { TextRelation } from "../../../relation/text_relation";
+import { Relation } from "../../../relation/relation";
+import { HelenaBlocks } from "../../../ui/blocks";
 
 export class LoadStatement extends HelenaLangObject {
   public cleanTrace: Trace;
@@ -29,14 +31,19 @@ export class LoadStatement extends HelenaLangObject {
   public trace: Trace;
   public url: string;
 
-  constructor(trace: Trace) {
+  constructor(trace?: Trace) {
     super();
     Revival.addRevivalLabel(this);
     this.setBlocklyLabel("load");
 
-    this.trace = trace;
+    // Prematurely end, for the `createDummy` method
+    if (!trace) {
+      return;
+    }
 
     // find the record-time constants that we'll turn into parameters
+    this.trace = trace;
+
     const ev = Traces.firstVisibleEvent(trace);
     this.url = ev.data.url;
     this.outputPageVar = Traces.getLoadOutputPageVar(<DisplayTraceEvent> ev);
@@ -53,7 +60,11 @@ export class LoadStatement extends HelenaLangObject {
     //   to actually do a load
     ev.forceReplay = true;
 
-    this.cleanTrace = HelenaMainpanel.cleanTrace(trace);
+    this.cleanTrace = Traces.cleanTrace(trace);
+  }
+
+  public static createDummy() {
+    return new LoadStatement();
   }
 
   public run(runObject: RunObject, rbbcontinuation: Function,
@@ -133,7 +144,7 @@ export class LoadStatement extends HelenaLangObject {
     }
 
     // addToolboxLabel(this.blocklyLabel, "web");
-    var pageVarsDropDown = HelenaMainpanel.makePageVarsDropdown(pageVars);
+    var pageVarsDropDown = PageVariable.makePageVarsDropdown(pageVars);
 
     Blockly.Blocks[this.blocklyLabel] = {
       init: function(this: Blockly.Block) {
@@ -156,11 +167,11 @@ export class LoadStatement extends HelenaLangObject {
     this.block = workspace.newBlock(this.blocklyLabel);
     const urlObject = this.getUrlObj();
     if (urlObject) {
-      HelenaMainpanel.attachToInput(this.block,
+      HelenaBlocks.attachToInput(this.block,
         urlObject.genBlocklyNode(this.block, workspace), "url");
     }
     this.block.setFieldValue(this.outputPageVar.toString(), "page");
-    HelenaMainpanel.attachToPrevBlock(this.block, prevBlock);
+    HelenaBlocks.attachToPrevBlock(this.block, prevBlock);
     window.helenaMainpanel.setHelenaStatement(this.block, this);
     return this.block;
   }
@@ -214,7 +225,7 @@ export class LoadStatement extends HelenaLangObject {
         continue;
       }
 
-      if (HelenaMainpanel.urlMatch(text, this.cUrl())) {
+      if (MiscUtilities.urlMatch(text, this.cUrl())) {
         // ok, we want to parameterize
         this.relation = relation;
         const name = column.name;
@@ -223,8 +234,11 @@ export class LoadStatement extends HelenaLangObject {
           throw new ReferenceError("Column has no name.");
         }
 
-        const nodevaruse = new NodeVariableUse(
-          window.helenaMainpanel.getNodeVariableByName(name));
+        const nodevar = window.helenaMainpanel.getNodeVariableByName(name);
+        if (!nodevar) {
+          throw new ReferenceError("NodeVariable is invalid.");
+        }
+        const nodevaruse = new NodeVariableUse(nodevar);
         this.currentUrl = nodevaruse; // new NodeVariable(name, firstRowNodeRepresentations[i], null, null, NodeSources.RELATIONEXTRACTOR);
         return [ column ];
       }
@@ -249,6 +263,34 @@ export class LoadStatement extends HelenaLangObject {
       this.currentUrl = this.url;
     }
     return;
+  }
+
+  public usesRelation(rel: GenericRelation) {
+    if (rel instanceof Relation) {
+      return this.usesRelationText(rel.firstRowTexts);
+    } else if (rel instanceof TextRelation) {
+      return this.usesRelationText(rel.relation[0]);
+    }
+    return false;
+  }
+
+  public usesRelationText(parameterizeableStrings: (string | null)[]) {
+    if (!parameterizeableStrings) {
+      return false;
+    }
+
+    for (const curString of parameterizeableStrings) {
+      if (!curString) continue;
+
+      const lowerString = curString.toLowerCase();
+      const currURL = this.cUrl();
+      if (currURL && MiscUtilities.urlMatch(currURL.toLowerCase(),
+          lowerString)) {
+        // for loadstatement
+        return true;
+      }
+    }
+    return false;
   }
 
   public args(environment: Environment.Frame) {

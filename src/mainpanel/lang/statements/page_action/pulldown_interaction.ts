@@ -2,9 +2,7 @@ import * as Blockly from "blockly";
 
 import { HelenaConsole } from "../../../../common/utils/helena_console";
 
-import { HelenaMainpanel, NodeSources } from "../../../helena_mainpanel";
-
-import { NodeVariable } from "../../../variables/node_variable";
+import { NodeSources, NodeVariable } from "../../../variables/node_variable";
 import { PageActionStatement } from "./page_action";
 import { GenericRelation } from "../../../relation/generic";
 import { PageVariable } from "../../../variables/page_variable";
@@ -15,6 +13,7 @@ import { MiscUtilities } from "../../../../common/misc_utilities";
 import { Environment } from "../../../environment";
 import { TextRelation } from "../../../relation/text_relation";
 import { Relation } from "../../../relation/relation";
+import { HelenaBlocks } from "../../../ui/blocks";
 
 function deleteAPropDelta(trace: Trace, propertyName: string) {
   for (const event of trace) {
@@ -58,21 +57,31 @@ export class PulldownInteractionStatement extends PageActionStatement {
   public origCleanTrace?: Trace;
   public pageVar: PageVariable;
 
-  constructor(trace: Trace) {
+  constructor(trace?: Trace) {
     super();
     Revival.addRevivalLabel(this);
     this.setBlocklyLabel("pulldownInteraction");
+
+    // Prematurely end, for the `createDummy` method
+    if (!trace) {
+      return;
+    }
+
     this.trace = trace;
     
     // find the record-time constants that we'll turn into parameters
-    this.cleanTrace = HelenaMainpanel.cleanTrace(trace);
+    this.cleanTrace = Traces.cleanTrace(trace);
     const ev = Traces.firstVisibleEvent(trace);
     this.pageVar = Traces.getDOMInputPageVar(ev);
     this.node = <string> ev.target.xpath;
     this.origNode = this.node;
     // we want the currentNode to be a nodeVariable so we have a name for the
     //   scraped node
-    this.currentNode = HelenaMainpanel.makeNodeVariableForTrace(trace);
+    this.currentNode = NodeVariable.fromTrace(trace);
+  }
+  
+  public static createDummy() {
+    return new PulldownInteractionStatement();
   }
 
   public toStringLines() {
@@ -189,7 +198,7 @@ export class PulldownInteractionStatement extends PageActionStatement {
       //   selectindex
       deleteAPropDelta(trace, "value");
       this.trace = trace;
-      this.cleanTrace = HelenaMainpanel.cleanTrace(this.trace);
+      this.cleanTrace = Traces.cleanTrace(this.trace);
     }
     return [col];
   }
@@ -285,8 +294,26 @@ export class PulldownInteractionStatement extends PageActionStatement {
   public genBlocklyNode(prevBlock: Blockly.Block,
     workspace: Blockly.WorkspaceSvg) {
     this.block = workspace.newBlock(this.blocklyLabel);
-    HelenaMainpanel.attachToPrevBlock(this.block, prevBlock);
+    HelenaBlocks.attachToPrevBlock(this.block, prevBlock);
     window.helenaMainpanel.setHelenaStatement(this.block, this);
     return this.block;
-  };
+  }
+
+  public usesRelation(rel: GenericRelation) {
+    if (rel instanceof Relation) {
+      if (this.pageVar?.name === rel.pageVarName &&
+          this.node && rel.firstRowXPaths.includes(this.node)) {
+        return true;
+      }
+      const xpath = this.node;
+      for (const cXpath of rel.firstRowXPaths) {
+        // so if the xpath of the pulldown menu appears in the xpath of the
+        //   first row cell
+        if (cXpath.includes(xpath)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
 }

@@ -1,12 +1,10 @@
 import * as Blockly from "blockly";
 
-import { HelenaMainpanel, NodeSources } from "../../helena_mainpanel";
-
 import { ScrapeStatement } from "../statements/page_action/scrape";
 
 import { Value } from "./value";
 
-import { NodeVariable } from "../../variables/node_variable";
+import { NodeSources, NodeVariable } from "../../variables/node_variable";
 
 import { MainpanelNode } from "../../../common/mainpanel_node";
 import { GenericRelation } from "../../relation/generic";
@@ -35,6 +33,10 @@ export class NodeVariableUse extends Value {
     this.setBlocklyLabel("variableUse");
     this.nodeVar = nodeVar;
     this.attributeOption = attributeOption;
+  }
+
+  public static createDummy() {
+    return new NodeVariableUse(new NodeVariable());
   }
 
   public static fromScrapeStmt(scrapeStmt: ScrapeStatement) {
@@ -70,7 +72,7 @@ export class NodeVariableUse extends Value {
         const nodeVarUse =
           <NodeVariableUse> window.helenaMainpanel.getHelenaStatement(this.sourceBlock_);
         nodeVarUse.nodeVar =
-          window.helenaMainpanel.getNodeVariableByName(newVarName);
+          <NodeVariable> window.helenaMainpanel.getNodeVariableByName(newVarName);
       }
     };
     const handleAttributeChange = function(newAttribute: AttributeOptions) {
@@ -83,7 +85,7 @@ export class NodeVariableUse extends Value {
     Blockly.Blocks[this.blocklyLabel] = {
       init: function(this: Blockly.Block) {
         if (program) {
-          const varNamesDropDown = HelenaMainpanel.makeVariableNamesDropdown(program);
+          const varNamesDropDown = program.makeVariableNamesDropdown();
           const attributesDropDown = [
             ["TEXT", AttributeOptions.TEXT],
             ["LINK", AttributeOptions.LINK]
@@ -111,7 +113,7 @@ export class NodeVariableUse extends Value {
               const name = varNamesDropDown[0][0];
               window.helenaMainpanel.setHelenaStatement(this,
                 new NodeVariableUse(
-                  window.helenaMainpanel.getNodeVariableByName(name)
+                  <NodeVariable> window.helenaMainpanel.getNodeVariableByName(name)
               ));
               const nodeVarUse = <NodeVariableUse> window.helenaMainpanel.getHelenaStatement(this);
 

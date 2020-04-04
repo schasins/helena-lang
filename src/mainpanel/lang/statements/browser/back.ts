@@ -18,6 +18,11 @@ export class BackStatement extends HelenaLangObject {
     this.pageVarBack = pageVarBack;
   }
 
+  public static createDummy() {
+    return new BackStatement(new PageVariable("", ""),
+      new PageVariable("", ""));
+  }
+
   public toStringLines() {
     // back statements are now invisible cleanup, not normal statements, so
     //   don't use the line below for now

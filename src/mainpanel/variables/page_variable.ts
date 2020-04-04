@@ -72,6 +72,19 @@ export class PageVariable implements Revival.Revivable {
     HelenaConsole.namedLog("prinfo", "fresh empty pageRelations");
     // this.pageStats = freshPageStats();
   }
+
+  public static createDummy() {
+    return new PageVariable("", "");
+  }
+
+  public static makePageVarsDropdown(pageVars: PageVariable[]) {
+    let pageVarsDropDown = [];
+    for (const pageVar of pageVars) {
+      const pageVarStr = pageVar.toString();
+      pageVarsDropDown.push([pageVarStr, pageVarStr]);
+    }
+    return pageVarsDropDown;
+  }
   
   public setRecordTimeFrameData(frameData: RingerFrameInfo) {
     this.recordTimeFrameData = frameData;

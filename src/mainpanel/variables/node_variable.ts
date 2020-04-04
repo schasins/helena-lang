@@ -1,11 +1,19 @@
 import * as _ from "underscore";
 
 import { HelenaConsole } from "../../common/utils/helena_console";
-import { HelenaMainpanel, NodeSources } from "../helena_mainpanel";
 import { MainpanelNode } from "../../common/mainpanel_node";
 import { PageVariable } from "./page_variable";
 import { Revival } from "../revival";
 import { Environment } from "../environment";
+import { Trace } from "../../common/utils/trace";
+import { DOMRingerEvent } from "../../ringer-record-replay/common/event";
+
+export enum NodeSources {
+  RELATIONEXTRACTOR = 1,
+  RINGER,
+  PARAMETER,
+  TEXTRELATION,
+};
 
 export class NodeVariable implements Revival.Revivable {
   public static counter = 0;
@@ -88,13 +96,37 @@ export class NodeVariable implements Revival.Revivable {
       window.helenaMainpanel.allNodeVariablesSeenSoFar.push(this);
     }
  
-   if (window.helenaMainpanel.allNodeVariablesSeenSoFar.indexOf(this) < 0) {
-     // ok, we're reconstructing a program, so we don't yet have this node variable in our
-     // tracker of all node variables.  go ahead and add it
+   if (!window.helenaMainpanel.allNodeVariablesSeenSoFar.includes(this)) {
+     // ok, we're reconstructing a program, so we don't yet have this node
+     //   variable in our tracker of all node variables.  go ahead and add it
      window.helenaMainpanel.allNodeVariablesSeenSoFar.push(this);
    }
    
    this.requiredFeatures = [];
+  }
+
+  public static createDummy() {
+    return new NodeVariable();
+  }
+
+  /**
+   * Create a node variable from a trace.
+   * @param trace 
+   */
+  public static fromTrace(trace: Trace) {
+    let recordTimeNodeSnapshot = null;
+    let imgData = null;
+    // may get 0-length trace if we're just adding a scrape statement by editing
+    //   (as for a known column in a relation)
+    if (trace.length > 0) {
+      // 0 bc this is the first ev that prompted us to turn it into the given
+      //   statement, so must use the right node
+      const ev = <DOMRingerEvent> trace[0];
+      recordTimeNodeSnapshot = ev.target.snapshot;
+      imgData = ev.additional.visualization;
+    }
+    return new NodeVariable(null, null, recordTimeNodeSnapshot, imgData,
+      NodeSources.RINGER); // null bc no preferred name
   }
 
   // we need these defined right here because we're about to use them in initialization

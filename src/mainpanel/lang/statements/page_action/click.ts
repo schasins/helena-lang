@@ -1,31 +1,35 @@
 import * as Blockly from "blockly";
 
-import { HelenaMainpanel, NodeSources } from "../../../helena_mainpanel";
-
-import { NodeVariable } from "../../../variables/node_variable";
+import { NodeSources, NodeVariable } from "../../../variables/node_variable";
 import { PageActionStatement, HelenaBlockUIEvent } from "./page_action";
-import { ColumnSelector } from "../../../../content/selector/column_selector";
 import { GenericRelation } from "../../../relation/generic";
 import { PageVariable } from "../../../variables/page_variable";
 import { HelenaProgram } from "../../program";
 import { Revival } from "../../../revival";
 import { Trace, Traces, DisplayTraceEvent } from "../../../../common/utils/trace";
 import { Environment } from "../../../environment";
+import { IColumnSelector } from "../../../../content/selector/interfaces";
+import { HelenaBlocks } from "../../../ui/blocks";
 
 export class ClickStatement extends PageActionStatement {
   public static maxDim = 50;
   public static maxHeight = 20;
 
-  public columnObj: ColumnSelector.Interface;
+  public columnObj: IColumnSelector;
   public outputPageVars: PageVariable[];
   public pageUrl: string;
   public pageVar: PageVariable;
   public relation: GenericRelation;
 
-  constructor(trace: Trace) {
+  constructor(trace?: Trace) {
     super();
     Revival.addRevivalLabel(this);
     this.setBlocklyLabel("click");
+
+    // Prematurely end, for the `createDummy` method
+    if (!trace) {
+      return;
+    }
 
     this.trace = trace;
 
@@ -61,10 +65,14 @@ export class ClickStatement extends PageActionStatement {
     // todo: may be worth going back to the ctrl approach, but there are links
     //   that refuse to open that way, so for now let's try back buttons
     // proposeCtrlAdditions(this);
-    this.cleanTrace = HelenaMainpanel.cleanTrace(this.trace);
+    this.cleanTrace = Traces.cleanTrace(this.trace);
 
     // actually we want the currentNode to be a nodeVariable so we have a name for the scraped node
-    this.currentNode = HelenaMainpanel.makeNodeVariableForTrace(trace);
+    this.currentNode = NodeVariable.fromTrace(trace);
+  }
+
+  public static createDummy() {
+    return new ClickStatement();
   }
 
   public getOutputPagesRepresentation() {
@@ -95,7 +103,7 @@ export class ClickStatement extends PageActionStatement {
       return;
     }
     // addToolboxLabel(this.blocklyLabel, "web");
-    const pageVarsDropDown = HelenaMainpanel.makePageVarsDropdown(pageVars);
+    const pageVarsDropDown = PageVariable.makePageVarsDropdown(pageVars);
     const shapes = ["", "ringer", "output", "ringeroutput"];
     for (const shape of shapes) {
       const shapeLabel = this.blocklyLabel + "_" + shape;
@@ -184,7 +192,7 @@ export class ClickStatement extends PageActionStatement {
 
     this.block.setFieldValue(this.pageVar.toString(), "page");
 
-    HelenaMainpanel.attachToPrevBlock(this.block, prevBlock);
+    HelenaBlocks.attachToPrevBlock(this.block, prevBlock);
     window.helenaMainpanel.setHelenaStatement(this.block, this);
     return this.block;
   }
@@ -213,7 +221,7 @@ export class ClickStatement extends PageActionStatement {
   }
 
   public parameterizeForRelation(relation: GenericRelation):
-      (ColumnSelector.Interface | null)[] {
+      (IColumnSelector | null)[] {
     return [
       this.parameterizeNodeWithRelation(relation, this.pageVar)
     ];

@@ -1,5 +1,3 @@
-import * as $ from "jquery";
-
 import { ScrapeModeHandlers } from "./scrape_mode_handlers";
 import { ScrapingTooltip } from "../ui/scraping_tooltip";
 
