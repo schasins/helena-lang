@@ -5,9 +5,9 @@ const webpack = require('webpack');
 
 module.exports = {
   entry: {
-    "content/main": "./src/content/main.ts",
-    "mainpanel/main": "./src/mainpanel/main.ts",
-    "background/main": "./src/background/main.ts"
+    "content/main": "./src/code/content/main.ts",
+    "mainpanel/main": "./src/code/mainpanel/main.ts",
+    "background/main": "./src/code/background/main.ts"
   },
   output: {
     filename: '[name].js',
@@ -54,7 +54,26 @@ module.exports = {
       {
         context: './src',
         from: '**/*.js'
-      }
+      },
+      {
+        context: './src',
+        from: '**/*.css'
+      },
+      {
+        context: './src',
+        from: '**/*.html'
+      },
+      {
+        from: './src/manifest.json'
+      },
+      {
+        context: './src',
+        from: '**/*.png'
+      },
+      {
+        context: './src',
+        from: '**/*.gif'
+      },
     ]),
     // to fix problem with `later` node module loading
     new webpack.DefinePlugin({
