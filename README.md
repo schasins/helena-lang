@@ -27,9 +27,11 @@ is super convenient to use.
 
 ## Running Tests
 
-Integration test is currently in the higher level `helena` repository. Run
-`./utilities/run-ci.sh` from the main repository directory. Docker is a
-prerequisite.
+To run tests, first run steps 1 and 2 under **Quickstart** above, and ensure the
+command line tool `docker` is installed.
+
+Integration test is currently in the higher-level `helena` repository. Run
+`./utilities/run-ci.sh` from the main directory of the `helena` repository.
 
 ## TODO
 
