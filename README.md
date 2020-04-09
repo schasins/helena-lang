@@ -34,6 +34,7 @@ prerequisite.
 ## TODO
 
 - Should move test related files in `helena` repository into this one.
+- Load jQuery and related libraries using npm and webpack.
 - Restructuring classes/interfaces in a clearer way.
 - Better documentation for classes/functions.
 - Add unit tests.
