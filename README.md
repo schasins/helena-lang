@@ -25,7 +25,15 @@ As of April 2020, recommend using [Visual Studio Code](https://code.visualstudio
 for development, as it does a lot of Typescript compiler checking by default and
 is super convenient to use.
 
+## Running Tests
+
+Integration test is currently in the higher level `helena` repository. Run
+`./utilities/run-ci.sh` from the main repository directory. Docker is a
+prerequisite.
+
 ## TODO
 
+- Should move test related files in `helena` repository into this one.
 - Restructuring classes/interfaces in a clearer way.
 - Better documentation for classes/functions.
+- Add unit tests.
