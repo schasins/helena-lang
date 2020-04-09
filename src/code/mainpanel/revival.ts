@@ -14,13 +14,14 @@ import { HelenaConsole } from "../common/utils/helena_console";
 export namespace Revival {
   export interface Revivable {
     ___revivalLabel___: string;
+    setAttributes?: (attrs: object) => void;
   }
   export type Prototype = {
     new(...args: any[]): Revivable;
     createDummy: () => Revivable;
   };
 
-  const revivalLabels: {
+  export const revivalLabels: {
     [key: string]: Prototype
   } = {};
 
@@ -63,13 +64,17 @@ export namespace Revival {
           // ok, we actually want to revive this very object
           const prototype = revivalLabels[attrs.___revivalLabel___];
           fullObj = prototype.createDummy();
-          _.extend(fullObj, attrs);
+          if (fullObj.setAttributes) {
+            fullObj.setAttributes(attrs);
+          } else {
+            _.extend(fullObj, attrs);
+          }
           // now the fullObj is restored to having methods and such
         }
         seen.push(attrs);
         fullSeen.push(fullObj);
         // ok, whether we revived this obj or not, we definitely have to descend
-        for (const prop in attrs){
+        for (const prop in attrs) {
           const val = attrs[prop];
           const fullVal = reviveHelper(val);
 
@@ -79,7 +84,7 @@ export namespace Revival {
         return fullObj;
       }
     };
-    var obj = reviveHelper(attrs);
+    const obj = reviveHelper(attrs);
     return obj;
   };
 }

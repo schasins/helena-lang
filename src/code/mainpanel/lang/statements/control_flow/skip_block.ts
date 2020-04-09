@@ -498,7 +498,7 @@ export class SkipBlock extends StatementContainer {
       } else if (item.attr === "LINK") {
         val = <string> nodeVar.currentLink(environment);
       } else { 
-        HelenaConsole.warn("yo, we don't know what kind of attr we're " +
+        console.warn("yo, we don't know what kind of attr we're " +
           "looking for: ", item.attr);
       }
       rep.push({
@@ -550,7 +550,7 @@ export class SkipBlock extends StatementContainer {
     else if (strat === SkippingStrategies.SOMETIMESLOGICAL) {
       rep.logical_time_diff = this.logicalTime; // the run id is already associated, so we only need to know how many back we're allowed to go
     } else {
-      HelenaConsole.warn("Woah, there was a skipping strategy that we " +
+      console.warn("Woah, there was a skipping strategy that we " +
         "actually don't support: ", strat);
     }
     return rep;

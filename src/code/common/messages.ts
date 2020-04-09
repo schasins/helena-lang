@@ -64,7 +64,7 @@ export interface RelationMessage {
   selector: GenericFeatureSet | GenericFeatureSet[];
   selector_version: number;
   exclude_first: number,
-  columns: IColumnSelector[],
+  columns: (IColumnSelector | ColumnSelectorMessage)[],
   url: string;
   next_type?: number;
   next_button_selector?: INextButtonSelector | null;
@@ -345,9 +345,9 @@ export namespace Messages {
           if (tabId) {
             chrome.tabs.sendMessage(tabId, msg); 
           } else {
-            HelenaConsole.warn("Tried to send message to undefined tab, very bad.");
+            console.warn("Tried to send message to undefined tab, very bad.");
             const err = new Error();
-            HelenaConsole.warn(err.stack);
+            console.warn(err.stack);
           }
         }
         HelenaConsole.log("(Sent to ", tabIdsInclude.length, " tabs: ",
@@ -360,7 +360,7 @@ export namespace Messages {
               try {
                 chrome.tabs.sendMessage(tab.id, msg); 
               } catch(err) {
-                // HelenaConsole.warn("failure to send message:", msg);
+                // console.warn("failure to send message:", msg);
               }
               tabsMessaged++;
             }
@@ -378,7 +378,7 @@ export namespace Messages {
       HelenaConsole.log("Sending message: ", msg);
       chrome.runtime.sendMessage(msg);
     } else {
-      HelenaConsole.warn("Bad from field in msg:", from);
+      console.warn("Bad from field in msg:", from);
     }
   };
 

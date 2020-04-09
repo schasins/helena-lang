@@ -49,7 +49,7 @@ export namespace Environment {
         } else {
           UIObject?.addDialog("Couldn't find item", "Tried to use something " +
             "called " + name + ", but we don't know anything about it.", {});
-          throw new ReferenceError(name + ' is not declared');
+          // throw new ReferenceError(name + ' is not declared');
         }
       }
     }

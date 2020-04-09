@@ -21,7 +21,7 @@ export class NodeVariable implements Revival.Revivable {
   public ___revivalLabel___: string;
   public name: string | null;
   public nodeSource?: number;
-  private privateName: string;
+  private ___privateName___: string;
   public recordedNodeSnapshot?: MainpanelNode.Interface | null;
   public nodeRep: MainpanelNode.Interface;
   // public mainpanelRep: MainpanelNode.Interface | null;
@@ -34,12 +34,12 @@ export class NodeVariable implements Revival.Revivable {
       imgData?: string | null, source?: number) {
     Revival.addRevivalLabel(this);
 
-    if (!name) {
+    if (name) {
+      this.setName(name);
+    } else {
       NodeVariable.counter += 1;
-      name = "thing_" + NodeVariable.counter;
+      this.name = "thing_" + NodeVariable.counter;
     }
-  
-    this.setName(name);
 
     if (source === NodeSources.PARAMETER) {
       this.nodeSource = source;
@@ -131,20 +131,20 @@ export class NodeVariable implements Revival.Revivable {
 
   // we need these defined right here because we're about to use them in initialization
   public getName() {
-    if (this.privateName) {
-      return this.privateName;
+    if (this.___privateName___) {
+      return this.___privateName___;
     }
     if (this.name) {
       return this.name; // this is here for backwards compatibility.
     }
-    return this.privateName;
+    return this.___privateName___;
   }
 
   public setName(name: string) {
     // don't set it to the original name unless nothing else has that name yet
     const otherNode = window.helenaMainpanel.getNodeVariableByName(name);
     if (!otherNode) {
-      this.privateName = name;
+      this.___privateName___ = name;
     } else {
       if (otherNode === this) {
         // we're renaming it to the same thing.  no need to do anything

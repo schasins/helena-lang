@@ -9,11 +9,13 @@ declare global {
     helenaMainpanel: HelenaMainpanel;
     ringerMainpanel: RingerMainpanel;
 
-    // TODO: cjbaik: find working modular version of the library?
-    JSOG: any;
+    JSOG: any;  // TODO: cjbaik: find working modular version of the library?
+
+    // Used in test scripts, e.g. `runHelenaScript.py`
+    scrapingRunsCompleted: number;
+    datasetsScraped: (number | undefined)[];
   }
   
-  // TODO: factor out these JQuery libraries
   interface JQueryStatic {
     format: {
       date: Function;
@@ -23,6 +25,9 @@ declare global {
     }
   }
 }
+
+window.scrapingRunsCompleted = 0;
+window.datasetsScraped = [];
 
 // make this call early so that the voices will be loaded early
 // speechSynthesis.getVoices(); // in case we ever want to say anything

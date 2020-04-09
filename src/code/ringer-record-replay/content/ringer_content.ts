@@ -309,7 +309,7 @@ export class RingerContent {
             HelenaConsole.log("updated prop", divProp, " to ",
               propDiffDelta.orig.prop[divProp]);
           } catch (err) {
-            HelenaConsole.warn("Attempted to update prop", divProp,
+            console.warn("Attempted to update prop", divProp,
               propDiffDelta.orig.prop[divProp]);
           }
         }
@@ -329,7 +329,7 @@ export class RingerContent {
             HelenaConsole.log("updated prop", divProp, " to ",
               diffPropDelta.changed.prop[divProp]);
           } catch (err) {
-            HelenaConsole.warn("Attempted to update prop", divProp,
+            console.warn("Attempted to update prop", divProp,
               diffPropDelta.orig.prop[divProp]);
           }
           

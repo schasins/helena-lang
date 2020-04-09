@@ -1792,10 +1792,10 @@ export class RecorderUI extends HelenaUIBase {
 
   public loadSavedProgram(progId: string, continuation?: Function) {
     const self = this;
-    HelenaConsole.log("loading program: ", progId);
+    console.log("loading program: ", progId);
     HelenaServer.loadSavedProgram(progId,
       (resp: { program: SavedProgramMessage }) => {
-        HelenaConsole.log("received program: ", resp);
+        console.log(`[RecorderUI] received program: ${resp}`);
         const revivedProgram = HelenaProgram.fromJSON(
           resp.program.serialized_program);
         

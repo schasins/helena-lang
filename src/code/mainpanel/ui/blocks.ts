@@ -6,7 +6,7 @@ export namespace HelenaBlocks {
   export function attachInputToOutput(left: Blockly.Block,
       right: Blockly.Block) {
     if (!left || !right) {
-      HelenaConsole.warn("Woah, tried attachInputToOutput with", left,
+      console.warn("Woah, tried attachInputToOutput with", left,
         right);
       return;
     }
@@ -24,7 +24,7 @@ export namespace HelenaBlocks {
       wrapper: Blockly.Block | null,
       firstBlock: Blockly.Block | null) {
     if (!wrapper || !firstBlock) {
-      HelenaConsole.warn("Woah, tried attachNestedBlocksToWrapper with",
+      console.warn("Woah, tried attachNestedBlocksToWrapper with",
         wrapper, firstBlock);
       return;
     }
@@ -36,7 +36,7 @@ export namespace HelenaBlocks {
   export function attachToInput(left: Blockly.Block, right: Blockly.Block,
       name: string) {
     if (!left || !right || !name) {
-      HelenaConsole.warn("Woah, tried attachToInput with", left,
+      console.warn("Woah, tried attachToInput with", left,
         right, name);
       return;
     }
@@ -56,7 +56,7 @@ export namespace HelenaBlocks {
       const thisBlockConnection = cur.previousConnection;
       prevBlockConnection.connect(thisBlockConnection);
     } else {
-      HelenaConsole.warn("Woah, tried to attach to a null prevBlock!");
+      console.warn("Woah, tried to attach to a null prevBlock!");
     }
   }
 

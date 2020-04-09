@@ -41,11 +41,6 @@ import { NextButtonTypes, IColumnSelector } from "../../content/selector/interfa
 import { RingerStatement, OutputPageVarStatement } from "./types";
 import { HelenaBlocks } from "../ui/blocks";
 
-
-// TODO: move these somewhere safer
-let scrapingRunsCompleted = 0;
-let datasetsScraped = [];
-
 interface LoopItem {
   loopStatement: LoopStatement;
   nodeVariables: NodeVariable[];
@@ -183,6 +178,20 @@ export class HelenaProgram extends StatementContainer {
     // copy all those fields back into a proper Program object
     const program = Revival.revive(programAttributes);
     return program;
+  }
+
+  /**
+   * Set attributes on this Program.
+   * @param attrs attributes
+   */
+  public setAttributes(attrs: { [key: string]: any }) {
+    _.extend(this, attrs);
+    if ('loopyStatements' in attrs) {
+      this.bodyStatements = attrs.loopyStatements;
+    }
+    if ('altRootLoopyStatements' in attrs) {
+      this.altRootBodyStatements = attrs.altRootLoopyStatements;
+    }
   }
 
   public static fromRingerTrace(trace: Trace, windowId?: number,
@@ -402,7 +411,7 @@ export class HelenaProgram extends StatementContainer {
   //   return boolean to do that
   public traverse(fn: Function, fn2: Function) {
     if (this.bodyStatements.length < 1) {
-      HelenaConsole.warn("Calling traverse on a program even though " +
+      console.warn("Calling traverse on a program even though " +
         "bodyStatements is empty.");
     }
 
@@ -439,7 +448,7 @@ export class HelenaProgram extends StatementContainer {
     const possibleNewbodyStatements = insertAfterHelper(this.bodyStatements,
       stmtToInsert, stmtToInsertAfter);
     if (!possibleNewbodyStatements) {
-      HelenaConsole.warn("Woah, tried to insert after a particular " +
+      console.warn("Woah, tried to insert after a particular " +
         "WALStatement, but that statement wasn't in our prog.");
     } else {
       this.bodyStatements = possibleNewbodyStatements;
@@ -454,7 +463,7 @@ export class HelenaProgram extends StatementContainer {
     var seq = removeStatementAndFollowing(this.bodyStatements, movedStatement);
     //console.log("removed the seq:". removedSeq);
     if (!seq) {
-      HelenaConsole.warn("Woah, tried to remove a particular WALStatement, but that statement wasn't in our prog.");
+      console.warn("Woah, tried to remove a particular WALStatement, but that statement wasn't in our prog.");
     }
 
     // now, if we end up pulling this same seq back in...better know about the seq
@@ -479,7 +488,7 @@ export class HelenaProgram extends StatementContainer {
 
     var added = addSeq(this.bodyStatements, addedSeq, precedingStatement, inputName);
     if (!added) {
-      HelenaConsole.warn("Woah, tried to insert after a particular WALStatement, but that statement wasn't in our prog.");
+      console.warn("Woah, tried to insert after a particular WALStatement, but that statement wasn't in our prog.");
     }
     return added;
   }
@@ -628,6 +637,7 @@ export class HelenaProgram extends StatementContainer {
         self.runBasicBlock(runObject, bodyStatements.slice(nextBlockStartIndex,
           bodyStatements.length), callback, options);
       };
+      // console.log('update page vars 1');
       updatePageVars(trace, replayObject.record.events, allPageVarsOk);
     },
       // ok, we also want some error handling functions
@@ -648,7 +658,7 @@ export class HelenaProgram extends StatementContainer {
         //   program.runBasicBlock(bodyStatements.slice(nextBlockStartIndex,
         //     bodyStatements.length), callback) (as above)
         // instead we'll just do the callback
-        HelenaConsole.warn("rbb: couldn't find a node based on " +
+        console.warn("rbb: couldn't find a node based on " +
           "user-required features.  skipping the rest of this row.");
 
         // even though couldn't complete the whole trace, still need to do
@@ -685,7 +695,7 @@ export class HelenaProgram extends StatementContainer {
         //   good way to fix them
         // for now just treat them like a node finding failure and continue
 
-        HelenaConsole.warn("rbb: port failure.  ugh.");
+        console.warn("rbb: port failure.  ugh.");
 
         // even though couldn't complete the whole trace, still need to do
         //   updatePageVars because that's how we figure out which tab is
@@ -732,7 +742,7 @@ export class HelenaProgram extends StatementContainer {
     if (!haveAllNecessaryRelationNodes) {
       // ok, we're going to have to skip this iteration, because we're supposed
       //   to open a page and we just won't know how to
-      HelenaConsole.warn("Had to skip an iteration because of lacking " +
+      console.warn("Had to skip an iteration because of lacking " +
         "the node we'd need to open a new page");
       // todo: should probably also warn the contents of the various relation
       //   variables at this iteration that we're skipping
@@ -925,7 +935,7 @@ export class HelenaProgram extends StatementContainer {
 
       // are we actually breaking out of the loop?
       if (options.breakMode) {
-        HelenaConsole.warn("breaking out of the loop");
+        console.warn("breaking out of the loop");
         // if we were in break mode, we're done w/loop, so turn off break mode
         options.breakMode = false;
         const continuation = () => {
@@ -1119,9 +1129,9 @@ export class HelenaProgram extends StatementContainer {
       parameters: Parameters = {}, requireDataset = true) {
     const self = this;
     console.log("program run");
-    console.log("options", options);
-    console.log("continuation", continuation);
-    console.log("parameters", parameters);
+    console.log(`options: ${JSON.stringify(options)}`);
+    console.log(`continuation: ${continuation}`);
+    console.log(`parameters: ${JSON.stringify(parameters)}`);
 
     HelenaConsole.log("parameters", parameters);
     for (const prop in options) {
@@ -1130,11 +1140,11 @@ export class HelenaProgram extends StatementContainer {
         //   affect us, but we don't know what to do with it
         // don't let them think everything's ok, especially since they probably
         //   just mispelled
-        HelenaConsole.warn("Woah, woah, woah.  Tried to provide option " +
+        console.warn("Woah, woah, woah.  Tried to provide option " +
           prop + " to program run, but we don't know what to do with it.");
         if (internalOptions.includes(prop)) {
           // ok, well an internal prop sneaking in is ok, so we'll just provide a warning.  otherwise we're actually going to stop
-          HelenaConsole.warn("Ok, we're allowing it because it's an " +
+          console.warn("Ok, we're allowing it because it's an " +
             "internal option, but we're not happy about it and we're setting " +
             "it to false.");
           options[prop] = false;
@@ -2012,10 +2022,14 @@ function alignCompletedEvents(recordTrace: Trace,
 
 function updatePageVars(recordTrace: Trace,
     replayTrace: Trace, continuation: Function) {
+  // console.log(`recordTrace: ${JSON.stringify(recordTrace)}`);
+  // console.log(`replayTrace: ${JSON.stringify(replayTrace)}`);
   // HelenaConsole.log("updatePageVars", recordTimeTrace, replayTimeTrace);
   const alignedTraces = alignCompletedEvents(recordTrace, replayTrace);
   const alignedRecord = alignedTraces[0];
   const alignedReplay = alignedTraces[1];
+  // console.log(`alignedRecord: ${JSON.stringify(alignedRecord)}`);
+  // console.log(`alignedRecord: ${JSON.stringify(alignedRecord)}`);
   // HelenaConsole.log("recEvents:", recEvents, "repEvents", repEvents);
   updatePageVarsHelper(alignedRecord, alignedReplay, 0, continuation);
 }
@@ -2031,6 +2045,7 @@ function updatePageVarsHelper(recordTrace: Trace,
       updatePageVarsHelper(recordTrace, replayTrace, index + 1, continuation);
       return;
     }
+    console.log(`PageVar tabID set with ${JSON.stringify(replayTrace[index])}`);
     // HelenaConsole.log("Setting pagevar current tab id to:", repEvents[i].data.tabId);
     pageVar.setCurrentTabId(replayTrace[index].data.tabId, () =>
       updatePageVarsHelper(recordTrace, replayTrace, index + 1, continuation)
@@ -2237,7 +2252,7 @@ function runInternals(program: HelenaProgram, parameters: Parameters,
       runObject.window = windowId;
       window.helenaMainpanel.currentReplayWindowId = windowId;
     }
-    datasetsScraped.push(runObject.dataset.getId());
+    window.datasetsScraped.push(runObject.dataset.getId());
     runObject.program.runBasicBlock(runObject,
       runObject.program.bodyStatements, () => {
 
@@ -2293,8 +2308,8 @@ function runInternals(program: HelenaProgram, parameters: Parameters,
       }
 
       const whatToDoWhenWereDone = () => {
-        scrapingRunsCompleted += 1;
-        console.log("scrapingRunsCompleted", scrapingRunsCompleted);
+        window.scrapingRunsCompleted += 1;
+        console.log("scrapingRunsCompleted", window.scrapingRunsCompleted);
         window.helenaMainpanel.currentRunObjects = window.helenaMainpanel.currentRunObjects.filter(
           (runObj) => runObj !== runObject
         );
@@ -3020,7 +3035,7 @@ function associateNecessaryLoadsWithIDsAndParameterizePages(trace:
         }
         pageVar = urlsToMostRecentPageVar[correctUrl];
         if (!pageVar){
-          HelenaConsole.warn("Woah woah woah, real bad, why did we try to " +
+          console.warn("Woah woah woah, real bad, why did we try to " +
             "associate a dom event with a page var, but we didn't know a page" +
             " var for the dom it happened on????");
         }

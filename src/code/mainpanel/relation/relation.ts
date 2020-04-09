@@ -218,7 +218,7 @@ export class Relation extends GenericRelation {
         colObject.firstRowValue = firstRowCell.value;
       }
     }
-    colObject.index = index;
+    colObject.index = index.toString();
   }
 
   private updateFirstRowInfo() {
@@ -335,7 +335,7 @@ export class Relation extends GenericRelation {
     
     const self = this;
     if (!pageVar.currentTabId()) {
-      HelenaConsole.warn("Hey!  How'd you end up trying to find a " +
+      console.warn("Hey!  How'd you end up trying to find a " +
        "relation on a page for which you don't have a current tab id?? " +
        "That doesn't make sense.", pageVar);
     }
@@ -566,7 +566,7 @@ export class Relation extends GenericRelation {
             "requesting relation items", currentGetRowsCounter);
           Messages.sendFrameSpecificMessage("mainpanel", "content",
             "getFreshRelationItems", self.messageRelationRepresentation(), 
-            <number> tabId, frame, (msg: FreshRelationItemsMessage) => { 
+            <number> tabId, frame, (msg: FreshRelationItemsMessage) => {
               // question: is it ok to insist that every single frame returns a
               //   non-null one?  maybe have a timeout?  maybe accept once we
               //   have at least one good response from one of the frames?
@@ -784,7 +784,7 @@ export class Relation extends GenericRelation {
               //   is just restart from the beginning because this is a list
               //   page.  so we just don't know what else to do
               console.log(chrome.runtime.lastError.message);
-              HelenaConsole.warn("No idea what to do, so we're breaking" +
+              console.warn("No idea what to do, so we're breaking" +
                 " -- a list page just wasn't present, so didn't know what to" +
                 " do next.");
               return;
@@ -850,7 +850,7 @@ export class Relation extends GenericRelation {
       throw new ReferenceError("No column index set.");
     }
     // in the current row, value at the index associated with nodeName
-    return prinfo.currentRows[prinfo.currentRowsCounter][columnObject.index];
+    return prinfo.currentRows[prinfo.currentRowsCounter][parseInt(columnObject.index)];
   }
 
   public saveToServer() {

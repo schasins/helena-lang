@@ -45,6 +45,12 @@ export class OutputRowStatement extends HelenaLangObject {
     }
   }
 
+  public setAttributes(attrs: { [key: string]: any } ) {
+    if ('variableUseNodes' in attrs) {
+      this.nodeUseVariables = attrs.variableUseNodes;
+    }
+  }
+
   public static createDummy() {
     return new OutputRowStatement();
   }

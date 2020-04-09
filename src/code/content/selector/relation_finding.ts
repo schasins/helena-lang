@@ -139,7 +139,8 @@ export namespace RelationFinder {
         // let serverSelector = RelationSelector.fromMessage(serverRel);
 
         const serverSelector = new RelationSelector(serverSelectorMsg.selector,
-          serverSelectorMsg.exclude_first, serverSelectorMsg.columns,
+          serverSelectorMsg.exclude_first,
+          ColumnSelector.fromMessage(serverSelectorMsg.columns),
           serverSelectorMsg.selector_version);
         serverSelector.next_button_selector =
           serverSelectorMsg.next_button_selector;
@@ -935,7 +936,7 @@ export namespace RelationFinder {
         try {
           observer.observe(cell, config);
         } catch (err) {
-          HelenaConsole.warn("woah, couldn't observe mutations. are we getting all data?");
+          console.warn("woah, couldn't observe mutations. are we getting all data?");
         }  
       }
       relationNodesIds.push(rowIds);

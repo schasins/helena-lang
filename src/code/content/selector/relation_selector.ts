@@ -112,7 +112,7 @@ function getCellsInRowMatchingSuffixes(
         rowNodeXPath = rowNodeXPaths[0];
         suffixListRep = suffixLs[k];
         if (candidateRowNodes.length > 1){
-          HelenaConsole.warn("Woah, bad, we have no selector index associated " +
+          console.warn("Woah, bad, we have no selector index associated " +
             "with a column suffix, but we have multiple row nodes.");
         }
       }
@@ -354,10 +354,10 @@ export class RelationSelector {
     let newSelector;
     if (msg.selector && 'table' in msg.selector) {
       newSelector = new TableSelector(msg.selector, msg.exclude_first,
-        msg.columns, msg.selector_version);
+        ColumnSelector.fromMessage(msg.columns), msg.selector_version);
     } else {
       newSelector = new RelationSelector(msg.selector, msg.exclude_first,
-        msg.columns, msg.selector_version);
+        ColumnSelector.fromMessage(msg.columns), msg.selector_version);
     }
     
     newSelector.name = msg.name;
@@ -843,7 +843,7 @@ export class PulldownSelector extends RelationSelector {
         featureSet.index = index;
         selector.columns.push({
           id: null,
-          index: 0, // only one column
+          index: "0", // only one column
           name: selector.name + "_option",
           suffix: [],
           xpath: firstRowXpath

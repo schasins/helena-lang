@@ -14,6 +14,7 @@ interface EventDisplayInfo {
   inputPageVar?: PageVariable;
   manual?: boolean;
   pageVar?: PageVariable;
+  pageVarId?: PageVariable; // older implementations use this for tests
   visible?: boolean;
 }
 
@@ -99,7 +100,7 @@ export namespace Traces {
 
   export function getTabId(ev: RecordedRingerEvent) {
     if (ev.type === "dom") {
-      HelenaConsole.warn("yo, this function isn't for dom events");
+      console.warn("yo, this function isn't for dom events");
     }
     const tabId = ev.data.tabId;
     return tabId;
@@ -126,7 +127,12 @@ export namespace Traces {
   }
 
   export function getLoadOutputPageVar(ev: DisplayTraceEvent) {
-    return ev.additionalDataTmp.display.pageVar;
+    if (ev.additionalDataTmp.display.pageVar) {
+      return ev.additionalDataTmp.display.pageVar;
+    } else if (ev.additionalDataTmp.display.pageVarId) {
+      return ev.additionalDataTmp.display.pageVarId;
+    }
+    return undefined;
   }
 
   export function setLoadOutputPageVar(ev: DisplayTraceEvent,

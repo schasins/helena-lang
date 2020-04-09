@@ -26,6 +26,12 @@ export class HelenaString extends Value {
     }
   }
 
+  public setAttributes(attrs: { [key: string] : any }) {
+    if ('currentValue' in attrs) {
+      this.currentVal = attrs.currentValue;
+    }
+  }
+
   public static createDummy() {
     return new HelenaString();
   }

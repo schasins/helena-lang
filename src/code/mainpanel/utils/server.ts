@@ -177,10 +177,11 @@ export namespace HelenaServer {
   }
 
   export function loadSavedProgram(progId: string, handler: Function) {
-    HelenaConsole.log("loading program: ", progId);
+    console.log(`[HelenaServer] loading program: ${progId}`);
+    console.log(`[HelenaServer] url: ${HelenaConfig.helenaServerUrl + '/programs/' + progId}`);
     keepGetting(HelenaConfig.helenaServerUrl + '/programs/' + progId, {},
       (resp: object) => {
-        HelenaConsole.log("received program: ", resp);
+        console.log(`[HelenaServer] received program: ${resp}`);
         handler(resp);
     }, true, " to load the saved program");
   }

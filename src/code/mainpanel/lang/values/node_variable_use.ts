@@ -124,7 +124,7 @@ export class NodeVariableUse extends Value {
               const nodeVarUse = <NodeVariableUse> window.helenaMainpanel.
                 getHelenaStatement(this);
               if (!nodeVarUse.nodeVar) {
-                HelenaConsole.warn("NodeVariableUse has no node var!");
+                console.warn("NodeVariableUse has no node var!");
               }*/
             }
           }

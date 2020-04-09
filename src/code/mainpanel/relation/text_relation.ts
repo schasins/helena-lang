@@ -75,7 +75,7 @@ export class TextRelation extends GenericRelation {
       if (!column.index) {
         throw new ReferenceError("Column index is undefined.");
       }
-      const text = this.relation[this.currentRowsCounter][column.index];
+      const text = this.relation[this.currentRowsCounter][parseInt(column.index)];
       const currNodeRep = {text: text};
       nodeVariables[i].setCurrentNodeRep(environment, currNodeRep);
     }
@@ -84,7 +84,7 @@ export class TextRelation extends GenericRelation {
   public processColumns() {
     for (let i = 0; i < this.relation[0].length; i++) {
       this.columns.push({
-        index: i,
+        index: i.toString(),
         name: `column_${i}`,
         firstRowText: this.firstRowTexts[i], // todo: don't want filler here
         
@@ -129,7 +129,7 @@ export class TextRelation extends GenericRelation {
     }
 
     HelenaConsole.log(this.currentRowsCounter, "currentRowsCounter");
-    return this.relation[this.currentRowsCounter][columnObject.index];
+    return this.relation[this.currentRowsCounter][parseInt(columnObject.index)];
   };
 
   public getCurrentLink(pageVar: PageVariable,

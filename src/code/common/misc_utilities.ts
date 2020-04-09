@@ -69,7 +69,7 @@ export namespace MiscUtilities {
     });
   }
 
-  export function depthOf(object: { [key: string]: any }) {
+  export function depthOf(object: any) {
     let level = 1;
     for (const key in object) {
       if (!object.hasOwnProperty(key)) continue;

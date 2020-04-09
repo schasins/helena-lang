@@ -26,7 +26,7 @@ export interface IColumnSelector {
   suffix?: SuffixXPathList[]; // not single suffix, but a list of candidates
   name?: string;
   id?: number | null;
-  index?: number;
+  index?: string;
   scraped?: boolean;
 
   firstRowXpath?: string;

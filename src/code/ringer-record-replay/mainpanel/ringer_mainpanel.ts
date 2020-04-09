@@ -161,7 +161,7 @@ export class RingerMainpanel {
     if (details.tabId > -1) {
       chrome.tabs.get(details.tabId, (tab) => {
         if (!tab && type !== "manualload") {
-          HelenaConsole.warn("No tab.windowId!");
+          console.warn("No tab.windowId!");
           return;
         }
         v.data.windowId = tab.windowId;

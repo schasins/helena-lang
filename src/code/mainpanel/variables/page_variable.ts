@@ -130,6 +130,12 @@ export class PageVariable implements Revival.Revivable {
     */
   }
 
+  public setAttributes(attrs: { [key: string]: any }) {
+    if ('tab' in attrs) {
+      this.tabId = attrs.tab;
+    }
+  }
+
   public clearCurrentTabId() {
     this.tabId = undefined;
   }

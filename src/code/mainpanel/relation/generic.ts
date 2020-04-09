@@ -42,7 +42,7 @@ export class GenericRelation implements Revival.Revivable {
       throw new ReferenceError("ColumnSelector has no index.");
     }
     const firstRow = this.firstRowNodeRepresentations();
-    return firstRow[colObj.index];
+    return firstRow[parseInt(colObj.index)];
   }
 
   public firstRowNodeRepresentations(): MainpanelNode.Interface[] {
@@ -86,7 +86,7 @@ export class GenericRelation implements Revival.Revivable {
     }
     
     const nodeVariables = this.nodeVariables();
-    nodeVariables[columnObj.index].setName(v);
+    nodeVariables[parseInt(columnObj.index)].setName(v);
     window.helenaMainpanel.UIObject.updateDisplayedScript();
   }
 

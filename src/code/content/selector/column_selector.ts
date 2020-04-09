@@ -9,7 +9,8 @@ import { IColumnSelector } from "./interfaces";
   *   some kind of common ancestor describing a row.
   */
 export namespace ColumnSelector {
-  export function fromMessage(msgCols: ColumnSelectorMessage[]) {
+  export function fromMessage(
+      msgCols: (ColumnSelectorMessage | IColumnSelector)[]) {
     let result: IColumnSelector[] = [];
 
     for (const msgCol of msgCols) {
@@ -19,7 +20,7 @@ export namespace ColumnSelector {
           suffix: [<SuffixXPathList> msgCol.suffix],
           name: msgCol.name,
           id: msgCol.id,
-          index: msgCol.index? parseInt(msgCol.index) : undefined
+          index: msgCol.index
         });
       } else {
         result.push({
@@ -27,7 +28,7 @@ export namespace ColumnSelector {
           suffix: <SuffixXPathList[]> msgCol.suffix,
           name: msgCol.name,
           id: msgCol.id,
-          index: msgCol.index? parseInt(msgCol.index) : undefined
+          index: msgCol.index
         });
       }
     }
