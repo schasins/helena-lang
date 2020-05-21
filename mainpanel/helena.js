@@ -4717,7 +4717,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         if (!stillPossibleMoreItems){
           WALconsole.namedLog("getRelationItems", "all frames say we're done", getRowsCounter);
           doneArray[getRowsCounter] = true;
-          relation.noMoreRows(runObject, runObject, pageVar, callback, false); // false because shouldn't try pressing the next button
+          relation.noMoreRows(runObject, pageVar, callback, false); // false because shouldn't try pressing the next button
         }
         else{
           WALconsole.namedLog("getRelationItems", "we think we might still get rows based on some frames not responding yet");
