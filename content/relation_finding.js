@@ -157,6 +157,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       }
       if (candidate_ok){
         listOfRowNodes.push(candidate);
+        //candidate.scrollIntoView(true); // sometimes the content doesn't get loaded until we scroll to it
       }
     }
     if (exclude_first > 0 && listOfRowNodes.length > exclude_first){
@@ -1402,13 +1403,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     unHighlightNextOrMoreButton();
   };
 
-  function nextButtonSelectorClick(event){
-    listeningForNextButtonClick = false;
-
-    event.stopPropagation();
-    event.preventDefault();
-    
-    var next_or_more_button = $(event.target);
+function getNextButtonData(next_or_more_button){
     var data = {};
     data.tag = next_or_more_button.prop("tagName");
     data.text = next_or_more_button.text();
@@ -1417,6 +1412,17 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     data.src = next_or_more_button.prop('src');
     data.xpath = nodeToXPath(event.target);
     data.frame_id = SimpleRecord.getFrameId();
+    return data;
+  }
+
+function nextButtonSelectorClick(event){
+    listeningForNextButtonClick = false;
+
+    event.stopPropagation();
+    event.preventDefault();
+    
+    var next_or_more_button = $(event.target);
+    var data = getNextButtonData(next_or_more_button);
     
     utilities.sendMessage("content", "mainpanel", "nextButtonSelector", {selector: data});
     highlightNextOrMoreButton(data);
@@ -1650,7 +1656,17 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
         utilities.sendMessage("content", "mainpanel", "nextButtonText", {text: button.textContent});
         WALconsole.namedLog("nextInteraction", "clicked next or more button");
         console.log("About to click on node", button, button.textContent);
-        button.click();
+        if (button.click){
+          button.click();
+        }
+        else{
+          // huh, no click function?  sometimes this happens if, say, it's an svg?
+          WALconsole.log("yikes, the next button doesn't look clickable");
+          while (!button.click){
+            button = $(button).parent();
+          }
+          button.click();
+        }
         /*
         $button = $(button);
         $button.trigger("mousedown");

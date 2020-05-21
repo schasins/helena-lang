@@ -4232,7 +4232,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       WALconsole.log("updateNodeVariables TextRelation");
       var nodeVariables = this.nodeVariables();
       var columns = this.columns; // again, nodeVariables and columns must be aligned
-      for (var i = 0; i < columns.length; i++){
+      for (var i = 0; i < nodeVariables.length; i++){
         var text = this.relation[currentRowsCounter][columns[i].index];
         var currNodeRep = {text: text};
         nodeVariables[i].setCurrentNodeRep(environment, currNodeRep);
