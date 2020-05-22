@@ -11,8 +11,8 @@
     "type": "git",
     "url": "git+https://github.com/schasins/helena-lang.git"
   },
-  "author": "",
-  "license": "",
+  "author": "Sarah Chasins",
+  "license": "BSD-3-Clause",
   "bugs": {
     "url": "https://github.com/schasins/helena-lang/issues"
   },
