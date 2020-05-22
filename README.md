@@ -2,7 +2,13 @@
 
 The code for the Helena library, including the Chrome extension.
 
-## Quickstart
+## Usage
+
+```
+npm install -D helena-lang
+```
+
+## Developer Quickstart
 
 1. Run `npm install` to install all development dependencies.
 2. Run `npx webpack` to generate the `dist` directory and place the compiled
