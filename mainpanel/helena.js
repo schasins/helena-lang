@@ -4570,7 +4570,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var nextButtonAttemptsToAllowThreshold = runObject.program.nextButtonAttemptsThreshold;
       if (!nextButtonAttemptsToAllowThreshold){ nextButtonAttemptsToAllowThreshold = DefaultHelenaValues.nextButtonAttemptsThreshold;}
       var prinfo = this.getPrinfo(pageVar);
-      if (allowMoreNextInteractions && prinfo.currentNextInteractionAttempts < nextButtonAttemptsToAllowThreshold){
+      if (allowMoreNextInteractions && prinfo && prinfo.currentNextInteractionAttempts < nextButtonAttemptsToAllowThreshold){
         WALconsole.log("ok, we're going to try calling getNextRow again, running the next interaction again.  currentNextInteractionAttempts: "+prinfo.currentNextInteractionAttempts);
         prinfo.runNextInteraction = true; // so that we don't fall back into trying to grab rows from current page when what we really want is to run the next interaction again.
         this.getNextRow(runObject, pageVar, callback);
@@ -7418,6 +7418,71 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
 
     this.insertLoops = function _insertLoops(updateProgPreview){
+      // have we done this before?  do we have loopystatmenets?
+      if (!this.loopyStatements){
+        this.loopyStatements = this.statements; // just start with the straight-line statmenets if we haven't done it before
+      }
+
+      // first, what relations do we even want to be adding?
+      var relationsAlreadyUsed = [];
+      this.traverse(function(statement){
+        if (statement.relation){
+          relationsAlreadyUsed.push(statement.relation);
+        }
+      });
+      relationsAlreadyUsed = _.uniq(relationsAlreadyUsed);
+      var relationsToInsert = _.difference(this.relations, relationsAlreadyUsed); // don't try to re-insert the relations we've already added
+
+      function insertLoopsInSequence(relations, statementSequence){
+        for (var i = 0; i < statementSequence.length; i++){
+          for (var j = 0; j < relations.length; j++){
+            if (relations[j].usedByStatement(statementSequence[i])){
+              // hey!  found the start of a loop!
+              var loopStartIndex = i;
+              // let's do something a little  different in cases where there's a keydown right before the loop, since the keyups will definitely happen within
+              // todo: may even need to look farther back for keydowns whose keyups happen within the loop body
+              if (statementSequence[i-1] instanceof WebAutomationLanguage.TypeStatement && statementSequence[i-1].onlyKeydowns){
+                loopStartIndex = i - 1;
+              }
+
+              // let's grab all the statements from the loop's start index to the end, put those in the loop body
+              var bodyStatementLs = statementSequence.slice(loopStartIndex, statementSequence.length);
+              // pageVar comes from first item because that's the one using the relation, since it's the one that made us decide to insert a new loop starting with that 
+              var pageVar = bodyStatementLs[0].pageVar; 
+
+              var relationsRemaining = _.without(relations, relations[j]); // we just used relations[j], so don't use that again
+              // now let's add any nested loops inside the bodyStatementLs
+              bodyStatementLs = insertLoopsInSequence(relationsRemaining, bodyStatementLs);
+              // ok, now that we added any loops in the body, let's make the loop that uses this body
+              var loopStatement = loopStatementFromBodyAndRelation(bodyStatementLs, relations[j], pageVar);
+
+              var newChildStatements = statementSequence.slice(0, loopStartIndex);
+              newChildStatements.push(loopStatement);
+
+              return newChildStatements;
+            }
+          }
+          // ok, if this statement doesn't use these relations, it still might have statements in its own body that use them
+          if (statementSequence[i].bodyStatements){
+            var parameterizedBodyStatements = insertLoopsInSequence(relations, statementSequence[i].bodyStatements);
+            statementSequence[i].bodyStatements = parameterizedBodyStatements;
+          }
+        }
+        // ok, went through and didn't find any loops to add.  just return the statements we got in the first place
+        return statementSequence;
+      }
+
+      this.loopyStatements = insertLoopsInSequence(relationsToInsert, this.loopyStatements);
+      this.updateChildStatements(this.loopyStatements); // top level statements must have prog as parent
+
+      if (updateProgPreview){
+        UIObject.updateDisplayedScript();
+        // now that we know which columns are being scraped, we may also need to update how the relations are displayed
+        UIObject.updateDisplayedRelations();
+      }
+    };
+
+    this.insertLoopsOld = function _insertLoopsOld(updateProgPreview){
       var indexesToRelations = {}; // indexes into the statements mapped to the relations used by those statements
       for (var i = 0; i < this.relations.length; i++){
         var relation = this.relations[i];

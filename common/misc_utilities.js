@@ -110,7 +110,7 @@ var utilities = (function _utilities() { var pub = {};
       // WALconsole.log("content listener", key, subject);
       extensionListeners[key] = function _oneListenerExtension(msg, sender) {
         // WALconsole.log(msg, sender);
-        var frame_id = SimpleRecord.getFrameId();
+        var frame_id = ContentSimpleRecord.getFrameId();
         if (msg.frame_ids_include && msg.frame_ids_include.indexOf(frame_id) < -1){
           WALconsole.log("Msg for frames with ids "+msg.frame_ids_include+", but this frame has id "+frame_id+".");
           return false;

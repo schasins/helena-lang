@@ -1,11 +1,11 @@
 'use strict';
 
-var SimpleRecord = (function SimpleRecordClosure() {
-  function SimpleRecord() {
+var ContentSimpleRecord = (function ContentSimpleRecordClosure() {
+  function ContentSimpleRecord() {
     // do nothing
   }
 
-  SimpleRecord.prototype = {
+  ContentSimpleRecord.prototype = {
     addNodeAddressing: function _addNodeAddressing(callback) {
       addonPostRecord.push(callback);
     },
@@ -21,5 +21,5 @@ var SimpleRecord = (function SimpleRecordClosure() {
     },
   };
 
-  return new SimpleRecord();
+  return new ContentSimpleRecord();
 })();

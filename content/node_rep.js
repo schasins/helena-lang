@@ -13,7 +13,7 @@ NodeRep = (function _NodeRep() { var pub = {};
 	    	link: "", 
 	    	xpath: "", 
 	    	value: "",
-	    	frame: SimpleRecord.getFrameId(), 
+	    	frame: ContentSimpleRecord.getFrameId(), 
 	    	source_url: window.location.href,
 	    	top_frame_source_url: tabTopUrl,
 	    	date: (new Date()).getTime()
@@ -25,7 +25,7 @@ NodeRep = (function _NodeRep() { var pub = {};
 	  	link: NodeRep.nodeToLink(node), 
 	  	xpath: nodeToXPath(node), 
 	  	value: NodeRep.nodeToValue(node),
-	  	frame: SimpleRecord.getFrameId(),
+	  	frame: ContentSimpleRecord.getFrameId(),
     	source_url: window.location.href,
     	top_frame_source_url: tabTopUrl,
 	    	date: (new Date()).getTime()
