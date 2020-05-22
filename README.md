@@ -14,6 +14,19 @@ As of April 2020, recommend using [Visual Studio Code](https://code.visualstudio
 for development, as it does a lot of Typescript compiler checking by default and
 is super convenient to use.
 
+## Testing
+
+### Prerequisites
+
+- Run Steps 1 and 2 under **Quickstart** above.
+- Command line tool for `docker`
+- Command line tool for `md5sum`
+
+### Run Integration Test
+
+Integration test is currently in the higher-level `helena` repository. Run
+`./utilities/run-ci.sh` from the main directory of the `helena` repository.
+
 ## TODO
 
 - Not sure what exactly should be exported from this library, might need to be
