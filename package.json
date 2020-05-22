@@ -1,24 +1,22 @@
 {
   "name": "helena-lang",
-  "version": "0.0.1",
-  "description": "Library for Helena language",
-  "main": "",
-  "directories": {
-    "test": "test"
-  },
+  "version": "1.0.0",
+  "description": "Library containing exports for the Helena language.",
+  "main": "dist/helena.js",
+  "types": "dist/index.d.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/chrisjbaik/helena-lang.git"
+    "url": "git+https://github.com/schasins/helena-lang.git"
   },
   "author": "",
   "license": "",
   "bugs": {
-    "url": "https://github.com/chrisjbaik/helena-lang/issues"
+    "url": "https://github.com/schasins/helena-lang/issues"
   },
-  "homepage": "https://github.com/chrisjbaik/helena-lang#readme",
+  "homepage": "https://github.com/schasins/helena-lang#readme",
   "devDependencies": {
     "@types/chrome": "0.0.101",
     "@types/html2canvas": "0.0.35",
@@ -33,6 +31,7 @@
     "copy-webpack-plugin": "^5.1.1",
     "html2canvas": "^1.0.0-rc.5",
     "later": "^1.2.0",
+    "raw-loader": "^4.0.1",
     "source-map-loader": "^0.2.4",
     "typescript": "^3.8.2",
     "underscore": "^1.9.2",

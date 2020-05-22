@@ -1,0 +1,34 @@
+import { HelenaProgram } from "./lang/program";
+import { DatasetSliceRequest } from "../common/messages";
+import { RunNewProgramResponse } from "./utils/server";
+export declare class Dataset {
+    currentDatasetNodes: object[];
+    currentDatasetPositionLists: number[][][];
+    currentDatasetSliceLength: number;
+    fullDatasetLength: number;
+    name: string;
+    outstandingDataSaveRequests: number;
+    pass_start_time: number;
+    programId: string;
+    programRunId?: number;
+    programSubRunId?: number;
+    constructor(program: HelenaProgram, programRunId?: number);
+    isReady(): number | undefined;
+    getProgramRunAndSubRun(): void;
+    requestNewProgramRunId(): void;
+    requestNewProgramSubRunId(): void;
+    handleDatasetId(resp: RunNewProgramResponse): void;
+    appendToName(str: string): void;
+    updateRunNameOnServer(): void;
+    addRow(row: object[]): void;
+    datasetSlice(): DatasetSliceRequest;
+    sendDatasetSlice(handler?: () => void): void;
+    closeDataset(): void;
+    closeDatasetWithCont(cont: Function): void;
+    downloadUrl(): string;
+    downloadDataset(): void;
+    downloadFullDatasetUrl(): string;
+    static downloadFullDatasetUrl(program: HelenaProgram): string;
+    downloadFullDataset(): void;
+    getId(): number | undefined;
+}
