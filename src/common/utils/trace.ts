@@ -1,9 +1,11 @@
 import { HelenaConsole } from "./helena_console";
 import { PageVariable } from "../../mainpanel/variables/page_variable";
 import { StatementTypes } from "../../mainpanel/lang/statements/statement_types";
-import { RingerEvents,
+import {
+  RingerEvents,
   RecordedRingerEvent,
-  DOMRingerEvent} from "../../ringer-record-replay/common/event";
+  DOMRingerEvent,
+} from "../../ringer-record-replay/common/event";
 import { Utilities } from "../../ringer-record-replay/common/utils";
 
 export type Trace = RecordedRingerEvent[];
@@ -21,7 +23,7 @@ interface EventDisplayInfo {
 export interface DisplayTraceEvent extends RecordedRingerEvent {
   additionalDataTmp: {
     display: EventDisplayInfo;
-  }
+  };
 }
 
 /**
@@ -29,14 +31,21 @@ export interface DisplayTraceEvent extends RecordedRingerEvent {
  */
 export namespace Traces {
   const statementToEventMapping = {
-    mouse: ['click','dblclick','mousedown','mousemove','mouseout','mouseover',
-      'mouseup'],
-    keyboard: ['keydown','keyup','keypress','textinput','paste','input'],
-    dontcare: ['blur']
-  }
+    mouse: [
+      "click",
+      "dblclick",
+      "mousedown",
+      "mousemove",
+      "mouseout",
+      "mouseover",
+      "mouseup",
+    ],
+    keyboard: ["keydown", "keyup", "keypress", "textinput", "paste", "input"],
+    dontcare: ["blur"],
+  };
 
   export function lastTopLevelCompletedEvent(trace: Trace) {
-    for (let i = trace.length - 1; i >= 0; i--){
+    for (let i = trace.length - 1; i >= 0; i--) {
       const ev = trace[i];
       if (RingerEvents.isComplete(ev)) {
         return ev;
@@ -46,7 +55,9 @@ export namespace Traces {
   }
 
   export function tabId(ev: RecordedRingerEvent | undefined) {
-    if (!ev) { return undefined; }
+    if (!ev) {
+      return undefined;
+    }
     return ev.data.tabId;
   }
 
@@ -62,25 +73,25 @@ export namespace Traces {
   export function tabsInTrace(trace: Trace) {
     const tabs: number[] = [];
     for (const ev of trace) {
-      if (RingerEvents.isComplete(ev)){
+      if (RingerEvents.isComplete(ev)) {
         if (!tabs.includes(ev.data.tabId)) {
           tabs.push(ev.data.tabId);
         }
       }
-    }  
+    }
     return tabs;
   }
 
   /**
    * Add display information placeholder to event.
-   * @param ev 
+   * @param ev
    */
   export function prepareForDisplay(ev: RecordedRingerEvent) {
     let dispEv: DisplayTraceEvent = {
       ...ev,
       additionalDataTmp: {
-        display: {}
-      }
+        display: {},
+      },
     };
     return dispEv;
   }
@@ -92,7 +103,7 @@ export namespace Traces {
   }
 
   export function getDOMURL(ev: RecordedRingerEvent) {
-    const url = <string> ev.frame.topURL;
+    const url = <string>ev.frame.topURL;
 
     // to canonicalize urls that'd be treated the same, remove slash at end
     return strip(url, "/");
@@ -135,8 +146,10 @@ export namespace Traces {
     return undefined;
   }
 
-  export function setLoadOutputPageVar(ev: DisplayTraceEvent,
-      val: PageVariable) {
+  export function setLoadOutputPageVar(
+    ev: DisplayTraceEvent,
+    val: PageVariable
+  ) {
     ev.additionalDataTmp.display.pageVar = val;
   }
 
@@ -151,19 +164,27 @@ export namespace Traces {
     ev.additionalDataTmp.display.inputPageVar = val;
   }
 
-  export function getDOMOutputLoadEvents(ev: DisplayTraceEvent){
-    if (ev.type !== "dom") { return; }
+  export function getDOMOutputLoadEvents(ev: DisplayTraceEvent) {
+    if (ev.type !== "dom") {
+      return;
+    }
     return ev.additionalDataTmp.display.causesLoads;
   }
 
-  export function setDOMOutputLoadEvents(ev: DisplayTraceEvent,
-      val: RecordedRingerEvent[]) {
-    if (ev.type !== "dom") { return; }
+  export function setDOMOutputLoadEvents(
+    ev: DisplayTraceEvent,
+    val: RecordedRingerEvent[]
+  ) {
+    if (ev.type !== "dom") {
+      return;
+    }
     ev.additionalDataTmp.display.causesLoads = val;
   }
 
-  export function addDOMOutputLoadEvent(ev: DisplayTraceEvent,
-      val: RecordedRingerEvent) {
+  export function addDOMOutputLoadEvent(
+    ev: DisplayTraceEvent,
+    val: RecordedRingerEvent
+  ) {
     if (!ev.additionalDataTmp.display.causesLoads) {
       ev.additionalDataTmp.display.causesLoads = [];
     }
@@ -174,8 +195,10 @@ export namespace Traces {
     return ev.additionalDataTmp.display.causedBy;
   }
 
-  export function setLoadCausedBy(ev: DisplayTraceEvent,
-      val: RecordedRingerEvent) {
+  export function setLoadCausedBy(
+    ev: DisplayTraceEvent,
+    val: RecordedRingerEvent
+  ) {
     ev.additionalDataTmp.display.causedBy = val;
   }
 
@@ -195,7 +218,7 @@ export namespace Traces {
   export function cleanTrace(trace: Trace) {
     const cleanTrace = [];
     for (const event of trace) {
-      cleanTrace.push(cleanEvent(<DisplayTraceEvent> event));
+      cleanTrace.push(cleanEvent(<DisplayTraceEvent>event));
     }
     return cleanTrace;
   }
@@ -204,13 +227,17 @@ export namespace Traces {
     delete ev.additionalDataTmp.display;
   }
 
-  export function setDisplayInfo(ev: DisplayTraceEvent,
-      displayInfo: EventDisplayInfo) {
+  export function setDisplayInfo(
+    ev: DisplayTraceEvent,
+    displayInfo: EventDisplayInfo
+  ) {
     ev.additionalDataTmp.display = displayInfo;
   }
 
-  export function setTemporaryStatementIdentifier(ev: RecordedRingerEvent,
-      id: number) {
+  export function setTemporaryStatementIdentifier(
+    ev: RecordedRingerEvent,
+    id: number
+  ) {
     if (!ev.additional) {
       // not a dom event, can't copy this stuff around
       return;
@@ -220,14 +247,19 @@ export namespace Traces {
     //   somewhat unreliable because of cascading events; sufficient for us
     //   because cascading events will appear in the same statement, so can
     //   have same statement id, but be careful
+    if (!ev.additional.___additionalData___) {
+      ev.additional.___additionalData___ = {};
+    }
     ev.additional.___additionalData___.temporaryStatementIdentifier = id;
   }
 
-
   export function firstScrapedContentEventInTrace(trace: Trace) {
     for (const event of trace) {
-      if (event.additional && event.additional.scrape &&
-          event.additional.scrape.text) {
+      if (
+        event.additional &&
+        event.additional.scrape &&
+        event.additional.scrape.text
+      ) {
         return event;
       }
     }
@@ -243,14 +275,17 @@ export namespace Traces {
   }
 
   export function statementType(ev: RecordedRingerEvent) {
-    if (ev.type === "completed" || ev.type === "manualload" ||
-        ev.type === "webnavigation") {
+    if (
+      ev.type === "completed" ||
+      ev.type === "manualload" ||
+      ev.type === "webnavigation"
+    ) {
       if (!Traces.getVisible(ev)) {
         return null; // invisible, so we don't care where this goes
       }
       return StatementTypes.LOAD;
     } else if (ev.type === "dom") {
-      const domEv = <DOMRingerEvent & RecordedRingerEvent> ev;
+      const domEv = <DOMRingerEvent & RecordedRingerEvent>ev;
       if (statementToEventMapping.dontcare.includes(domEv.data.type)) {
         return null; // who cares where blur events go
       }
@@ -260,7 +295,7 @@ export namespace Traces {
         //   something special for this
         return StatementTypes.PULLDOWNINTERACTION;
       } else if (statementToEventMapping.mouse.includes(ev.data.type)) {
-        const domEv = <DOMRingerEvent> ev;
+        const domEv = <DOMRingerEvent>ev;
         if (domEv.additional.scrape) {
           if (domEv.additional.scrape.linkScraping) {
             return StatementTypes.SCRAPELINK;
@@ -289,7 +324,7 @@ export namespace Traces {
     for (const ev of trace) {
       const st = statementType(ev);
       if (st !== null) {
-        return <DisplayTraceEvent> ev;
+        return <DisplayTraceEvent>ev;
       }
     }
     throw new ReferenceError("No visible events in trace!");

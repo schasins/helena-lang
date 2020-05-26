@@ -1,13 +1,32 @@
 import { HelenaConsole } from "../../common/utils/helena_console";
 import { Highlight } from "./highlight";
 import { Indexable } from "../common/utils";
-import { Snapshot, Delta, NodeSnapshot, PropertyDifferentDelta } from "./snapshot";
+import {
+  Snapshot,
+  Delta,
+  NodeSnapshot,
+  PropertyDifferentDelta,
+} from "./snapshot";
 import { Target, TargetInfo, TargetStatus } from "./target";
 import { DOMUtils } from "./dom_utils";
-import { RingerMessage, PortInfo, ReplayAckStatus, RecordState, GetIdMessage } from "../common/messages";
-import { RingerEvent, RecordedRingerEvent, DOMRingerEvent } from "../common/event";
+import {
+  RingerMessage,
+  PortInfo,
+  ReplayAckStatus,
+  RecordState,
+  GetIdMessage,
+} from "../common/messages";
+import {
+  RingerEvent,
+  RecordedRingerEvent,
+  DOMRingerEvent,
+} from "../common/event";
 import { Logs } from "../common/logs";
-import { CompensationAction, IRingerParams, RingerParams } from "../common/params";
+import {
+  CompensationAction,
+  IRingerParams,
+  RingerParams,
+} from "../common/params";
 
 /**
  * Handlers for other tools using record & replay to put data in event messages.
@@ -63,7 +82,7 @@ export class RingerContent {
    * Record variables
    */
   public pageEventId: number; // counter to give each event on page a unique id
-  public lastRecordEvent: DOMRingerEvent | null;  // last event recorded
+  public lastRecordEvent: DOMRingerEvent | null; // last event recorded
 
   // snapshot (before and after) for last event
   public lastRecordSnapshot?: RingerSnapshot;
@@ -80,7 +99,7 @@ export class RingerContent {
   /**
    * Replay variables
    */
-  public lastReplayEvent: RingerEvent;    // last event replayed
+  public lastReplayEvent: RingerEvent; // last event replayed
   public lastReplayTarget: HTMLElement;
 
   // snapshot taken before the event is replayed
@@ -104,10 +123,13 @@ export class RingerContent {
   public addonStartup: (() => void)[];
   public addonStartRecording: (() => void)[];
   public addonPreRecord: ((ev: Event) => boolean)[];
-  public addonPostRecord:
-    ((ev: Event, msg: RingerEvent) => boolean)[];
-  public addonPreReplay: ((target: Node, ev: Event, msg: RingerEvent,
-    events: RingerEvent[]) => boolean)[];
+  public addonPostRecord: ((ev: Event, msg: RingerEvent) => boolean)[];
+  public addonPreReplay: ((
+    target: Node,
+    ev: Event,
+    msg: RingerEvent,
+    events: RingerEvent[]
+  ) => boolean)[];
   public addonPreTarget: ((ev: RingerEvent) => boolean)[];
   public addonTarget: ((ev: RingerEvent) => Node)[];
 
@@ -130,10 +152,12 @@ export class RingerContent {
     this.additional_recording_filters = {};
     this.additional_recording_filters_on = {};
     this.additional_recording_handlers = {
-      ___additionalData___: () => {}
+      ___additionalData___: () => {
+        return {};
+      },
     };
     this.additional_recording_handlers_on = {
-      ___additionalData___: true
+      ___additionalData___: true,
     };
 
     this.dispatchingEvent = false;
@@ -143,7 +167,7 @@ export class RingerContent {
     this.timeoutInfo = {
       startTime: 0,
       startIndex: 0,
-      events: null
+      events: null,
     };
 
     this.addonStartup = [];
@@ -154,9 +178,9 @@ export class RingerContent {
     this.addonPreTarget = [];
     this.addonTarget = [];
 
-    this.log = Logs.getLog('content');
-    this.recordLog = Logs.getLog('record');
-    this.replayLog = Logs.getLog('replay');
+    this.log = Logs.getLog("content");
+    this.recordLog = Logs.getLog("record");
+    this.replayLog = Logs.getLog("replay");
 
     // We need to add all the events now before and other event listeners are
     //   added to the page. We will remove the unwanted handlers once params is
@@ -165,54 +189,55 @@ export class RingerContent {
 
     // Need to check if we are in an iframe
     const value: PortInfo = {
-      top: (window === window.top),
-      URL: document.URL
+      top: window === window.top,
+      URL: document.URL,
     };
 
     // Add all the other handlers
-    chrome.runtime.sendMessage({type: 'getId', value: value},
-        (resp: GetIdMessage) => {
-      if (!resp) return;
-      
-      this.log.log(resp);
+    chrome.runtime.sendMessage(
+      { type: "getId", value: value },
+      (resp: GetIdMessage) => {
+        if (!resp) return;
 
-      this.frameId = parseInt(resp.value);
-      this.port = chrome.runtime.connect({ name: resp.value });
-      this.port.onMessage.addListener(this.handleMessage.bind(this));
+        this.log.log(resp);
 
-      // see if recording is going on
-      this.port.postMessage({
-        type: 'getParams',
-        value: null,
-        state: this.recording
-      });
-      this.port.postMessage({
-        type: 'getRecording',
-        value: null,
-        state: this.recording
-      });
+        this.frameId = parseInt(resp.value);
+        this.port = chrome.runtime.connect({ name: resp.value });
+        this.port.onMessage.addListener(this.handleMessage.bind(this));
 
-      // handle any startup the addons need
-      for (const addonHandler of this.addonStartup) {
-        addonHandler();
+        // see if recording is going on
+        this.port.postMessage({
+          type: "getParams",
+          value: null,
+          state: this.recording,
+        });
+        this.port.postMessage({
+          type: "getRecording",
+          value: null,
+          state: this.recording,
+        });
+
+        // handle any startup the addons need
+        for (const addonHandler of this.addonStartup) {
+          addonHandler();
+        }
       }
-    });
+    );
 
     // TODO: cjbaik: should this polling ever stop? seems to check when the URL
     //   on the document changes. Could we implement an event listener for this?
-    window.setInterval(function() {
+    window.setInterval(function () {
       if (value.URL !== document.URL) {
         const url = document.URL;
         value.URL = url;
         this.port.postMessage({
-          type: 'url',
+          type: "url",
           value: url,
-          state: this.recording
+          state: this.recording,
         });
-        this.log.log('url change: ', url);
+        this.log.log("url change: ", url);
       }
     }, 1000);
-
   }
 
   /**
@@ -240,24 +265,26 @@ export class RingerContent {
    */
   public checkTimeout(events: RingerEvent[], startIndex: number) {
     let timeout = RingerParams.params.replay.targetTimeout;
-    if (events[startIndex] && events[startIndex].targetTimeout){
-      timeout = <number> events[startIndex].targetTimeout;
+    if (events[startIndex] && events[startIndex].targetTimeout) {
+      timeout = <number>events[startIndex].targetTimeout;
     }
     console.log("Checking for timeout:", timeout);
     if (!(timeout === null || timeout === undefined) && timeout > 0) {
       var curTime = new Date().getTime();
 
       /* we havent changed event */
-      if (this.timeoutInfo.events == events &&
-          this.timeoutInfo.startIndex == startIndex) {
-        if ((curTime - this.timeoutInfo.startTime) > (timeout * 1000)) {
+      if (
+        this.timeoutInfo.events == events &&
+        this.timeoutInfo.startIndex == startIndex
+      ) {
+        if (curTime - this.timeoutInfo.startTime > timeout * 1000) {
           return true;
         }
       } else {
         this.timeoutInfo = {
           startTime: curTime,
           startIndex: startIndex,
-          events: events
+          events: events,
         };
       }
     }
@@ -280,37 +307,53 @@ export class RingerContent {
    * @param replayDeltas deltas from replay
    * @param lastTarget last target
    */
-  public fixDeltas(recordDeltas: Delta[], replayDeltas: Delta[],
-      lastTarget: HTMLElement & Indexable) {
-    this.replayLog.info('record deltas:', recordDeltas);
-    this.replayLog.info('replay deltas:', replayDeltas);
+  public fixDeltas(
+    recordDeltas: Delta[],
+    replayDeltas: Delta[],
+    lastTarget: HTMLElement & Indexable
+  ) {
+    this.replayLog.info("record deltas:", recordDeltas);
+    this.replayLog.info("replay deltas:", replayDeltas);
 
     /* effects of events that were found in record but not replay */
-    const recordDeltasNotMatched = Snapshot.filterDeltas(recordDeltas,
-      replayDeltas);
+    const recordDeltasNotMatched = Snapshot.filterDeltas(
+      recordDeltas,
+      replayDeltas
+    );
     /* effects of events that were found in replay but not record */
-    const replayDeltasNotMatched = Snapshot.filterDeltas(replayDeltas,
-      recordDeltas);
+    const replayDeltasNotMatched = Snapshot.filterDeltas(
+      replayDeltas,
+      recordDeltas
+    );
 
-    this.replayLog.info('record deltas not matched: ', recordDeltasNotMatched);
-    this.replayLog.info('replay deltas not matched: ', replayDeltasNotMatched);
+    this.replayLog.info("record deltas not matched: ", recordDeltasNotMatched);
+    this.replayLog.info("replay deltas not matched: ", replayDeltasNotMatched);
 
     const element = lastTarget;
 
     for (const delta of replayDeltasNotMatched) {
-      this.replayLog.debug('unmatched replay delta', delta);
+      this.replayLog.debug("unmatched replay delta", delta);
 
-      if (delta.type === 'Property is different.') {
-        const propDiffDelta = <PropertyDifferentDelta> delta;
+      if (delta.type === "Property is different.") {
+        const propDiffDelta = <PropertyDifferentDelta>delta;
         const divProp = propDiffDelta.divergingProp;
-        if (RingerParams.params.replay.compensation === CompensationAction.FORCED) {
+        if (
+          RingerParams.params.replay.compensation === CompensationAction.FORCED
+        ) {
           try {
             element[divProp] = propDiffDelta.orig.prop[divProp];
-            HelenaConsole.log("updated prop", divProp, " to ",
-              propDiffDelta.orig.prop[divProp]);
+            HelenaConsole.log(
+              "updated prop",
+              divProp,
+              " to ",
+              propDiffDelta.orig.prop[divProp]
+            );
           } catch (err) {
-            console.warn("Attempted to update prop", divProp,
-              propDiffDelta.orig.prop[divProp]);
+            console.warn(
+              "Attempted to update prop",
+              divProp,
+              propDiffDelta.orig.prop[divProp]
+            );
           }
         }
       }
@@ -318,21 +361,29 @@ export class RingerContent {
 
     /* the thing below is the stuff that's doing divergence synthesis */
     for (const delta of recordDeltasNotMatched) {
-      this.replayLog.debug('unmatched record delta', delta);
+      this.replayLog.debug("unmatched record delta", delta);
 
-      if (delta.type == 'Property is different.') {
-        const diffPropDelta = <PropertyDifferentDelta> delta;
+      if (delta.type == "Property is different.") {
+        const diffPropDelta = <PropertyDifferentDelta>delta;
         const divProp = diffPropDelta.divergingProp;
-        if (RingerParams.params.replay.compensation == CompensationAction.FORCED) {
+        if (
+          RingerParams.params.replay.compensation == CompensationAction.FORCED
+        ) {
           try {
             element[divProp] = diffPropDelta.changed.prop[divProp];
-            HelenaConsole.log("updated prop", divProp, " to ",
-              diffPropDelta.changed.prop[divProp]);
+            HelenaConsole.log(
+              "updated prop",
+              divProp,
+              " to ",
+              diffPropDelta.changed.prop[divProp]
+            );
           } catch (err) {
-            console.warn("Attempted to update prop", divProp,
-              diffPropDelta.orig.prop[divProp]);
+            console.warn(
+              "Attempted to update prop",
+              divProp,
+              diffPropDelta.orig.prop[divProp]
+            );
           }
-          
         }
       }
     }
@@ -365,7 +416,6 @@ export class RingerContent {
     throw new ReferenceError("Invalid eventType.");
   }
 
-
   /**
    * Find matching event in simulatedEvents. Needed to ensure that an event is
    *   not replayed twice, i.e. once by the browser and once by the tool.
@@ -375,8 +425,10 @@ export class RingerContent {
       return null;
     }
 
-    if (this.simulatedEvents === null ||
-        this.simulatedEventsIdx >= this.simulatedEvents.length) {
+    if (
+      this.simulatedEvents === null ||
+      this.simulatedEventsIdx >= this.simulatedEvents.length
+    ) {
       return null;
     }
 
@@ -396,7 +448,7 @@ export class RingerContent {
 
     this.log.log(`[${this.frameId}] handle message:`, request, type);
 
-    if (type === 'recording') {
+    if (type === "recording") {
       this.recording = request.value;
       if (this.recording === RecordState.RECORDING) {
         /* handle any startup the addons need once a tab knows it's recording */
@@ -404,27 +456,27 @@ export class RingerContent {
           addonHandler();
         }
       }
-    } else if (type === 'params') {
+    } else if (type === "params") {
       this.updateParams(request.value);
-    } else if (type === 'dom') {
+    } else if (type === "dom") {
       this.simulate(request.value, 0);
-    } else if (type === 'stop') {
+    } else if (type === "stop") {
       this.updateDeltas();
       this.resetRecord();
-    } else if (type === 'reset') {
+    } else if (type === "reset") {
       this.resetRecord();
-    } else if (type === 'pauseReplay') {
+    } else if (type === "pauseReplay") {
       this.clearRetry();
-    } else if (type === 'url') {
+    } else if (type === "url") {
       this.port.postMessage({
-        type: 'url',
+        type: "url",
         value: document.URL,
-        state: this.recording
+        state: this.recording,
       });
-    } else if (type === 'promptResponse') {
+    } else if (type === "promptResponse") {
       this.promptResponse(request.value);
     } else {
-      this.log.error('cannot handle message:', request);      
+      this.log.error("cannot handle message:", JSON.stringify(request));
     }
   }
 
@@ -437,19 +489,19 @@ export class RingerContent {
 
   /**
    * Does this send a prompt to the user?
-   * @param text 
-   * @param callback 
+   * @param text
+   * @param callback
    */
-  public promptUser(text: string, callback: ((text: string) => void)) {
+  public promptUser(text: string, callback: (text: string) => void) {
     if (!this.promptCallback) {
-      this.log.warn('overwriting old prompt callback');
+      this.log.warn("overwriting old prompt callback");
     }
 
     this.promptCallback = callback;
     this.port.postMessage({
-      type: 'prompt',
+      type: "prompt",
       value: text,
-      state: this.recording
+      state: this.recording,
     });
   }
 
@@ -476,12 +528,14 @@ export class RingerContent {
 
     for (const key in this.additional_recording_filters_on) {
       // on may be false, or may lack a handler if user attached something silly
-      if (!this.additional_recording_filters_on[key] ||
-          !this.additional_recording_filters[key]) {
+      if (
+        !this.additional_recording_filters_on[key] ||
+        !this.additional_recording_filters[key]
+      ) {
         continue;
       }
       const filterIt = this.additional_recording_filters[key](eventData);
-      if (filterIt){
+      if (filterIt) {
         // the message including the eventMessage will never be sent, so this
         //   event will never be recorded
         return;
@@ -491,37 +545,55 @@ export class RingerContent {
     const type = eventData.type;
     const dispatchType = this.getEventType(type);
     let shouldRecord = RingerParams.params.events[dispatchType][type];
-    if (RingerParams.params.ctrlOnlyEvents.includes(type) &&
-        !(<MouseEvent | KeyboardEvent> eventData).ctrlKey) {
+    if (
+      RingerParams.params.ctrlOnlyEvents.includes(type) &&
+      !(<MouseEvent | KeyboardEvent>eventData).ctrlKey
+    ) {
       //console.log("Ignoring "+type+" because CTRL key not down.");
       shouldRecord = false;
     }
 
     const matched = this.getMatchingEvent(eventData);
 
-    if (!matched && type == 'change' &&
-        this.recording == RecordState.REPLAYING) {
+    if (
+      !matched &&
+      type == "change" &&
+      this.recording == RecordState.REPLAYING
+    ) {
       eventData.stopImmediatePropagation();
       eventData.preventDefault();
       return false;
     }
 
     /* cancel the affects of events which are not extension generated or are not
-    * picked up by the recorder */
-    if (RingerParams.params.replay.cancelUnknownEvents && 
-        this.recording === RecordState.REPLAYING && !this.dispatchingEvent) {
+     * picked up by the recorder */
+    if (
+      RingerParams.params.replay.cancelUnknownEvents &&
+      this.recording === RecordState.REPLAYING &&
+      !this.dispatchingEvent
+    ) {
       this.recordLog.debug(
-        `[${this.frameId}] cancel unknown event during replay:`, type,
-        dispatchType, eventData);
+        `[${this.frameId}] cancel unknown event during replay:`,
+        type,
+        dispatchType,
+        eventData
+      );
       eventData.stopImmediatePropagation();
       eventData.preventDefault();
       return false;
     }
 
-    if (RingerParams.params.record.cancelUnrecordedEvents &&
-        this.recording === RecordState.RECORDING && !shouldRecord) {
-      this.recordLog.debug(`[${this.frameId}] cancel unrecorded event:`, type, 
-          dispatchType, eventData);
+    if (
+      RingerParams.params.record.cancelUnrecordedEvents &&
+      this.recording === RecordState.RECORDING &&
+      !shouldRecord
+    ) {
+      this.recordLog.debug(
+        `[${this.frameId}] cancel unrecorded event:`,
+        type,
+        dispatchType,
+        eventData
+      );
       eventData.stopImmediatePropagation();
       eventData.preventDefault();
       return false;
@@ -534,45 +606,48 @@ export class RingerContent {
 
     /* handle any event recording the addons need */
     for (const addonHandler of this.addonPreRecord) {
-      if (!addonHandler(eventData))
-        return false;
+      if (!addonHandler(eventData)) return false;
     }
 
     /* continue recording the event */
-    this.recordLog.debug(`[${this.frameId}] process event:`, type, dispatchType,
-        eventData);
-    this.sendAlert('Recorded event: ' + type);
+    this.recordLog.debug(
+      `[${this.frameId}] process event:`,
+      type,
+      dispatchType,
+      eventData
+    );
+    this.sendAlert("Recorded event: " + type);
 
     const properties = this.getEventProps(type);
-    const target = <HTMLElement> eventData.target;
+    const target = <HTMLElement>eventData.target;
     const nodeName = target.nodeName.toLowerCase();
 
     const eventMessage: DOMRingerEvent = {
       additional: {},
       data: {
-        timeStamp: 0,  // will be set below
-        type: ''       // will be set below
+        timeStamp: 0, // will be set below
+        type: "", // will be set below
       },
       frame: {
         innerHeight: window.innerHeight,
         innerWidth: window.innerWidth,
         outerHeight: window.outerHeight,
         outerWidth: window.outerWidth,
-        URL: document.URL
+        URL: document.URL,
       },
       meta: {
         dispatchType: dispatchType,
         nodeName: nodeName,
         pageEventId: this.pageEventId++,
-        recordState: this.recording
+        recordState: this.recording,
       },
-      
+
       // TODO: cjbaik: moved this above `replayUpdateDeltas` and `updateDeltas`,
       //   does it break?
       target: Target.saveTargetInfo(target, this.recording),
-    
+
       timing: {},
-      type: 'dom'
+      type: "dom",
     };
 
     /* deal with all the replay mess that we can't do in simulate */
@@ -581,13 +656,15 @@ export class RingerContent {
     }
 
     /* deal with snapshotting the DOM, calculating the deltas, and sending
-    * updates */
+     * updates */
     this.updateDeltas(target);
 
     const relatedTarget = eventData.relatedTarget;
     if (relatedTarget) {
-      eventMessage.relatedTarget = Target.saveTargetInfo(relatedTarget,
-        this.recording);
+      eventMessage.relatedTarget = Target.saveTargetInfo(
+        relatedTarget,
+        this.recording
+      );
     }
 
     /* record all properties of the event object */
@@ -595,14 +672,21 @@ export class RingerContent {
       for (const prop in eventData) {
         try {
           const value = eventData[prop];
-          const t = typeof(value);
-          if (t === 'number' || t === 'boolean' || t === 'string' || 
-              t === 'undefined') {
+          const t = typeof value;
+          if (
+            t === "number" ||
+            t === "boolean" ||
+            t === "string" ||
+            t === "undefined"
+          ) {
             eventMessage.data[prop] = value;
           }
         } catch (err) {
-          this.recordLog.error(`[${this.frameId}] error recording property:`,
-            prop, err);
+          this.recordLog.error(
+            `[${this.frameId}] error recording property:`,
+            prop,
+            err
+          );
         }
       }
     } else {
@@ -620,19 +704,21 @@ export class RingerContent {
     if (eventMessage.data.timeStamp < 307584000000) {
       // if you've been waiting on this page for 10 years, you're out of luck
       // we're assuming this is new Chrome's time since page loaeventMessage.d
-      eventMessage.data.timeStamp = eventMessage.data.timeStamp +
-        performance.timing.navigationStart;
+      eventMessage.data.timeStamp =
+        eventMessage.data.timeStamp + performance.timing.navigationStart;
     }
 
     /* handle any event recording the addons need */
     for (const addonHandler of this.addonPostRecord) {
       addonHandler(eventData, eventMessage);
     }
-    
+
     for (const key in this.additional_recording_handlers_on) {
       // on may be false, or may lack a handler if user attached something silly
-      if (!this.additional_recording_handlers_on[key] ||
-          !this.additional_recording_handlers[key]) {
+      if (
+        !this.additional_recording_handlers_on[key] ||
+        !this.additional_recording_handlers[key]
+      ) {
         continue;
       }
       const handler = this.additional_recording_handlers[key];
@@ -649,35 +735,37 @@ export class RingerContent {
     }
 
     /* save the event record */
-    this.recordLog.debug(`[${this.frameId}] saving event message:`,
-      eventMessage);
+    this.recordLog.debug(
+      `[${this.frameId}] saving event message:`,
+      eventMessage
+    );
     this.port.postMessage({
-      type: 'event',
+      type: "event",
       value: eventMessage,
-      state: this.recording
+      state: this.recording,
     });
     this.lastRecordEvent = eventMessage;
 
-    /* check to see if this event is part of a cascade of events. we do this 
-    * by setting a timeout, which will execute after the cascade of events */
+    /* check to see if this event is part of a cascade of events. we do this
+     * by setting a timeout, which will execute after the cascade of events */
     setTimeout(() => {
       if (!this.lastRecordEvent) {
         throw new ReferenceError("lastRecordEvent is null.");
       }
       const update = {
-        type: 'updateEvent',
+        type: "updateEvent",
         value: {
           pageEventId: eventMessage.meta.pageEventId,
           updates: [
             {
-              field: 'meta.endEventId',
-              value: this.lastRecordEvent.meta.pageEventId
-            }
-          ]
+              field: "meta.endEventId",
+              value: this.lastRecordEvent.meta.pageEventId,
+            },
+          ],
         },
-        state: this.lastRecordEvent.meta.recordState
+        state: this.lastRecordEvent.meta.recordState,
       };
-      this.recordLog.debug('Update:', update);
+      this.recordLog.debug("Update:", update);
       this.port.postMessage(update);
     }, 0);
 
@@ -692,28 +780,32 @@ export class RingerContent {
     const replayEvent = this.getMatchingEvent(eventData);
     if (replayEvent) {
       this.incrementMatchedEventIndex();
-        
+
       replayEvent.replayed = true;
 
       eventMessage.meta.recordId = replayEvent.meta?.id;
-      const target = <HTMLElement> eventData.target;
+      const target = <HTMLElement>eventData.target;
       this.snapshotReplay(target);
 
       /* make sure the deltas from the last event actually happened */
       if (RingerParams.params.compensation.enabled && this.lastReplayEvent) {
         let recordDeltas = this.lastReplayEvent.meta?.deltas;
         if (recordDeltas === undefined) {
-          this.recordLog.error('no deltas found for last event:',
-            this.lastReplayEvent);
+          this.recordLog.error(
+            "no deltas found for last event:",
+            this.lastReplayEvent
+          );
           recordDeltas = [];
         }
 
         /* make sure replay matches recording */
         if (this.lastReplaySnapshot) {
           const replayDeltas = Snapshot.getDeltas(
-            this.lastReplaySnapshot.before, this.lastReplaySnapshot.after);
+            this.lastReplaySnapshot.before,
+            this.lastReplaySnapshot.after
+          );
           /* check if these deltas match the last simulated event
-          * and correct for unmatched deltas */
+           * and correct for unmatched deltas */
           this.fixDeltas(recordDeltas, replayDeltas, this.lastReplayTarget);
         }
 
@@ -746,9 +838,9 @@ export class RingerContent {
    */
   public sendAlert(msg: string) {
     this.port.postMessage({
-      type: 'alert',
+      type: "alert",
       value: msg,
-      state: this.recording
+      state: this.recording,
     });
   }
 
@@ -770,13 +862,15 @@ export class RingerContent {
         Object.defineProperty(e, prop, { value: value });
       }
     } catch (err) {}
-  
+
     try {
       if (e[prop] !== value) {
         let v = value;
         Object.defineProperty(e, prop, {
           get: () => v,
-          set: (arg) => { v = arg; }
+          set: (arg) => {
+            v = arg;
+          },
         });
         Object.defineProperty(e, prop, { value: v });
       }
@@ -791,8 +885,11 @@ export class RingerContent {
    * @param startIndex
    * @param timeout time until retry
    */
-  public setRetry(events: RecordedRingerEvent[], startIndex: number,
-      timeout: number) {
+  public setRetry(
+    events: RecordedRingerEvent[],
+    startIndex: number,
+    timeout: number
+  ) {
     const self = this;
     this.retryTimeout = setTimeout(() => {
       self.simulate(events, startIndex);
@@ -808,7 +905,7 @@ export class RingerContent {
    */
   public simulate(events: RecordedRingerEvent[], startIndex: number) {
     /* since we are simulating new events, lets clear out any retries from
-    * the last request */
+     * the last request */
     this.clearRetry();
 
     this.simulatedEvents = events;
@@ -816,12 +913,12 @@ export class RingerContent {
 
     for (let i = startIndex; i < events.length; ++i) {
       /* Should not replay non-dom events here */
-      if (events[i].type !== 'dom') {
-        this.replayLog.error('Simulating unknown event type');
-        throw new ReferenceError('Unknown event type');
+      if (events[i].type !== "dom") {
+        this.replayLog.error("Simulating unknown event type");
+        throw new ReferenceError("Unknown event type");
       }
-      
-      const eventRecord = <DOMRingerEvent> events[i];
+
+      const eventRecord = <DOMRingerEvent>events[i];
 
       const eventData = eventRecord.data;
       const eventName = eventData.type;
@@ -836,7 +933,7 @@ export class RingerContent {
         addonHandler(eventRecord);
       }
 
-      this.replayLog.debug('simulating:', eventName, eventData);
+      this.replayLog.debug("simulating:", eventName, eventData);
 
       let target = null;
       let targetInfo: TargetInfo | null = null;
@@ -849,9 +946,9 @@ export class RingerContent {
           }
         }
       } else {
-        targetInfo = <TargetInfo> eventRecord.target;
+        targetInfo = <TargetInfo>eventRecord.target;
         // const xpath = targetInfo.xpath;
-    
+
         /* find the target */
         target = Target.getTarget(targetInfo);
       }
@@ -870,18 +967,23 @@ export class RingerContent {
 
       // there are some cases where we're sure we have no node, in which case we
       //   should just continue
-      if (target === TargetStatus.REQUIRED_FEATURE_FAILED_CERTAIN ||
-          target === TargetStatus.TIMED_OUT_CERTAIN) {
+      if (
+        target === TargetStatus.REQUIRED_FEATURE_FAILED_CERTAIN ||
+        target === TargetStatus.TIMED_OUT_CERTAIN
+      ) {
         i++;
         this.setRetry(events, i, 0); // todo: is waiting 0 here ok?
         return;
       }
 
       if (!target && eventRecord.data.type === "blur") {
-        // never wait to run blur event on node that doesn't currently exist. 
+        // never wait to run blur event on node that doesn't currently exist.
         //   doesn't make any sense to do that
         this.replayLog.warn(
-          'timeout finding target for blur event, skip event: ', events, i);
+          "timeout finding target for blur event, skip event: ",
+          events,
+          i
+        );
         // we timed out with this target, so lets skip the event
         i++;
       }
@@ -890,19 +992,26 @@ export class RingerContent {
        * the future, and hope the page changes */
       if (!target || target === TargetStatus.REQUIRED_FEATURE_FAILED) {
         if (this.checkTimeout(events, i)) {
-          if (target === TargetStatus.REQUIRED_FEATURE_FAILED &&
-              eventRecord.additional.scrape) {
+          if (
+            target === TargetStatus.REQUIRED_FEATURE_FAILED &&
+            eventRecord.additional.scrape
+          ) {
             if (!targetInfo) {
               throw new ReferenceError("TargetInfo is null.");
             }
             // if we have a required feature failure, but it's just a scraping
             //   event, go ahead and just don't scrape anything
-            const reqFeatures = <string[]> targetInfo.requiredFeatures;
-            const reqValues = reqFeatures.map((f) =>
-              (<TargetInfo> targetInfo).snapshot[f]);
+            const reqFeatures = <string[]>targetInfo.requiredFeatures;
+            const reqValues = reqFeatures.map(
+              (f) => (<TargetInfo>targetInfo).snapshot[f]
+            );
             this.replayLog.warn(
-              'REQUIREDFEATUREFAILURE finding scraping target, skip event: ',
-              events, i, reqFeatures, reqValues);
+              "REQUIREDFEATUREFAILURE finding scraping target, skip event: ",
+              events,
+              i,
+              reqFeatures,
+              reqValues
+            );
             Target.markAsMissingFeatures(targetInfo);
             // we timed out with this target, so lets skip the event
             i++;
@@ -918,9 +1027,9 @@ export class RingerContent {
             //   addressing fails in this case
             // so there will be a special error handler at the mainpanel for this
             this.port.postMessage({
-              type: 'findNodeWithoutRequiredFeatures',
+              type: "findNodeWithoutRequiredFeatures",
               value: null,
-              state: this.recording
+              state: this.recording,
             });
           } else {
             if (!targetInfo) {
@@ -931,8 +1040,11 @@ export class RingerContent {
             //   higher-level tool know what happened
             // we can thus let it pick the strategy.  perhaps when it isn't
             //   found, we should quit
-            this.replayLog.warn('timeout finding target, skip event: ', events,
-              i);
+            this.replayLog.warn(
+              "timeout finding target, skip event: ",
+              events,
+              i
+            );
             Target.markTimedOut(targetInfo);
             // we timed out with this target, so lets skip the event
             i++;
@@ -944,11 +1056,11 @@ export class RingerContent {
       }
 
       if (RingerParams.params.replay.highlightTarget) {
-        if (!["blur", "focus"].includes(eventName)){
-          Highlight.highlightNode(<HTMLElement> target, 100);
+        if (!["blur", "focus"].includes(eventName)) {
+          Highlight.highlightNode(<HTMLElement>target, 100);
         }
       }
-          
+
       // additional handlers should run in replay only if ran in record
       for (const key in this.additional_recording_handlers_on) {
         this.additional_recording_handlers_on[key] = false;
@@ -960,9 +1072,11 @@ export class RingerContent {
       //   in current event object's additionalData field
       this.additional_recording_handlers_on.___additionalData___ = true;
       this.additional_recording_handlers.___additionalData___ = () => {
-        if (eventRecord.additional &&
-            eventRecord.additional.___additionalData___) {
-          return eventRecord.additional.___additionalData___; 
+        if (
+          eventRecord.additional &&
+          eventRecord.additional.___additionalData___
+        ) {
+          return eventRecord.additional.___additionalData___;
         }
         return {};
       };
@@ -980,24 +1094,28 @@ export class RingerContent {
 
       // sometimes to adapt a script from mac to linux, want to switch from
       //   metakey pressed to ctrl key pressed
-      if (eventData.ctrlKeyOnLinux &&
-          window.navigator.platform.indexOf("Linux") > -1){
+      if (
+        eventData.ctrlKeyOnLinux &&
+        window.navigator.platform.indexOf("Linux") > -1
+      ) {
         options.ctrlKey = true;
       }
       // sometimes to adapt a script from linux to mac, want to switch from ctrl
       //   pressed to meta key pressed
-      if (eventData.metaKeyOnMac &&
-          window.navigator.platform.indexOf("Mac") > -1){
+      if (
+        eventData.metaKeyOnMac &&
+        window.navigator.platform.indexOf("Mac") > -1
+      ) {
         options.metaKey = true;
       }
 
       let oEvent: Event & Indexable = document.createEvent(eventType);
-      if (eventType === 'Event') {
+      if (eventType === "Event") {
         oEvent = new Event(eventName, {
           bubbles: options.bubbles,
-          cancelable: options.cancelable
+          cancelable: options.cancelable,
         });
-      } else if (eventType === 'FocusEvent') {
+      } else if (eventType === "FocusEvent") {
         let relatedTarget = null;
 
         if (eventRecord.relatedTarget) {
@@ -1008,10 +1126,10 @@ export class RingerContent {
           bubbles: options.bubbles,
           cancelable: options.cancelable,
           detail: options.detail,
-          view: document.defaultView
+          view: document.defaultView,
         });
-        this.setEventProp(oEvent, 'relatedTarget', relatedTarget);
-      } else if (eventType == 'MouseEvent') {
+        this.setEventProp(oEvent, "relatedTarget", relatedTarget);
+      } else if (eventType == "MouseEvent") {
         let relatedTarget = null;
 
         if (eventRecord.relatedTarget) {
@@ -1035,9 +1153,9 @@ export class RingerContent {
           screenX: options.screenX,
           screenY: options.screenY,
           shiftKey: options.shiftKey,
-          view: document.defaultView
+          view: document.defaultView,
         });
-      } else if (eventType == 'KeyboardEvent') {
+      } else if (eventType == "KeyboardEvent") {
         // TODO: nonstandard initKeyboardEvent
         oEvent = new KeyboardEvent(eventName, {
           altKey: options.altKey,
@@ -1048,25 +1166,25 @@ export class RingerContent {
           location: options.keyLocation,
           metaKey: options.metaKey,
           shiftKey: options.shiftKey,
-          view: document.defaultView
+          view: document.defaultView,
         });
 
-        const propsToSet = ['charCode', 'keyCode'];
+        const propsToSet = ["charCode", "keyCode"];
 
         for (const prop of propsToSet) {
           this.setEventProp(oEvent, prop, options[prop]);
         }
-      } else if (eventType == 'TextEvent') {
+      } else if (eventType == "TextEvent") {
         oEvent = new InputEvent(eventName, {
           bubbles: options.bubbles,
           cancelable: options.cancelable,
           data: options.data,
           inputType: options.inputMethod,
           // locale: options.locale,
-          view: document.defaultView
+          view: document.defaultView,
         });
       } else {
-        this.replayLog.error('unknown type of event');
+        this.replayLog.error("unknown type of event");
       }
 
       /* used to detect extension generated events */
@@ -1076,27 +1194,36 @@ export class RingerContent {
         oEvent.cascadingOrigin = eventData.cascadingOrigin;
       }
 
-      this.replayLog.debug(`[${this.frameId}] dispatchEvent`, eventName,
-        options, target, oEvent);
+      this.replayLog.debug(
+        `[${this.frameId}] dispatchEvent`,
+        eventName,
+        options,
+        target,
+        oEvent
+      );
 
-      /* send the update to the injected script so that the event can be 
-      * updated on the pages's context */
+      /* send the update to the injected script so that the event can be
+       * updated on the pages's context */
       const detail: { [key: string]: any } = {};
       for (const prop in oEvent) {
         const data = oEvent[prop];
-        const type = typeof(data);
+        const type = typeof data;
 
-        if (type === 'number' || type === 'boolean' || type === 'string' ||
-            type === 'undefined') {
+        if (
+          type === "number" ||
+          type === "boolean" ||
+          type === "string" ||
+          type === "undefined"
+        ) {
           detail[prop] = data;
-        } else if (prop === 'relatedTarget' && data instanceof HTMLElement) {
+        } else if (prop === "relatedTarget" && data instanceof HTMLElement) {
           detail[prop] = DOMUtils.nodeToXPath(data);
         }
       }
-      document.dispatchEvent(new CustomEvent('webscript', { detail: detail }));
+      document.dispatchEvent(new CustomEvent("webscript", { detail: detail }));
 
       /* update panel showing event was sent */
-      this.sendAlert('Dispatched event: ' + eventData.type);
+      this.sendAlert("Dispatched event: " + eventData.type);
 
       /* handle any event replaying the addons need */
       for (const preReplayHandler of this.addonPreReplay) {
@@ -1106,27 +1233,27 @@ export class RingerContent {
       // sometimes a tool will want to force us to set a target property before
       //   dispatching event
       if (eventRecord.meta.forceProp) {
-        for (const key in eventRecord.meta.forceProp){
-          target = <Indexable & Node> target;
+        for (const key in eventRecord.meta.forceProp) {
+          target = <Indexable & Node>target;
           target[key] = eventRecord.meta.forceProp[key];
         }
       }
 
-      /* actually dispatch the event */ 
+      /* actually dispatch the event */
+
       this.dispatchingEvent = true;
       target.dispatchEvent(oEvent);
       this.dispatchingEvent = false;
     }
     /* let the background page know that all the events were replayed (its
-    * possible some/all events were skipped) */
+     * possible some/all events were skipped) */
     this.port.postMessage({
-      type: 'ack',
+      type: "ack",
       value: { type: ReplayAckStatus.SUCCESS },
-      state: this.recording
+      state: this.recording,
     });
-    this.replayLog.debug('sent ack: ', this.frameId);
+    this.replayLog.debug("sent ack: ", this.frameId);
   }
-
 
   /**
    * Create a snapshot of the target element.
@@ -1134,12 +1261,13 @@ export class RingerContent {
   public snapshotRecord(target: HTMLElement) {
     this.lastRecordSnapshot = this.curRecordSnapshot;
     if (this.lastRecordSnapshot)
-      this.lastRecordSnapshot.after =
-        Snapshot.snapshotNode(this.lastRecordSnapshot.target);
+      this.lastRecordSnapshot.after = Snapshot.snapshotNode(
+        this.lastRecordSnapshot.target
+      );
 
     this.curRecordSnapshot = {
       before: Snapshot.snapshotNode(target),
-      target: target
+      target: target,
     };
   }
 
@@ -1148,16 +1276,17 @@ export class RingerContent {
    * @param target
    */
   public snapshotReplay(target: HTMLElement) {
-    this.replayLog.log('snapshot target:', target);
+    this.replayLog.log("snapshot target:", target);
     this.lastReplaySnapshot = this.curReplaySnapshot;
     if (this.lastReplaySnapshot) {
-      this.lastReplaySnapshot.after =
-        Snapshot.snapshotNode(this.lastReplaySnapshot.target);
+      this.lastReplaySnapshot.after = Snapshot.snapshotNode(
+        this.lastReplaySnapshot.target
+      );
     }
 
     this.curReplaySnapshot = {
       before: Snapshot.snapshotNode(target),
-      target: target
+      target: target,
     };
   }
 
@@ -1171,25 +1300,27 @@ export class RingerContent {
     }
 
     if (this.lastRecordEvent && this.lastRecordSnapshot) {
-      const deltas = Snapshot.getDeltas(this.lastRecordSnapshot.before,
-        this.lastRecordSnapshot.after);
+      const deltas = Snapshot.getDeltas(
+        this.lastRecordSnapshot.before,
+        this.lastRecordSnapshot.after
+      );
       this.lastRecordEvent.deltas = deltas;
       var update = {
-        type: 'updateEvent',
+        type: "updateEvent",
         value: {
           pageEventId: this.lastRecordEvent.meta.pageEventId,
           updates: [
             {
-              field: 'meta.deltas',
-              value: deltas
+              field: "meta.deltas",
+              value: deltas,
             },
             {
-              field: 'meta.nodeSnapshot', 
-              value: Snapshot.snapshotNode(this.lastRecordSnapshot.target)
-            }
-          ]
+              field: "meta.nodeSnapshot",
+              value: Snapshot.snapshotNode(this.lastRecordSnapshot.target),
+            },
+          ],
         },
-        state: this.recording
+        state: this.recording,
       };
       this.port.postMessage(update);
     }
@@ -1201,24 +1332,26 @@ export class RingerContent {
    * @param field field of event to update
    * @param value value of event to update
    */
-  public updateExistingEvent(eventMessage: DOMRingerEvent, field: string,
-      value: string) {
+  public updateExistingEvent(
+    eventMessage: DOMRingerEvent,
+    field: string,
+    value: string
+  ) {
     const update = {
-      type: 'updateEvent',
+      type: "updateEvent",
       value: {
         pageEventId: eventMessage.meta.pageEventId,
         updates: [
           {
             field: field,
-            value: value
-          }
-        ]
+            value: value,
+          },
+        ],
       },
-      state: this.recording
+      state: this.recording,
     };
     this.port.postMessage(update);
   }
-
 
   /**
    * Update the parameters for this script's scope.
@@ -1246,7 +1379,9 @@ export class RingerContent {
           this.log.log(`[${this.frameId}] extension listening for ${e}`);
           document.addEventListener(e, this.recordEvent.bind(this), true);
         } else if (!listOfEvents[e] && oldListOfEvents[e]) {
-          this.log.log(`[${this.frameId}] extension stopped listening for ${e}`);
+          this.log.log(
+            `[${this.frameId}] extension stopped listening for ${e}`
+          );
           document.removeEventListener(e, this.recordEvent.bind(this), true);
         }
       }
@@ -1272,7 +1407,6 @@ function injectScripts(paths) {
 
 // TODO(sbarman): need to wrap these so variables don't escape into the
 // enclosing scope
-//injectScripts(["scripts/lib/record-replay/common_params.js", 
+//injectScripts(["scripts/lib/record-replay/common_params.js",
 //               "scripts/lib/record-replay/content_dom.js",
 //               "scripts/lib/record-replay/content_injected.js"]);
- 

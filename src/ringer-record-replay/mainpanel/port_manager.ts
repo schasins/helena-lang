@@ -15,10 +15,10 @@ interface SingleTopTabInfo {
  * Manages mappings between ports, tabs, iframes, etc.
  */
 export class PortManager {
-  private log = Logs.getLog('ports');
+  private log = Logs.getLog("ports");
   public numPorts: number;
   public portIdToPort: { [key: string]: chrome.runtime.Port };
-  public portIdToPortInfo: { [key: string]: PortInfo } ;
+  public portIdToPortInfo: { [key: string]: PortInfo };
   public portIdToTabId: { [key: string]: number };
   public portIdToWindowId: { [key: string]: number };
   public tabIdToPortIds: { [key: number]: string[] };
@@ -40,11 +40,11 @@ export class PortManager {
 
   /**
    * When a port connects, store its metadata.
-   * @param port 
+   * @param port
    */
   public connectPort(port: chrome.runtime.Port) {
     const self = this;
-  
+
     const portId = port.name;
     const ports = this.portIdToPort;
 
@@ -55,7 +55,7 @@ export class PortManager {
     });
 
     port.onDisconnect.addListener((evt) => {
-      self.log.log('Disconnect port:', port);
+      self.log.log("Disconnect port:", port);
 
       if (portId in ports) {
         delete ports[portId];
@@ -82,7 +82,7 @@ export class PortManager {
           }
         }
       } else {
-        self.log.log('Cannot find information about tab:', tabId, tabInfo);
+        self.log.log("Cannot find information about tab:", tabId, tabInfo);
       }
     });
   }
@@ -90,7 +90,7 @@ export class PortManager {
   /**
    * Gets a new id from the content script.
    * @param value
-   * @param sender 
+   * @param sender
    */
   public getNewId(value: PortInfo, sender: chrome.runtime.MessageSender) {
     const self = this;
@@ -99,7 +99,7 @@ export class PortManager {
     //   have a tab id. in this case, don't assign an id
     //console.log("getNewId", value, sender);
     if (!sender.tab) {
-      this.log.warn('request for new id without a tab id');
+      this.log.warn("request for new id without a tab id");
       return;
     }
 
@@ -114,7 +114,7 @@ export class PortManager {
     this.numPorts++;
     const portId = this.numPorts.toString();
 
-    this.log.log('adding new id: ', portId, value);
+    this.log.log("adding new id: ", portId, value);
 
     /* Update various mappings */
     const tabId = sender.tab.id;
@@ -124,7 +124,7 @@ export class PortManager {
 
     this.tabIdToTab[tabId] = sender.tab;
     this.tabIdToWindowId[tabId] = windowId;
-    this.log.log('adding tab:', tabId, sender.tab);
+    this.log.log("adding tab:", tabId, sender.tab);
 
     this.portIdToTabId[portId] = tabId;
     this.portIdToPortInfo[portId] = value;
@@ -142,11 +142,11 @@ export class PortManager {
     if (!tabInfo) {
       tabInfo = {
         top: [],
-        frames: []
+        frames: [],
       };
       this.tabIdToTabInfo[tabId] = tabInfo;
     }
-  
+
     if (value.top) {
       tabInfo.top.push(value);
       // console.log("this.tabIdToTabInfo, added top frame: ",
@@ -161,7 +161,7 @@ export class PortManager {
 
   /**
    * Get a {@link chrome.runtime.Port} given a port id.
-   * @param portId 
+   * @param portId
    */
   public getPort(portId: string) {
     return this.portIdToPort[portId];
@@ -169,7 +169,7 @@ export class PortManager {
 
   /**
    * Get a {@link chrome.tabs.Tab} from the tab id.
-   * @param tabId 
+   * @param tabId
    */
   public getTabFromTabId(tabId: number) {
     return this.tabIdToTab[tabId];
@@ -177,7 +177,7 @@ export class PortManager {
 
   /**
    * Get tab id given a port id.
-   * @param portId 
+   * @param portId
    */
   public getTabId(portId: string) {
     return this.portIdToTabId[portId];
@@ -185,7 +185,7 @@ export class PortManager {
 
   /**
    * Get tab info.
-   * @param tabId 
+   * @param tabId
    */
   public getTabInfo(tabId: number) {
     const tabInfo = this.tabIdToTabInfo[tabId];
@@ -194,7 +194,7 @@ export class PortManager {
     }
 
     const ret: SingleTopTabInfo = {
-      frames: tabInfo.frames
+      frames: tabInfo.frames,
     };
 
     // we store all the top frames, so just return the last frame
@@ -208,7 +208,7 @@ export class PortManager {
 
   /**
    * Get window id given a port id.
-   * @param portId 
+   * @param portId
    */
   public getWindowId(portId: string) {
     return this.portIdToWindowId[portId];
@@ -216,7 +216,7 @@ export class PortManager {
 
   /**
    * Delete information about the port.
-   * @param portId 
+   * @param portId
    */
   public removePort(portId: string) {
     delete this.portIdToPort[portId];
@@ -227,11 +227,11 @@ export class PortManager {
 
   /**
    * Delete information about the tab.
-   * @param tabId 
+   * @param tabId
    */
   public removeTab(tabId: number) {
     const portIds = this.tabIdToPortIds[tabId];
-    if (portIds){
+    if (portIds) {
       for (const portId of portIds) {
         this.removePort(portId);
       }
@@ -243,7 +243,7 @@ export class PortManager {
 
   /**
    * Delete all information about the tab.
-   * @param tabId 
+   * @param tabId
    */
   public removeTabInfo(tabId: number) {
     delete this.tabIdToTabInfo[tabId];
@@ -251,20 +251,22 @@ export class PortManager {
     delete this.tabIdToTab[tabId];
     const ports = this.tabIdToPortIds[tabId];
     delete this.tabIdToPortIds[tabId];
-    for (const port of ports) {
-      delete this.portIdToPort[port];
-      delete this.portIdToTabId[port];
-      delete this.portIdToPortInfo[port];
-      delete this.portIdToWindowId[port];
+    if (ports) {
+      for (const port of ports) {
+        delete this.portIdToPort[port];
+        delete this.portIdToTabId[port];
+        delete this.portIdToPortInfo[port];
+        delete this.portIdToWindowId[port];
+      }
     }
   }
 
   /**
    * Send message to all content scripts.
-   * @param message 
+   * @param message
    */
   public sendToAll(message: RingerMessage) {
-    this.log.log('sending to all:', message);
+    this.log.log("sending to all:", message);
     const ports = this.portIdToPort;
     for (const portId in ports) {
       ports[portId].postMessage(message);
@@ -281,7 +283,7 @@ export class PortManager {
       possiblyOpenTabs[parseInt(tabId)] = false;
     }
     for (const openTab of openTabs) {
-      possiblyOpenTabs[<number> openTab.id] = true;
+      possiblyOpenTabs[<number>openTab.id] = true;
     }
 
     for (const tabId in possiblyOpenTabs) {
@@ -293,8 +295,8 @@ export class PortManager {
 
   /**
    * Update the URL associated with the port.
-   * @param port 
-   * @param url 
+   * @param port
+   * @param url
    */
   public updateUrl(port: chrome.runtime.Port, url: string) {
     this.portIdToPortInfo[port.name].URL = url;

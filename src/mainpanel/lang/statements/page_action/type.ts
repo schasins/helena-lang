@@ -13,7 +13,11 @@ import { GenericRelation } from "../../../relation/generic";
 import { PageVariable } from "../../../variables/page_variable";
 import { RunObject, RunOptions, HelenaProgram } from "../../program";
 import { Revival } from "../../../revival";
-import { Trace, Traces, DisplayTraceEvent } from "../../../../common/utils/trace";
+import {
+  Trace,
+  Traces,
+  DisplayTraceEvent,
+} from "../../../../common/utils/trace";
 import { Environment } from "../../../environment";
 import { TargetInfo } from "../../../../ringer-record-replay/content/target";
 import { IColumnSelector } from "../../../../content/selector/interfaces";
@@ -25,7 +29,11 @@ import { HelenaBlocks } from "../../../ui/blocks";
  * Statement representing a user taking the action of typing something.
  */
 export class TypeStatement extends PageActionStatement {
-  public currentTypedString: HelenaString | Concatenate | NodeVariableUse | null;
+  public currentTypedString:
+    | HelenaString
+    | Concatenate
+    | NodeVariableUse
+    | null;
   public keyCodes: number[];
   public keyEvents: Trace;
   public onlyKeydowns: boolean;
@@ -40,52 +48,49 @@ export class TypeStatement extends PageActionStatement {
     super();
     Revival.addRevivalLabel(this);
     this.setBlocklyLabel("type");
-    
+
     // Prematurely end, for the `createDummy` method
     if (!trace) {
-      return;  
+      return;
     }
-  
+
     this.trace = trace;
     this.cleanTrace = Traces.cleanTrace(trace);
 
     // find the record-time constants that we'll turn into parameters
     const ev = Traces.firstVisibleEvent(trace);
     this.pageVar = Traces.getDOMInputPageVar(ev);
-    this.node = <string> ev.target.xpath;
-    this.pageUrl = <string> ev.frame.topURL;
+    this.node = <string>ev.target.xpath;
+    this.pageUrl = <string>ev.frame.topURL;
     // var acceptableEventTypes = HelenaMainpanel.statementToEventMapping.keyboard;
     const textEntryEvents = trace.filter((ev) => {
       const sType = Traces.statementType(ev);
-      return (sType === StatementTypes.KEYBOARD);
-              // || sType === StatementTypes.KEYUP);
+      return sType === StatementTypes.KEYBOARD;
+      // || sType === StatementTypes.KEYUP);
     });
 
     if (textEntryEvents.length > 0) {
       const lastTextEntryEvent = textEntryEvents[textEntryEvents.length - 1];
-      this.typedString =
-        (<TargetInfo> lastTextEntryEvent.target).snapshot.value;
+      this.typedString = (<TargetInfo>lastTextEntryEvent.target).snapshot.value;
       if (!this.typedString) {
         this.typedString = "";
       }
-      this.typedStringLower = this.typedString.toLowerCase(); 
+      this.typedStringLower = this.typedString.toLowerCase();
     }
 
     // any event in the segment may have triggered a load
     const domEvents = trace.filter((ev) => ev.type === "dom");
 
-    const outputLoads = domEvents.reduce(
-      (acc: Trace, ev) => {
-        const loadEvs = Traces.getDOMOutputLoadEvents(<DisplayTraceEvent> ev);
-        if (!loadEvs) {
-          throw new ReferenceError("DOM output load events undefined");
-        }
-        acc.concat(loadEvs);
-        return acc;
-      }, []);
+    const outputLoads = domEvents.reduce((acc: Trace, ev) => {
+      const loadEvs = Traces.getDOMOutputLoadEvents(<DisplayTraceEvent>ev);
+      if (!loadEvs) {
+        throw new ReferenceError("DOM output load events undefined");
+      }
+      return acc.concat(loadEvs);
+    }, []);
 
-    this.outputPageVars = outputLoads.map(
-      (ev) => Traces.getLoadOutputPageVar(<DisplayTraceEvent> ev)
+    this.outputPageVars = outputLoads.map((ev) =>
+      Traces.getLoadOutputPageVar(<DisplayTraceEvent>ev)
     );
 
     // for now, assume the ones we saw at record time are the ones we'll want at
@@ -110,7 +115,7 @@ export class TypeStatement extends PageActionStatement {
 
     if (onlyKeydowns || onlyKeyups) {
       this.keyEvents = textEntryEvents;
-      this.keyCodes = this.keyEvents.map((ev) => <number> ev.data.keyCode);
+      this.keyCodes = this.keyEvents.map((ev) => <number>ev.data.keyCode);
     }
   }
 
@@ -121,9 +126,10 @@ export class TypeStatement extends PageActionStatement {
   public getOutputPagesRepresentation() {
     let prefix = "";
     if (this.hasOutputPageVars()) {
-      prefix = this.outputPageVars?.map(
-        (pv) => pv? pv.toString() : "undefined"
-      ).join(", ") + " = ";
+      prefix =
+        this.outputPageVars
+          ?.map((pv) => (pv ? pv.toString() : "undefined"))
+          .join(", ") + " = ";
     }
     return prefix;
   }
@@ -138,7 +144,7 @@ export class TypeStatement extends PageActionStatement {
     if (this.currentTypedString instanceof Concatenate) {
       stringRep = this.currentTypedString.toString();
     } else if (this.currentTypedString instanceof HelenaString) {
-      stringRep = <string> this.currentTypedString.getCurrentVal();
+      stringRep = <string>this.currentTypedString.getCurrentVal();
     }
     return stringRep;
   }
@@ -147,9 +153,9 @@ export class TypeStatement extends PageActionStatement {
     if (!this.onlyKeyups && !this.onlyKeydowns) {
       // normal processing, for when there's actually a typed string
       const stringRep = this.stringRep();
-      const pageVarStr = this.pageVar? this.pageVar.toString() : "undefined";
+      const pageVarStr = this.pageVar ? this.pageVar.toString() : "undefined";
       return [
-        `${this.getOutputPagesRepresentation()}type(${pageVarStr}, ${stringRep})`
+        `${this.getOutputPagesRepresentation()}type(${pageVarStr}, ${stringRep})`,
       ];
     } else {
       return [];
@@ -171,50 +177,58 @@ export class TypeStatement extends PageActionStatement {
     }
   }
 
-
-  public updateBlocklyBlock(program?: HelenaProgram,
-      pageVars?: PageVariable[], relations?: GenericRelation[]) {
+  public updateBlocklyBlock(
+    program?: HelenaProgram,
+    pageVars?: PageVariable[],
+    relations?: GenericRelation[]
+  ) {
     if (!program || !pageVars) {
       return;
     }
     // addToolboxLabel(this.blocklyLabel, "web");
     const pageVarsDropDown = PageVariable.makePageVarsDropdown(pageVars);
     Blockly.Blocks[this.blocklyLabel] = {
-      init: function(this: Blockly.Block) {
-        this.appendDummyInput()
-            .appendField("type");
+      init: function (this: Blockly.Block) {
+        this.appendDummyInput().appendField("type");
         this.appendValueInput("currentTypedString");
         this.appendDummyInput()
-            .appendField("in")
-            .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
+          .appendField("in")
+          .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
         this.setInputsInline(true);
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);
         this.setColour(280);
-      }
+      },
     };
   }
 
-  public genBlocklyNode(prevBlock: Blockly.Block,
-      workspace: Blockly.WorkspaceSvg) {
-    if (this.onlyKeyups || this.onlyKeydowns ||
-       (this.currentTypedString &&
-          (this.currentTypedString instanceof HelenaString ||
-             this.currentTypedString instanceof Concatenate) &&
-          !this.currentTypedString.hasText())) {
+  public genBlocklyNode(
+    prevBlock: Blockly.Block,
+    workspace: Blockly.WorkspaceSvg
+  ) {
+    if (
+      this.onlyKeyups ||
+      this.onlyKeydowns ||
+      (this.currentTypedString &&
+        (this.currentTypedString instanceof HelenaString ||
+          this.currentTypedString instanceof Concatenate) &&
+        !this.currentTypedString.hasText())
+    ) {
       return null;
     } else {
       this.block = workspace.newBlock(this.blocklyLabel);
-      
-      const pageVarStr = this.pageVar? this.pageVar.toString() : "undefined";
+
+      const pageVarStr = this.pageVar ? this.pageVar.toString() : "undefined";
       this.block.setFieldValue(pageVarStr, "page");
       HelenaBlocks.attachToPrevBlock(this.block, prevBlock);
       window.helenaMainpanel.setHelenaStatement(this.block, this);
 
       if (this.currentTypedString) {
-        HelenaBlocks.attachToInput(this.block,
+        HelenaBlocks.attachToInput(
+          this.block,
           this.currentTypedString.genBlocklyNode(this.block, workspace),
-          "currentTypedString");
+          "currentTypedString"
+        );
       }
 
       return this.block;
@@ -222,17 +236,20 @@ export class TypeStatement extends PageActionStatement {
   }
 
   public getHelena() {
-    const currentTypedString = this.block.getInput('currentTypedString')
+    const currentTypedString = this.block
+      .getInput("currentTypedString")
       .connection.targetBlock();
     if (currentTypedString) {
-      this.currentTypedString =
-        <HelenaString | Concatenate> window.helenaMainpanel.getHelenaStatement(currentTypedString).
-          getHelena();
+      this.currentTypedString = <HelenaString | Concatenate>(
+        window.helenaMainpanel
+          .getHelenaStatement(currentTypedString)
+          .getHelena()
+      );
     } else {
       this.currentTypedString = null;
     }
     return this;
-  };
+  }
 
   public traverse(fn: Function, fn2: Function) {
     fn(this);
@@ -249,17 +266,19 @@ export class TypeStatement extends PageActionStatement {
       //   paremterize that
       pbvs.push({
         type: "tab",
-        value: this.originalTab()
+        value: this.originalTab(),
       });
     }
-    
+
     // we only want to pbv for things that must already have been extracted by
     //   relation extractor
-    if (this.currentNode instanceof NodeVariable &&
-        this.currentNode.getSource() === NodeSources.RELATIONEXTRACTOR) {
+    if (
+      this.currentNode instanceof NodeVariable &&
+      this.currentNode.getSource() === NodeSources.RELATIONEXTRACTOR
+    ) {
       pbvs.push({
         type: "node",
-        value: this.node
+        value: this.node,
       });
     }
 
@@ -267,16 +286,19 @@ export class TypeStatement extends PageActionStatement {
       if (this.typedString && this.typedString.length > 0) {
         pbvs.push({
           type: "typedString",
-          value: this.typedString
+          value: this.typedString,
         });
       }
     }
     return pbvs;
   }
 
-  public parameterizeForString(relation: GenericRelation,
-      column: IColumnSelector, nodeRep: MainpanelNode.Interface,
-      string?: string) {
+  public parameterizeForString(
+    relation: GenericRelation,
+    column: IColumnSelector,
+    nodeRep: MainpanelNode.Interface,
+    string?: string
+  ) {
     if (string === null || string === undefined) {
       // can't parameterize for a cell that has null text
       return;
@@ -306,8 +328,10 @@ export class TypeStatement extends PageActionStatement {
       const nodevaruse = new NodeVariableUse(nodevar);
       components.push(nodevaruse);
 
-      const right = string.slice(startIndex +
-        (<string> this.typedString).length, string.length);
+      const right = string.slice(
+        startIndex + (<string>this.typedString).length,
+        string.length
+      );
       if (right.length > 0) {
         components.push(new HelenaString(right));
       }
@@ -318,8 +342,10 @@ export class TypeStatement extends PageActionStatement {
       } else if (components.length == 2) {
         finalNode = new Concatenate(components[0], components[1]);
       } else if (components.length === 3) {
-        finalNode = new Concatenate(components[0],
-          new Concatenate(components[1], components[2]));
+        finalNode = new Concatenate(
+          components[0],
+          new Concatenate(components[1], components[2])
+        );
       }
       this.currentTypedString = finalNode;
       this.typedStringParameterizationRelation = relation;
@@ -332,9 +358,11 @@ export class TypeStatement extends PageActionStatement {
     if (!this.pageVar) {
       throw new ReferenceError("Page variable not set.");
     }
-  
-    const relationColumnUsed = this.parameterizeNodeWithRelation(relation,
-      this.pageVar);
+
+    const relationColumnUsed = this.parameterizeNodeWithRelation(
+      relation,
+      this.pageVar
+    );
 
     if (!this.onlyKeydowns && !this.onlyKeyups) {
       // now let's also parameterize the text
@@ -342,8 +370,12 @@ export class TypeStatement extends PageActionStatement {
       const firstRowNodeReprs = relation.firstRowNodeRepresentations();
       for (let i = 0; i < columns.length; i++) {
         const text = columns[i].firstRowText;
-        const paramed = this.parameterizeForString(relation, columns[i],
-          firstRowNodeReprs[i], text);
+        const paramed = this.parameterizeForString(
+          relation,
+          columns[i],
+          firstRowNodeReprs[i],
+          text
+        );
         if (paramed) {
           return [relationColumnUsed, columns[i]];
         }
@@ -352,7 +384,7 @@ export class TypeStatement extends PageActionStatement {
 
     return [relationColumnUsed];
   }
-  
+
   public unParameterizeForRelation(relation: GenericRelation) {
     this.unParameterizeNodeWithRelation(relation);
     if (this.typedStringParameterizationRelation === relation) {
@@ -362,8 +394,11 @@ export class TypeStatement extends PageActionStatement {
 
   public usesRelation(rel: GenericRelation) {
     if (rel instanceof Relation) {
-      if (this.pageVar?.name === rel.pageVarName &&
-          this.node && rel.firstRowXPaths.includes(this.node)) {
+      if (
+        this.pageVar?.name === rel.pageVarName &&
+        this.node &&
+        rel.firstRowXPaths.includes(this.node)
+      ) {
         return true;
       }
       return this.usesRelationText(rel.firstRowTexts);
@@ -390,8 +425,11 @@ export class TypeStatement extends PageActionStatement {
     return false;
   }
 
-  public run(runObject: RunObject, rbbcontinuation: Function,
-      rbboptions: RunOptions) {
+  public run(
+    runObject: RunObject,
+    rbbcontinuation: Function,
+    rbboptions: RunOptions
+  ) {
     if (this.currentTypedString) {
       this.currentTypedString.run(runObject, rbbcontinuation, rbboptions);
     }
@@ -402,23 +440,25 @@ export class TypeStatement extends PageActionStatement {
 
     // we only want to pbv for things that must already have been extracted by
     //   relation extractor
-    if (this.currentNode instanceof NodeVariable &&
-        this.currentNode.getSource() === NodeSources.RELATIONEXTRACTOR) {
+    if (
+      this.currentNode instanceof NodeVariable &&
+      this.currentNode.getSource() === NodeSources.RELATIONEXTRACTOR
+    ) {
       args.push({
-        type:"node",
-        value: this.currentNodeXpath(environment)
+        type: "node",
+        value: this.currentNodeXpath(environment),
       });
     }
     args.push({
       type: "typedString",
-      value: this.stringRep()
+      value: this.stringRep(),
     });
     args.push({
       type: "tab",
-      value: this.currentTab()
+      value: this.currentTab(),
     });
     return args;
-  };
+  }
 
   public currentRelation() {
     return this.relation;

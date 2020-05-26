@@ -222,10 +222,17 @@ export class RingerMainpanel {
       } else if (type === "updateEvent") {
         this.record.updateEvent(request.value, port.name);
       } else {
-        this.log.error("cannot handle message:", request);
+        this.log.error("cannot handle message:", JSON.stringify(request));
       }
     } else if (
-      state === RecordState.REPLAYING ||
+      (state === RecordState.REPLAYING &&
+        [
+          "event",
+          "updateEvent",
+          "ack",
+          "prompt",
+          "findNodeWithoutRequiredFeatures",
+        ].includes(type)) ||
       // todo: is this ok?  the stopped acks are breaking everything...
       (state === RecordState.STOPPED && ["ack", "updateEvent"].includes(type))
     ) {
@@ -240,7 +247,7 @@ export class RingerMainpanel {
       } else if (type === "findNodeWithoutRequiredFeatures") {
         this.replay.findNodeWithoutRequiredFeatures();
       } else {
-        this.log.error("cannot handle message:", request);
+        this.log.error("cannot handle message:", JSON.stringify(request));
       }
     } else if (["alert", "getRecording", "getParams", "url"].includes(type)) {
       if (type === "alert") {
@@ -261,10 +268,10 @@ export class RingerMainpanel {
       } else if (type === "url") {
         this.ports.updateUrl(port, request.value);
       } else {
-        this.log.error("cannot handle message:", request);
+        this.log.error("cannot handle message:", JSON.stringify(request));
       }
     } else {
-      this.log.error("cannot handle message:", request);
+      this.log.error("cannot handle message:", JSON.stringify(request));
     }
   }
 

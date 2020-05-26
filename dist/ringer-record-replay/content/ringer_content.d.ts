@@ -146,7 +146,7 @@ export declare class RingerContent {
      * @param text
      * @param callback
      */
-    promptUser(text: string, callback: ((text: string) => void)): void;
+    promptUser(text: string, callback: (text: string) => void): void;
     /**
      * Does this provide a response to a user prompt?
      * @param text

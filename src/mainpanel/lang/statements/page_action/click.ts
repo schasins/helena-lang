@@ -6,7 +6,11 @@ import { GenericRelation } from "../../../relation/generic";
 import { PageVariable } from "../../../variables/page_variable";
 import { HelenaProgram } from "../../program";
 import { Revival } from "../../../revival";
-import { Trace, Traces, DisplayTraceEvent } from "../../../../common/utils/trace";
+import {
+  Trace,
+  Traces,
+  DisplayTraceEvent,
+} from "../../../../common/utils/trace";
 import { Environment } from "../../../environment";
 import { IColumnSelector } from "../../../../content/selector/interfaces";
 import { HelenaBlocks } from "../../../ui/blocks";
@@ -36,24 +40,23 @@ export class ClickStatement extends PageActionStatement {
     // find the record-time constants that we'll turn into parameters
     const ev = Traces.firstVisibleEvent(trace);
     this.pageVar = Traces.getDOMInputPageVar(ev);
-    this.pageUrl = <string> ev.frame.topURL;
-    this.node = <string> ev.target.xpath;
+    this.pageUrl = <string>ev.frame.topURL;
+    this.node = <string>ev.target.xpath;
 
     // any event in the segment may have triggered a load
     const domEvents = trace.filter((ev) => ev.type === "dom");
 
-    const outputLoads = domEvents.reduce(
-      (acc: Trace, ev) => {
-        const loadEvs = Traces.getDOMOutputLoadEvents(<DisplayTraceEvent> ev);
-        if (!loadEvs) {
-          throw new ReferenceError("DOM output load events undefined");
-        }
-        acc.concat(loadEvs);
-        return acc;
-      }, []);
+    const outputLoads = domEvents.reduce((acc: Trace, ev) => {
+      const loadEvs = Traces.getDOMOutputLoadEvents(<DisplayTraceEvent>ev);
+      if (!loadEvs) {
+        throw new ReferenceError("DOM output load events undefined");
+      }
+      return acc.concat(loadEvs);
+    }, []);
 
-    this.outputPageVars = outputLoads.map(
-      (ev) => Traces.getLoadOutputPageVar(<DisplayTraceEvent> ev));
+    this.outputPageVars = outputLoads.map((ev) =>
+      Traces.getLoadOutputPageVar(<DisplayTraceEvent>ev)
+    );
 
     // for now, assume the ones we saw at record time are the ones we'll want at
     //   replay
@@ -78,9 +81,10 @@ export class ClickStatement extends PageActionStatement {
   public getOutputPagesRepresentation() {
     let prefix = "";
     if (this.hasOutputPageVars()) {
-      prefix = this.outputPageVars.map(
-        (pv) => pv? pv.toString() : "undefined"
-      ).join(", ") + " = ";
+      prefix =
+        this.outputPageVars
+          .map((pv) => (pv ? pv.toString() : "undefined"))
+          .join(", ") + " = ";
     }
     return prefix;
   }
@@ -92,13 +96,14 @@ export class ClickStatement extends PageActionStatement {
 
   public toStringLines(): string[] {
     const nodeRep = this.getNodeRepresentation();
-    return [
-      `${this.getOutputPagesRepresentation()}click(${nodeRep})`
-    ];
+    return [`${this.getOutputPagesRepresentation()}click(${nodeRep})`];
   }
 
-  public updateBlocklyBlock(program?: HelenaProgram,
-      pageVars?: PageVariable[], relations?: GenericRelation[]) {
+  public updateBlocklyBlock(
+    program?: HelenaProgram,
+    pageVars?: PageVariable[],
+    relations?: GenericRelation[]
+  ) {
     if (!program || !pageVars) {
       return;
     }
@@ -108,37 +113,50 @@ export class ClickStatement extends PageActionStatement {
     for (const shape of shapes) {
       const shapeLabel = this.blocklyLabel + "_" + shape;
       Blockly.Blocks[shapeLabel] = {
-        init: function(this: Blockly.Block) {
-          let fieldsSoFar = this.appendDummyInput()
-              .appendField("click");
+        init: function (this: Blockly.Block) {
+          let fieldsSoFar = this.appendDummyInput().appendField("click");
 
           // let's decide how to display the node
           if (shapeLabel.indexOf("ringer") > -1) {
             // it's just a ringer-identified node, use the pic
-            fieldsSoFar = fieldsSoFar.appendField(new Blockly.FieldImage("node",
-              ClickStatement.maxDim, ClickStatement.maxHeight, "node image"),
-              "node");
+            fieldsSoFar = fieldsSoFar.appendField(
+              new Blockly.FieldImage(
+                "node",
+                ClickStatement.maxDim,
+                ClickStatement.maxHeight,
+                "node image"
+              ),
+              "node"
+            );
           } else {
             // it has a name so just use the name
             fieldsSoFar = fieldsSoFar.appendField(
-              new Blockly.FieldTextInput("node"), "node");
+              new Blockly.FieldTextInput("node"),
+              "node"
+            );
           }
-          fieldsSoFar = fieldsSoFar.appendField("in")
-              .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
+          fieldsSoFar = fieldsSoFar
+            .appendField("in")
+            .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
 
           // let's decide whether there's an output page
           if (shapeLabel.indexOf("output") > -1) {
-            fieldsSoFar = fieldsSoFar.appendField(", load page into")
-              .appendField(new Blockly.FieldDropdown(pageVarsDropDown),
-              "outputPage");
+            fieldsSoFar = fieldsSoFar
+              .appendField(", load page into")
+              .appendField(
+                new Blockly.FieldDropdown(pageVarsDropDown),
+                "outputPage"
+              );
           }
           this.setPreviousStatement(true, null);
           this.setNextStatement(true, null);
           this.setColour(280);
         },
-        onchange: function(ev: Blockly.Events.Abstract) {
+        onchange: function (ev: Blockly.Events.Abstract) {
           const newName = this.getFieldValue("node");
-          const clickStmt = <ClickStatement> window.helenaMainpanel.getHelenaStatement(this);
+          const clickStmt = <ClickStatement>(
+            window.helenaMainpanel.getHelenaStatement(this)
+          );
           const currentName = clickStmt.currentNode.getName();
           if (newName !== currentName) {
             // new name so update all our program display stuff
@@ -155,20 +173,22 @@ export class ClickStatement extends PageActionStatement {
             }
           }
           if (ev instanceof Blockly.Events.Ui) {
-            const uiEv = <HelenaBlockUIEvent> ev;
-            
+            const uiEv = <HelenaBlockUIEvent>ev;
+
             // unselected
             if (uiEv.element === "selected" && uiEv.oldValue === this.id) {
               window.helenaMainpanel.UIObject.updateDisplayedScript(true);
             }
           }
-        }
+        },
       };
     }
   }
 
-  public genBlocklyNode(prevBlock: Blockly.Block,
-      workspace: Blockly.WorkspaceSvg) {
+  public genBlocklyNode(
+    prevBlock: Blockly.Block,
+    workspace: Blockly.WorkspaceSvg
+  ) {
     let label = this.blocklyLabel + "_";
 
     if (this.currentNode.getSource() === NodeSources.RINGER) {
@@ -208,28 +228,29 @@ export class ClickStatement extends PageActionStatement {
       //   paremterize that
       pbvs.push({
         type: "tab",
-        value: this.originalTab()
+        value: this.originalTab(),
       });
     }
 
     // we only want to pbv for things that must already have been extracted by
     //   relation extractor
-    if (this.currentNode instanceof NodeVariable &&
-        this.currentNode.getSource() === NodeSources.RELATIONEXTRACTOR) {
+    if (
+      this.currentNode instanceof NodeVariable &&
+      this.currentNode.getSource() === NodeSources.RELATIONEXTRACTOR
+    ) {
       pbvs.push({
         type: "node",
-        value: this.node
+        value: this.node,
       });
     }
     return pbvs;
   }
 
-  public parameterizeForRelation(relation: GenericRelation):
-      (IColumnSelector | null)[] {
-    return [
-      this.parameterizeNodeWithRelation(relation, this.pageVar)
-    ];
-  };
+  public parameterizeForRelation(
+    relation: GenericRelation
+  ): (IColumnSelector | null)[] {
+    return [this.parameterizeNodeWithRelation(relation, this.pageVar)];
+  }
 
   public unParameterizeForRelation(relation: GenericRelation) {
     this.unParameterizeNodeWithRelation(relation);
@@ -239,16 +260,18 @@ export class ClickStatement extends PageActionStatement {
     const args = [];
     args.push({
       type: "tab",
-      value: this.currentTab()
+      value: this.currentTab(),
     });
-    
+
     // we only want to pbv for things that must already have been extracted by
     //   relation extractor
-    if (this.currentNode instanceof NodeVariable && 
-        this.currentNode.getSource() === NodeSources.RELATIONEXTRACTOR) {
+    if (
+      this.currentNode instanceof NodeVariable &&
+      this.currentNode.getSource() === NodeSources.RELATIONEXTRACTOR
+    ) {
       args.push({
         type: "node",
-        value: this.currentNodeXpath(environment)
+        value: this.currentNodeXpath(environment),
       });
     }
     return args;

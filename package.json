@@ -1,6 +1,6 @@
 {
   "name": "helena-lang",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Library containing exports for the Helena language.",
   "main": "dist/helena.js",
   "types": "dist/index.d.ts",

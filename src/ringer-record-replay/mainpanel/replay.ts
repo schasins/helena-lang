@@ -2,16 +2,24 @@ import { PortManager } from "./port_manager";
 import { User } from "./user";
 import { Record } from "./record";
 import { RingerMessage, ReplayAckStatus } from "../common/messages";
-import { RingerEvents, RecordedRingerEvent, RecordedRingerFrameInfo } from "../common/event";
+import {
+  RingerEvents,
+  RecordedRingerEvent,
+  RecordedRingerFrameInfo,
+} from "../common/event";
 import { Utilities } from "../common/utils";
 import { HelenaConsole } from "../../common/utils/helena_console";
 import { Logs } from "../common/logs";
-import { BrokenPortStrategy, TimingStrategy, RingerParams } from "../common/params";
+import {
+  BrokenPortStrategy,
+  TimingStrategy,
+  RingerParams,
+} from "../common/params";
 
 enum ReplayState {
-  STOPPED = 'stopped',
-  REPLAYING = 'replaying', // replaying the next command
-  ACK = 'ack' // waiting for an ack from the content script
+  STOPPED = "stopped",
+  REPLAYING = "replaying", // replaying the next command
+  ACK = "ack", // waiting for an ack from the content script
 }
 
 interface ReplayTimeoutInfo {
@@ -27,12 +35,16 @@ export interface ReplayConfig {
 }
 
 export type ErrorContinuations = {
-  [key: string]: (replay: Replay, ringerCont: Function | null) => void
-}
+  [key: string]: (replay: Replay, ringerCont: Function | null) => void;
+};
 
 export interface ScriptServer {
-  saveScript: (id: string, replayEvents: RecordedRingerEvent[],
-    scriptId: number, whatsthis: string) => void;
+  saveScript: (
+    id: string,
+    replayEvents: RecordedRingerEvent[],
+    scriptId: number,
+    whatsthis: string
+  ) => void;
 }
 
 interface ReplayAck {
@@ -44,15 +56,19 @@ interface ReplayAck {
  * Handles replaying scripts.
  */
 export class Replay {
-  public static replayableEvents = ['dom', 'completed', 'manualload',
-    'webnavigation'];
+  public static replayableEvents = [
+    "dom",
+    "completed",
+    "manualload",
+    "webnavigation",
+  ];
 
-  public ack: ReplayAck | null;    // stores responses from the content script
+  public ack: ReplayAck | null; // stores responses from the content script
   public ackPort: string;
   public addonReset: ((replay: Replay) => void)[];
   public addonTiming: ((replay: Replay) => number)[];
   public callbackHandle: number | null;
-  
+
   // callback executed after replay has finished
   public cont: ((replay: Replay) => void) | null;
 
@@ -62,15 +78,15 @@ export class Replay {
   private currentPortMappingFailures: number;
 
   public errorConts: ErrorContinuations;
-  public events: RecordedRingerEvent[]; 
+  public events: RecordedRingerEvent[];
   public firstEventReplayed: boolean;
-  public index: number;       // current event index
+  public index: number; // current event index
   public listeners: ((msg: RingerMessage) => void)[];
-  private log = Logs.getLog('replay');
+  private log = Logs.getLog("replay");
 
   // whether a completed event has happened
   public matchedCompletedEvents: number[];
-  
+
   // mapping record ports and replay ports
   public portMapping: { [key: string]: chrome.runtime.Port };
 
@@ -83,9 +99,9 @@ export class Replay {
 
   public scriptServer: ScriptServer | null;
   public startTime: number;
-  
+
   // mapping record tabs and replay tabs
-  public tabMapping: { [key: string]: number};
+  public tabMapping: { [key: string]: number };
 
   public targetWindowId?: number;
   public time?: number;
@@ -109,7 +125,7 @@ export class Replay {
 
   /**
    * Add a listener.
-   * @param listener 
+   * @param listener
    */
   public addListener(listener: (msg: RingerMessage) => void) {
     this.listeners.push(listener);
@@ -121,8 +137,7 @@ export class Replay {
    */
   private checkReplayed(ev: RecordedRingerEvent) {
     for (const recordedEvent of this.record.events) {
-      if (recordedEvent.meta.recordId === ev.meta.id)
-        return true;
+      if (recordedEvent.meta.recordId === ev.meta.id) return true;
     }
     return false;
   }
@@ -143,7 +158,7 @@ export class Replay {
           return true;
         }
       } else {
-        this.timeoutInfo = {startTime: curTime, index: index};
+        this.timeoutInfo = { startTime: curTime, index: index };
       }
     }
     return false;
@@ -169,26 +184,28 @@ export class Replay {
         //   before the replay ack could be sent, so then we should assume
         //   that's what the port's disappearance means
         if (!this.ports.portIdToPort[this.ackPort]) {
-          this.log.log("ack port is actually gone; assume port disappearance " +
-            "means success");
+          this.log.log(
+            "ack port is actually gone; assume port disappearance " +
+              "means success"
+          );
           this.incrementIndex();
           this.setNextTimeout();
           this.updateStatus(ReplayState.REPLAYING);
         }
         this.setNextTimeout(RingerParams.params.replay.defaultWait);
-        this.log.log('continue waiting for replay ack');
+        this.log.log("continue waiting for replay ack");
         return;
       }
 
       const type = ack.type;
       if (type === ReplayAckStatus.SUCCESS) {
-        this.log.log('found replay ack');
+        this.log.log("found replay ack");
         this.incrementIndex();
         this.setNextTimeout();
 
         this.updateStatus(ReplayState.REPLAYING);
       } else if (type === ReplayAckStatus.PARTIAL) {
-        throw new ReferenceError('partially executed commands');
+        throw new ReferenceError("partially executed commands");
       }
       return;
     }
@@ -212,19 +229,19 @@ export class Replay {
 
     // Find the replay function associated with the event type
     if (Replay.replayableEvents.includes(type)) {
-      if (type === 'dom') {
+      if (type === "dom") {
         this.simulateDomEvent(e);
-      } else if (type === 'completed') {
+      } else if (type === "completed") {
         this.simulateCompletedEvent(e);
-      } else if (type === 'manualload') {
+      } else if (type === "manualload") {
         this.simulateManualLoadEvent(e);
-      } else if (type === 'webnavigation') {
+      } else if (type === "webnavigation") {
         this.simulateWebNavigationEvent(e);
       } else {
         throw new ReferenceError("Replayable event with unspecified behavior");
       }
     } else {
-      this.log.log('skipping event:', e);
+      this.log.log("skipping event:", e);
       this.incrementIndex();
       this.setNextTimeout(0);
     }
@@ -243,14 +260,15 @@ export class Replay {
   }
 
   /**
-   * Given the frame information from the recorded trace, find a 
+   * Given the frame information from the recorded trace, find a
    * corresponding port.
    * @param newTabId
-   */ 
+   */
+
   private findPortInTab(newTabId: number, frame: RecordedRingerFrameInfo) {
     const ports = this.ports;
     const portInfo = ports.getTabInfo(newTabId);
-    this.log.log('trying to find port in tab:', portInfo);
+    this.log.log("trying to find port in tab:", portInfo);
 
     if (!portInfo) {
       return null;
@@ -258,27 +276,34 @@ export class Replay {
 
     // if it's the top frame, use that
     if (frame.topFrame) {
-      this.log.log('assume port is top level page');
+      this.log.log("assume port is top level page");
       const topFrame = portInfo.top;
       if (topFrame && topFrame.portId) {
         return ports.getPort(topFrame.portId);
       }
     } else {
       // if it's an iframe, find all frames with matching urls
-      this.log.log('try to find port in one of the iframes');
+      this.log.log("try to find port in one of the iframes");
       var frames = portInfo.frames;
 
       let bestFrameSoFar = null;
       let bestFrameDistanceSoFar = 99999;
       for (let i = 0; i < frames.length; i++) {
-        const distance = Utilities.levenshteinDistance(frames[i].URL, frame.URL);
-        if (distance < bestFrameDistanceSoFar){
+        const distance = Utilities.levenshteinDistance(
+          frames[i].URL,
+          frame.URL
+        );
+        if (distance < bestFrameDistanceSoFar) {
           bestFrameSoFar = frames[i];
           bestFrameDistanceSoFar = distance;
         }
         if (distance === bestFrameDistanceSoFar) {
-          this.log.warn("have multiple iframes with same distance, might be " +
-            "the best distance:", bestFrameSoFar, frames[i]);
+          this.log.warn(
+            "have multiple iframes with same distance, might be " +
+              "the best distance:",
+            bestFrameSoFar,
+            frames[i]
+          );
         }
       }
 
@@ -297,8 +322,8 @@ export class Replay {
    */
   private finish() {
     const self = this;
-  
-    this.log.log('finishing replay');
+
+    this.log.log("finishing replay");
 
     if (this.getStatus() === ReplayState.STOPPED) {
       return;
@@ -316,11 +341,18 @@ export class Replay {
       const replayEvents = self.record.getEvents();
       const scriptId = self.scriptId;
 
-      if (RingerParams.params.replay.saveReplay && scriptId &&
-          replayEvents.length > 0) {
-        self.scriptServer?.saveScript('replay ' + scriptId, replayEvents,
-          scriptId, "");
-        self.log.log('saving replay:', replayEvents);
+      if (
+        RingerParams.params.replay.saveReplay &&
+        scriptId &&
+        replayEvents.length > 0
+      ) {
+        self.scriptServer?.saveScript(
+          "replay " + scriptId,
+          replayEvents,
+          scriptId,
+          ""
+        );
+        self.log.log("saving replay:", replayEvents);
       }
     }, 1000);
 
@@ -350,7 +382,7 @@ export class Replay {
 
   /**
    * Given an event, find the corresponding port
-   * @param 
+   * @param
    */
   private getMatchingPort(ev: RecordedRingerEvent) {
     const self = this;
@@ -367,7 +399,7 @@ export class Replay {
     if (port in portMapping) {
       replayPort = portMapping[port];
       //if (gpmdebug) {console.log("gpm: port in portMapping", portMapping);}
-      this.log.log('port already seen', replayPort);
+      this.log.log("port already seen", replayPort);
     } else if (tab in tabMapping) {
       // we have already seen this tab, find equivalent port for tab
       //   for now we will just choose the last port added from this tab
@@ -380,7 +412,7 @@ export class Replay {
       } else {
         // tab already seen, no port found
         this.setNextTimeout(RingerParams.params.replay.defaultWait);
-        
+
         // we can get into a loop here if (for example) we use a next button to
         //   try to get to the next page of a list
         // so we actually know the right tab because it's the same page where we
@@ -388,16 +420,17 @@ export class Replay {
         // but if the network has gone down for a moment or something else went
         //   wrong during loading the next page
         // there would be no ports associated with the tab?
-        
+
         // todo: should probably actually have our own counter for this, in case
         //   the tab just loaded at this particular iteration or something
-        if (this.currentPortMappingFailures > 0 &&
-           (this.currentPortMappingFailures % 50) === 0) {
-
+        if (
+          this.currentPortMappingFailures > 0 &&
+          this.currentPortMappingFailures % 50 === 0
+        ) {
           // let's see if there are no ports associated with the tab we should
           //   be using, and let's reload
           const portInfo = this.ports.getTabInfo(tabMapping[tab]);
-          if (!portInfo || !(portInfo.top)) {
+          if (!portInfo || !portInfo.top) {
             // why don't we have port info for the tab that we think is the
             //   right tab?  try reloading
             chrome.tabs.reload(tabMapping[tab], {}, () => {
@@ -411,8 +444,9 @@ export class Replay {
       }
     } else {
       // nothing matched, so we need to open new tab
-      const allTabs = Object.keys(this.ports.tabIdToTab).map(
-        (tabId) => parseInt(tabId));
+      const allTabs = Object.keys(this.ports.tabIdToTab).map((tabId) =>
+        parseInt(tabId)
+      );
 
       // create list of all current tabs that are mapped to
       const revMapping: { [key: number]: boolean } = {};
@@ -425,8 +459,10 @@ export class Replay {
       for (const tabId of allTabs) {
         if (!revMapping[tabId]) {
           // now make sure it's actually in the target window, if there is one
-          if (!this.targetWindowId ||
-              this.targetWindowId === this.ports.tabIdToWindowId[tabId]) {
+          if (
+            !this.targetWindowId ||
+            this.targetWindowId === this.ports.tabIdToWindowId[tabId]
+          ) {
             unusedTabs.push(tabId);
           }
         }
@@ -498,20 +534,20 @@ export class Replay {
       for (let i = currEventIndex - 1; i >= 0; i--) {
         const e = recordTimeEvents[i];
         let completedCounter = 0;
-      
+
         if (RingerEvents.isComplete(e)) {
           completedCounter++;
           if (e.data.url === currEventURL && e.data.tabId === currEventTabID) {
-            // there's a record-time load event with the same url and tab id as 
+            // there's a record-time load event with the same url and tab id as
             //   the event whose frame we're currently trying to find.
             //   we can try lining up this load event with a load event in the
             //   current run
             let completedCounterReplay = 0;
-            for (let j = replayTimeEventsSoFar.length - 1; j >= 0; j--){
+            for (let j = replayTimeEventsSoFar.length - 1; j >= 0; j--) {
               const e2 = replayTimeEventsSoFar[j];
               if (RingerEvents.isComplete(e2)) {
                 completedCounterReplay++;
-                if (completedCounter === completedCounterReplay){
+                if (completedCounter === completedCounterReplay) {
                   //this is the replay-time completed event that lines up with e
                   //  use the frame in which this completed event happened
                   //fix up ports
@@ -554,8 +590,8 @@ export class Replay {
         console.log("We're going to slow the port checking waaaaaaay down, since this doesn't seem to be working.");
       }
       */
-     // === rather than > because we don't want to call handler a bunch of
-     //   times, only once
+      // === rather than > because we don't want to call handler a bunch of
+      //   times, only once
       if (this.currentPortMappingFailures === 120) {
         if (this.errorConts && this.errorConts.portFailure) {
           // now keep in mind that this continuation may never be called if the
@@ -569,12 +605,12 @@ export class Replay {
           //   find the port anymore
           var continuation = () => {
             self.setNextTimeout(0);
-          }
+          };
           this.stopReplay();
           this.errorConts.portFailure(this, continuation);
         }
       }
-      
+
       // not returning real port
       return null;
     }
@@ -586,7 +622,8 @@ export class Replay {
 
   /**
    * Return the index of the next event that should be replayed.
-   */ 
+   */
+
   private getNextReplayableEventIndex() {
     for (let i = this.index; i < this.events.length; ++i) {
       if (this.events[i].type in Replay.replayableEvents) {
@@ -595,7 +632,6 @@ export class Replay {
     }
     return this.events.length;
   }
-
 
   /**
    * Return the time in the future the next replayable event should be
@@ -606,7 +642,7 @@ export class Replay {
 
     for (const timingHandler of this.addonTiming) {
       time = timingHandler.call(this);
-      if (typeof time === 'number') {
+      if (typeof time === "number") {
         return time;
       }
     }
@@ -634,7 +670,7 @@ export class Replay {
       if (events[i].timing.ignoreWait && timeToAdd > 5) {
         timeToAdd = timeToAdd / 5;
       }
-      defaultTime += timeToAdd; 
+      defaultTime += timeToAdd;
     }
 
     if (defaultTime > 10000) {
@@ -656,13 +692,13 @@ export class Replay {
     } else if (timing === TimingStrategy.PERTURB_0_3) {
       waitTime = defaultTime + Math.round(Math.random() * 3000);
     } else if (timing === TimingStrategy.PERTURB) {
-      var scale = 0.7 + (Math.random() * 0.6);
+      var scale = 0.7 + Math.random() * 0.6;
       waitTime = Math.round(defaultTime * scale);
     } else {
-      throw new ReferenceError('unknown timing strategy');
+      throw new ReferenceError("unknown timing strategy");
     }
 
-    this.log.log('wait time:', waitTime);
+    this.log.log("wait time:", waitTime);
     return waitTime;
   }
 
@@ -682,7 +718,7 @@ export class Replay {
     if (this.index < this.events.length) {
       const e = this.events[this.index];
       if (e.meta) {
-        this.updateListeners({type: 'simulate', value: e.meta.id});
+        this.updateListeners({ type: "simulate", value: e.meta.id });
       }
     }
   }
@@ -704,12 +740,12 @@ export class Replay {
     }
 
     /* tell whatever page was trying to execute the last event to pause */
-    this.ports.sendToAll({type: 'pauseReplay', value: null});
+    this.ports.sendToAll({ type: "pauseReplay", value: null });
   }
 
   /**
    * Receive a replay acknowledgement from the content script.
-   * @param ack 
+   * @param ack
    */
   public receiveAck(ack: ReplayAck) {
     this.ack = ack;
@@ -723,17 +759,19 @@ export class Replay {
    */
   private reloadLastTabIfFailed() {
     const self = this;
-    if (this.targetWindowId){
+    if (this.targetWindowId) {
       // for now this is only going to check for failed tabs in the target
       //   window (the window created for replay), and only if there even is a
       //   target window
       chrome.tabs.query({ windowId: this.targetWindowId }, (tabs) => {
-        HelenaConsole.log("We think we might have had a tab fail to load, so " +
-          "we're going to try reloading.");
+        HelenaConsole.log(
+          "We think we might have had a tab fail to load, so " +
+            "we're going to try reloading."
+        );
         HelenaConsole.log(tabs);
         // we really prefer to only reload the very last tab, but since there's the possibility it might be earlier, we could be willing to go back further
-        
-        for (let i = tabs.length - 1; i >= 0; i--){
+
+        for (let i = tabs.length - 1; i >= 0; i--) {
           const tab = tabs[i];
           if (isTabLoadFailed(tab)) {
             // let's make sure once it's reloaded we're ready to try again
@@ -776,9 +814,13 @@ export class Replay {
    * @param errorConts map from errors to callbacks that should be executed for
    *   those errors
    */
-  public replay(events: RecordedRingerEvent[], config: ReplayConfig,
-      cont: (replay: Replay) => void, errorConts: ErrorContinuations = {}) {
-    this.log.log('starting replay');
+  public replay(
+    events: RecordedRingerEvent[],
+    config: ReplayConfig,
+    cont: (replay: Replay) => void,
+    errorConts: ErrorContinuations = {}
+  ) {
+    this.log.log("starting replay");
 
     /* Pause and reset and previous executions */
     this.pause();
@@ -786,7 +828,7 @@ export class Replay {
 
     // Record start time for debugging
     this.startTime = new Date().getTime();
-  
+
     // If these events were already replayed, we may need to reset them
     this.events = events;
     for (const event of events) {
@@ -797,7 +839,7 @@ export class Replay {
       if (config.scriptId) {
         this.scriptId = config.scriptId;
       }
-      
+
       if (config.frameMapping) {
         const frameMapping = config.frameMapping;
         for (const k in frameMapping) {
@@ -835,13 +877,13 @@ export class Replay {
     // record the first execution attempt of the first event
     this.timeoutInfo = {
       startTime: 0,
-      index: -1
+      index: -1,
     };
-    
+
     this.ack = null;
 
     this.events = [];
-  
+
     this.index = 0;
     this.portMapping = {};
     this.tabMapping = {};
@@ -878,7 +920,7 @@ export class Replay {
     const self = this;
     if (this.callbackHandle) {
       // we'll always choose the next time to run based on the most recent
-      //   setNextTimeout, so clear out whatever might already be there 
+      //   setNextTimeout, so clear out whatever might already be there
       clearTimeout(this.callbackHandle);
     }
     if (time === undefined) {
@@ -890,23 +932,22 @@ export class Replay {
     }, time);
   }
 
-
-    /* Replay a different set of events as a subexecution. This requires 
-     * saving the context of the current execution and resetting it once
-     * the execution is finished.
-     *
-     * @param {array} events List of events to replay
-     * @param {string} scriptId Id of script
-     * @param {object} tabMapping Initial tab mapping
-     * @param {object} portMapping Initial port mapping
-     * @param {function} check Callback after subreplay is finished. The replay
-     *     is passed in as an argument.
-     * @param {function} cont Callback after subreplay is finished and 
-     *     replayer's state is reset to original.
-     * @param {number} timeout Optional argument specifying a timeout for the
-     *     subreplay.
-     */
-    /*
+  /* Replay a different set of events as a subexecution. This requires
+   * saving the context of the current execution and resetting it once
+   * the execution is finished.
+   *
+   * @param {array} events List of events to replay
+   * @param {string} scriptId Id of script
+   * @param {object} tabMapping Initial tab mapping
+   * @param {object} portMapping Initial port mapping
+   * @param {function} check Callback after subreplay is finished. The replay
+   *     is passed in as an argument.
+   * @param {function} cont Callback after subreplay is finished and
+   *     replayer's state is reset to original.
+   * @param {number} timeout Optional argument specifying a timeout for the
+   *     subreplay.
+   */
+  /*
     public subReplay(events, scriptId, tabMapping, portMapping,
           check, cont, timeout) {
     // copy the properties of the replayer (so they can be later reset)
@@ -975,21 +1016,23 @@ export class Replay {
     }
   }
 
-  /** 
+  /**
    * Replays an event of type "completed".
    * @param ev
    */
   private simulateCompletedEvent(ev: RecordedRingerEvent) {
     const self = this;
-    if (ev.forceReplay && (!ev.reset || !(ev.reset.alreadyForced))) {
+    if (ev.forceReplay && (!ev.reset || !ev.reset.alreadyForced)) {
       //console.log("forcing replay");
-      if (!ev.reset) { ev.reset = {}; }
-      // enforce that we don't do the forceReplay a second time, but instead 
+      if (!ev.reset) {
+        ev.reset = {};
+      }
+      // enforce that we don't do the forceReplay a second time, but instead
       //   wait to see the completed event?
       ev.reset.alreadyForced = true;
       const options: chrome.tabs.CreateProperties = {
         active: true,
-        url: ev.data.url
+        url: ev.data.url,
       };
       if (this.targetWindowId) {
         options.windowId = this.targetWindowId;
@@ -1000,7 +1043,7 @@ export class Replay {
         // not sufficient to treat tab creation as getting an ack. must wait for
         //   it to appear in the replay-time trace
         // that.index ++; // advance to next event
-        self.setNextTimeout(0); 
+        self.setNextTimeout(0);
       });
     } else {
       // don't need to do anything
@@ -1037,9 +1080,10 @@ export class Replay {
       let completedWithinWindowBeforeDom = false;
       const completedBeforePriorMatchedCompletedEvent = false;
       const win = 5;
-      const lastMatchedCompletedEventIndex =
-        this.matchedCompletedEvents[this.matchedCompletedEvents.length - 1];
-      for (let i = replayTimeEvents.length - 1; i >= 0; i--){
+      const lastMatchedCompletedEventIndex = this.matchedCompletedEvents[
+        this.matchedCompletedEvents.length - 1
+      ];
+      for (let i = replayTimeEvents.length - 1; i >= 0; i--) {
         // debug todo: remove next two lines
         const ev = replayTimeEvents[i];
         // console.log(i, domIndex, ev.type, ev.data);
@@ -1054,13 +1098,13 @@ export class Replay {
         }
         */
 
-        if (i <= lastMatchedCompletedEventIndex){
+        if (i <= lastMatchedCompletedEventIndex) {
           // ok, we've gone too far.  we've now reached a completed event that
           //   we already matched in the past, so can't use this one again
           break;
         }
 
-        if (domIndex === null && ev.type === "dom"){
+        if (domIndex === null && ev.type === "dom") {
           // we've found the last dom event
           domIndex = i;
         } else if (domIndex === null && RingerEvents.isComplete(ev)) {
@@ -1088,7 +1132,7 @@ export class Replay {
 
       if (completedWithinWindowBeforeDom || completedAfterLastDom) {
         // we've seen a corresponding completed event, don't need to do anything
-        this.index ++;
+        this.index++;
         this.currentCompletedObservationFailures = 0;
         this.setNextTimeout(0);
       } else {
@@ -1102,7 +1146,7 @@ export class Replay {
         if (this.currentCompletedObservationFailures > 3 && ev.mayBeSkippable) {
           // we think maybe we don't need to see a corresponding completed event
           // so let's not do anything
-          this.index ++;
+          this.index++;
           this.currentCompletedObservationFailures = 0;
           this.setNextTimeout(0);
         }
@@ -1133,7 +1177,6 @@ export class Replay {
     }
   }
 
-
   /**
    * Replays a DOM event.
    * @param ev
@@ -1142,7 +1185,7 @@ export class Replay {
     try {
       // check if event has been replayed, if so skip it
       if (RingerParams.params.replay.cascadeCheck && this.checkReplayed(ev)) {
-        this.log.debug('skipping event: ' + ev.type);
+        this.log.debug("skipping event: " + ev.type);
         this.incrementIndex();
         this.setNextTimeout();
 
@@ -1151,13 +1194,13 @@ export class Replay {
       }
 
       const meta = ev.meta;
-      this.log.log('background replay:', meta.id, ev);
+      this.log.log("background replay:", meta.id, ev);
 
       const replayPort = this.getMatchingPort(ev);
       if (!replayPort) {
         // it may be that the target tab just isn't ready yet, hasn't been added
         //   to our mappings yet.  may need to try again in a moment.
-        // if no matching port, getMatchingPort wiill try again later 
+        // if no matching port, getMatchingPort wiill try again later
         return;
       }
 
@@ -1165,7 +1208,7 @@ export class Replay {
       // let's make the tab be the active/visible tab so we can see what's
       //   happening
       if (replayPort.sender?.tab?.id) {
-        chrome.tabs.update(replayPort.sender.tab.id, {selected: true});
+        chrome.tabs.update(replayPort.sender.tab.id, { selected: true });
       }
 
       // sometimes we use special no-op events to make sure that a page has gone
@@ -1183,10 +1226,11 @@ export class Replay {
         let matchedEvent = null;
         for (var i = recordEvents.length - 1; i >= 0; --i) {
           const otherEvent = recordEvents[i];
-          if (otherEvent.type == triggerEvent.type &&
-              otherEvent.data.type == triggerEvent.data.type &&
-              Utilities.matchUrls(otherEvent.data.url,
-                triggerEvent.data.url, 0.9)) {
+          if (
+            otherEvent.type == triggerEvent.type &&
+            otherEvent.data.type == triggerEvent.data.type &&
+            Utilities.matchUrls(otherEvent.data.url, triggerEvent.data.url, 0.9)
+          ) {
             matchedEvent = otherEvent;
             break;
           }
@@ -1215,33 +1259,37 @@ export class Replay {
           if (RingerParams.params.replay.atomic && endEvent) {
             let t = this.index;
             const events = this.events;
-            const curEvent = events[t];
-            while (t < events.length && curEvent.meta.pageEventId &&
-                    endEvent >= curEvent.meta.pageEventId &&
-                    ev.frame.port == curEvent.frame.port) {
+            let curEvent = events[t];
+            while (
+              t < events.length &&
+              curEvent.meta.pageEventId &&
+              endEvent >= curEvent.meta.pageEventId &&
+              ev.frame.port == curEvent.frame.port
+            ) {
               eventGroup.push(curEvent);
               t++;
+              curEvent = events[t];
             }
           } else {
             eventGroup = [ev];
           }
 
-          replayPort.postMessage({type: 'dom', value: eventGroup});
+          replayPort.postMessage({ type: "dom", value: eventGroup });
           this.updateStatus(ReplayState.ACK);
 
           this.firstEventReplayed = true;
 
-          this.log.log('sent message', eventGroup);
-          this.log.log('start waiting for replay ack');
+          this.log.log("sent message", eventGroup);
+          this.log.log("start waiting for replay ack");
           this.setNextTimeout(0);
         } else {
-          throw 'unknown replay state';
+          throw "unknown replay state";
         }
       } catch (err) {
-        this.log.error('error:', err.message, err);
+        this.log.error("error:", err.message, err);
         // a disconnected port generally means that the page has been
         //   navigated away from
-        if (err.message === 'Attempting to use a disconnected port object') {
+        if (err.message === "Attempting to use a disconnected port object") {
           const strategy = RingerParams.params.replay.brokenPortStrategy;
           //console.log("using broken port strategy: ", strategy);
           if (strategy === BrokenPortStrategy.RETRY) {
@@ -1255,7 +1303,7 @@ export class Replay {
               this.setNextTimeout(0);
             }
           } else {
-            throw 'unknown broken port strategy';
+            throw "unknown broken port strategy";
           }
         } else {
           err.printStackTrace();
@@ -1263,14 +1311,14 @@ export class Replay {
         }
       }
     } catch (err) {
-      this.log.error('error:', err.message, err);
+      this.log.error("error:", err.message, err);
       this.finish();
     }
   }
 
   /**
    * Replay event where user manually loaded page.
-   * @param e 
+   * @param e
    */
   private simulateManualLoadEvent(ev: RecordedRingerEvent) {
     this.index++; // advance to next event
@@ -1293,7 +1341,7 @@ export class Replay {
 
   /**
    * Replays a Chrome web navigation event.
-   * @param e 
+   * @param e
    */
   private simulateWebNavigationEvent(ev: RecordedRingerEvent) {
     if (RingerEvents.isComplete(ev)) {
@@ -1332,7 +1380,7 @@ export class Replay {
 
   /**
    * Update all listeners with message.
-   * @param msg 
+   * @param msg
    */
   public updateListeners(msg: RingerMessage) {
     for (const listener of this.listeners) {
@@ -1342,13 +1390,13 @@ export class Replay {
 
   /**
    * Update replay state.
-   * @param newStatus 
+   * @param newStatus
    */
   public updateStatus(newStatus: ReplayState) {
     this.replayState = newStatus;
     this.updateListeners({
-      type: 'status',
-      value: 'replay:' + newStatus
+      type: "status",
+      value: "replay:" + newStatus,
     });
   }
 }
@@ -1356,10 +1404,10 @@ export class Replay {
 /**
  * Return whether it seems a tab load failed. Criteria are if there's no favicon
  *   URL and if the page title is just a segment of the URL.
- * @param tab 
+ * @param tab
  */
 function isTabLoadFailed(tab: chrome.tabs.Tab) {
-  if (!tab.favIconUrl && tab.title && tab.url?.includes(tab.title)){
+  if (!tab.favIconUrl && tab.title && tab.url?.includes(tab.title)) {
     return true;
   }
   return false;
