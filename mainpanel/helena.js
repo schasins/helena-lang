@@ -2426,7 +2426,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         }, true);
         if (okToRemoveTab){
           var tabId = this.pageVarCurr.currentTabId();
-          chrome.tabs.remove(tabId, function(){
+          chrome.tabs.remove(tabId)
+          .then(function() {
             that.pageVarCurr.clearCurrentTabId();
             var portManger = ports; // the ringer portsmanager object
             portManger.removeTabInfo(tabId);
@@ -4816,7 +4817,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         requestFreshRelationItems(frames);
       }
       else {
-        chrome.webNavigation.getAllFrames({tabId: tabId}, function(details) {
+        chrome.webNavigation.getAllFrames({tabId: tabId})
+        .then(function(details) {
           var frames = _.map(details, function(d){return d.frameId;});
           requestFreshRelationItems(frames);
         });
@@ -4928,7 +4930,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                 } else {
                     WALconsole.log("refreshing the page now.");
                     // Tab exists.  so we can try reloading it, see how it goes
-                    chrome.tabs.reload(pageVar.currentTabId(), {}, function(){
+                    chrome.tabs.reload(pageVar.currentTabId(), function(){
                       // ok, good, it's reloaded.  ready to go on with normal processing as though this reloaded page is our new page
                       continueWithANewPage();
                     });
@@ -6122,7 +6124,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     function splitOnEnoughMemoryToCloneTrace(trace, ifEnoughMemory, ifNotEnoughMemory){
    var check = function(){
-      chrome.system.memory.getInfo(function(data){
+      chrome.system.memory.getInfo()
+      .then(function(data) {
         if (checkEnoughMemoryToCloneTrace(data, trace)){
           ifEnoughMemory();
         }
@@ -7139,7 +7142,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               tabsToCloseAfter = tabsToCloseAfter.concat(TraceManipulationUtilities.tabsInTrace(replayTrace));
               // also sometimes it's important that we bring this tab (on which we're about to do relation finding)
               // to be focused, so that it will get loaded and we'll be able to find the relation
-              chrome.tabs.update(lastCompletedEventTabId, {"active": true}, function(tab){ });
+              chrome.tabs.update(lastCompletedEventTabId, {"active": true});
               // I know I know, I should really have all the rest of this inside the callback for the tab update
               // but we didn't even do this in the past and it's pretty fast...
 
@@ -7278,7 +7281,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                 // ok, we'll have to ask the tab what frames are in it
                 // let's get some info from the pages, and when we get that info back we can come back and deal with more script segments
                 var checkFramesFunc = function(){
-                  chrome.webNavigation.getAllFrames({tabId: lastCompletedEventTabId}, function(details) {
+                  chrome.webNavigation.getAllFrames({tabId: lastCompletedEventTabId})
+                  .then(function(details) {
                                   console.log("about to send to frames, tabId", lastCompletedEventTabId);
                                   var frames = _.map(details, function(d){return d.frameId;});
                                   sendMessageForFrames(frames);

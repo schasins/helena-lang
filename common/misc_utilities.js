@@ -71,7 +71,7 @@ var utilities = (function _utilities() { var pub = {};
     WALconsole.namedLog("tooCommon", "couldn't find right handler", msg, sender);
   });
 
-  chrome.extension.onMessage.addListener(function _listenerExtension(msg, sender) {
+  chrome.runtime.onMessage.addListener(function _listenerExtension(msg, sender) {
     // WALconsole.log("keys", Object.keys(extensionListeners));
     for (var key in extensionListeners){
       // WALconsole.log("key", key);
@@ -203,20 +203,21 @@ var utilities = (function _utilities() { var pub = {};
         WALconsole.log("(Sent to ", tab_ids_include.length, " tabs: ", tab_ids_include, " )");
       }
       else{
-          chrome.tabs.query({windowType: "normal"}, function _sendMessageTabs(tabs){
-            tabs_messaged = 0;
-            for (var i =0; i<tabs.length; i++){
-              if (!(tab_ids_exclude && tab_ids_exclude.indexOf(tabs[i].id) > -1)){
-                try {
-                    chrome.tabs.sendMessage(tabs[i].id, msg); 
-                }
-                catch(err) {
-                    // WALconsole.warn("failure to send message:", msg);
-                }
-                tabs_messaged ++;
+        chrome.tabs.query({windowType: "normal"})
+        .then(function _sendMessageTabs(tabs){
+          tabs_messaged = 0;
+          for (var i =0; i<tabs.length; i++){
+            if (!(tab_ids_exclude && tab_ids_exclude.indexOf(tabs[i].id) > -1)){
+              try {
+                  chrome.tabs.sendMessage(tabs[i].id, msg); 
               }
+              catch(err) {
+                  // WALconsole.warn("failure to send message:", msg);
+              }
+              tabs_messaged ++;
             }
-            WALconsole.log("(Sent to "+tabs_messaged+" tabs.)");
+          }
+          WALconsole.log("(Sent to "+tabs_messaged+" tabs.)");
         });
       }
     }
@@ -509,47 +510,46 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
     pub.sendAndReSendInternals($.post, url, msg, successHandler, showThatWereWaiting, extraText);
   };
 
-  pub.makeNewRecordReplayWindow = function _makeNewRecordReplayWindow(cont, specifiedUrl=false, winWidth=false, winHeight=false){
-    chrome.windows.getCurrent(function (currWindowInfo){
-      var right = currWindowInfo.left + currWindowInfo.width;
-      var width = null;
-      var height = null;
-      chrome.system.display.getInfo(function(displayInfoLs){
-        for (var i = 0; i < displayInfoLs.length; i++){
-          var bounds = displayInfoLs[i].bounds;
-          bounds.right = bounds.left + bounds.width;
-          WALconsole.log(bounds);
-          if (bounds.left <= right && bounds.right >= right){
-            // we've found the right display
-            var top = currWindowInfo.top - 40; // - 40 because it doesn't seem to count the menu bar and I'm not looking for a more accurate solution at the moment
-            var left = right; // let's have it adjacent to the control panel
-            console.log(bounds.right - right, bounds.top + bounds.height - top);
-            if (!winWidth || !winHeight){
-              width = bounds.right - right;
-              height = bounds.top + bounds.height - top;
-            }
-            else{
-              width = winWidth;
-              height = winHeight;
-            }
-
-            // for now let's actually make width and height fixed for stability across different ways of running (diff machines, diff panel sizes at start)
-            // 1419 1185
-           //var width = 1419;
-           //var height = 1185;
-            var url = specifiedUrl;
-            if (!url || ((typeof url) !== "string")){
-              url = "pages/newRecordingWindow.html"
-            }
-            chrome.windows.create({url: url, focused: true, left: left, top: top, width: width, height: height}, function(win){
-              WALconsole.log("new record/replay window created.");
-              //pub.sendCurrentRecordingWindow(); // todo: should probably still send this for some cases
-              cont(win.id);
-            });
-          }
+  pub.makeNewRecordReplayWindow = async function _makeNewRecordReplayWindow(cont, specifiedUrl=false, winWidth=false, winHeight=false){
+    const currWindowInfo = await chrome.windows.getCurrent();
+    const displayInfoLs = await chrome.system.display.getInfo();
+    var right = currWindowInfo.left + currWindowInfo.width;
+    var width = null;
+    var height = null;
+    for (var i = 0; i < displayInfoLs.length; i++) {
+      var bounds = displayInfoLs[i].bounds;
+      bounds.right = bounds.left + bounds.width;
+      WALconsole.log(bounds);
+      if (bounds.left <= right && bounds.right >= right){
+        // we've found the right display
+        var top = currWindowInfo.top - 40; // - 40 because it doesn't seem to count the menu bar and I'm not looking for a more accurate solution at the moment
+        var left = right; // let's have it adjacent to the control panel
+        console.log(bounds.right - right, bounds.top + bounds.height - top);
+        if (!winWidth || !winHeight){
+          width = bounds.right - right;
+          height = bounds.top + bounds.height - top;
         }
-      });
-    });
+        else{
+          width = winWidth;
+          height = winHeight;
+        }
+
+        // for now let's actually make width and height fixed for stability across different ways of running (diff machines, diff panel sizes at start)
+        // 1419 1185
+        //var width = 1419;
+        //var height = 1185;
+        var url = specifiedUrl;
+        if (!url || ((typeof url) !== "string")){
+          url = "pages/newRecordingWindow.html"
+        }
+        chrome.windows.create({url: url, focused: true, left: left, top: top, width: width, height: height})
+        .then(function(win){
+          WALconsole.log("new record/replay window created.");
+          //pub.sendCurrentRecordingWindow(); // todo: should probably still send this for some cases
+          cont(win.id);
+        });
+      }
+    }
   };
 
   pub.currentDateString = function _currentDateString(){
