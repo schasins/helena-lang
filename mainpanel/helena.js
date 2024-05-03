@@ -7283,10 +7283,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                 var checkFramesFunc = function(){
                   chrome.webNavigation.getAllFrames({tabId: lastCompletedEventTabId})
                   .then(function(details) {
-                                  console.log("about to send to frames, tabId", lastCompletedEventTabId);
-                                  var frames = _.map(details, function(d){return d.frameId;});
-                                  sendMessageForFrames(frames);
-                                });
+                    console.log("about to send to frames, tabId", lastCompletedEventTabId);
+                    var frames = _.map(details, function(d){return d.frameId;});
+                    sendMessageForFrames(frames);
+                  });
                 };
                 setTimeout(checkFramesFunc, 0); // for pages that take a long time to actually load the right page (redirects), can increase this; todo: fix it a real way by trying over and over until we get a reasonable answer
               }
