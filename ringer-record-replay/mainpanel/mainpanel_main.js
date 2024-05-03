@@ -119,7 +119,8 @@ var PortManager = (function PortManagerClosure() {
       /* bug with listening to removed tabs, so lets actually check which
        * tabs are open and then update our list appropriately */
       var ports = this;
-      chrome.tabs.query({}, function(openTabs) {
+      chrome.tabs.query({})
+      .then(function(openTabs) {
         ports.updateRemovedTabs(openTabs);
       });
 
@@ -850,9 +851,8 @@ var Replay = (function ReplayClosure() {
             var portInfo = ports.getTabInfo(tabMapping[tab]);
             if (!portInfo || !(portInfo.top)){
               // why don't we have port info for the tab that we think is the right tab?  try reloading
-              chrome.tabs.reload(tabMapping[tab], {}, function(){
+              chrome.tabs.reload(tabMapping[tab], {});
                 // ok, good, it's reloaded. not actually anything to do here I don't think
-              });
             }
           }
 
@@ -1208,7 +1208,8 @@ var Replay = (function ReplayClosure() {
         }
         //console.log("options", options);
         //console.log("event", e);
-        chrome.tabs.create(options, function(){
+        chrome.tabs.create(options)
+        .then(function() {
           // not sufficient to treat tab creation as getting an ack.  must wait for it to appear in the replay-time trace
           // that.index ++; // advance to next event
           that.setNextTimeout(0); 
@@ -1322,7 +1323,8 @@ var Replay = (function ReplayClosure() {
         if (this.targetWindowId){
           // for now this is only going to check for failed tabs in the target window (the window created for replay), and only if there even is a target window
           var that = this;
-          chrome.tabs.getAllInWindow(this.targetWindowId, function(tabs){
+          chrome.tabs.query({windowId: this.targetWindowId})
+          .then(function(tabs){
             WALconsole.log("We think we might have had a tab fail to load, so we're going to try reloading.");
             WALconsole.log(tabs);
             // we really prefer to only reload the very last tab, but since there's the possibility it might be earlier, we could be willing to go back further
@@ -1344,12 +1346,11 @@ var Replay = (function ReplayClosure() {
                   }
                   */
                   // let's go tell it to reload
-                  chrome.tabs.reload(tab.id, {}, function(){
+                  chrome.tabs.reload(tab.id);
                     // ok, good, it's reloaded.  start checking for completion
                     // checkUntilComplete();
                     // for now, since even without network connection we'll get the 'complete' status, we don't want to do the loop above
                     // because it just ends up looping really really quickly, and I don't want to crash the extension.  so just wait the whole 5000 (above)
-                  });
                 }
               })(tabs[i]);
             }
@@ -1777,7 +1778,8 @@ chrome.runtime.onConnect.addListener(function(port) {
   ports.connectPort(new Port(port));
 });
 
-chrome.tabs.getCurrent(function(curTab) {
+chrome.tabs.getCurrent()
+.then(function(curTab) {
   var tabId = curTab.id;
   chrome.tabs.onActivated.addListener(function _handleTabGetCurrent(activeInfo) {
     if (activeInfo.tabId != tabId)
@@ -1819,7 +1821,8 @@ function addWebRequestEvent(details, type) {
   // let's also figure out the window that should be associated with this web request, add that info once we get it
   // -1 means the request is not associated with a particular tab
   if (details.tabId > -1){
-    chrome.tabs.get(details.tabId, function (tab) {
+    chrome.tabs.get(details.tabId)
+    .then(function (tab) {
       if (!tab && type != "manualload"){
         WALconsole.warn("No tab.windowId!  This is bad for addWebRequestEvent.");
         return;
