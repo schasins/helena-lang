@@ -71,7 +71,7 @@ var utilities = (function _utilities() { var pub = {};
     WALconsole.namedLog("tooCommon", "couldn't find right handler", msg, sender);
   });
 
-  chrome.extension.onMessage.addListener(function _listenerExtension(msg, sender) {
+  chrome.runtime.onMessage.addListener(function _listenerExtension(msg, sender) {
     // WALconsole.log("keys", Object.keys(extensionListeners));
     for (var key in extensionListeners){
       // WALconsole.log("key", key);
@@ -453,7 +453,7 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
 
   pub.scrapeConditionString = "<kbd>ALT</kbd> + click";
   pub.scrapeConditionLinkString = "<kbd>ALT</kbd> + <kbd>SHIFT</kbd> + click";
-  var osString = window.navigator.platform;
+  var osString = (typeof navigator !== 'undefined') ? navigator.platform : '';
   if (osString.indexOf("Linux") > -1){
     // there's a weird thing where just ALT + click doesn't raise events in Linux Chrome
     // pressing CTRL at the same time causes the events to be raised without (at the moment, apparently) messing up other stuff

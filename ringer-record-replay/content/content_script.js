@@ -955,7 +955,7 @@ function injectScripts(paths) {
   function injectScript(index) {
     // inject code into the pages domain
     var s = document.createElement('script');
-    s.src = chrome.extension.getURL(paths[index]);
+    s.src = chrome.runtime.getURL(paths[index]);
     s.onload = function() {
       this.parentNode.removeChild(this);
       if (index + 1 < paths.length)

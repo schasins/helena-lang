@@ -1322,7 +1322,7 @@ var Replay = (function ReplayClosure() {
         if (this.targetWindowId){
           // for now this is only going to check for failed tabs in the target window (the window created for replay), and only if there even is a target window
           var that = this;
-          chrome.tabs.getAllInWindow(this.targetWindowId, function(tabs){
+          chrome.tabs.query({windowId: this.targetWindowId}, function(tabs){
             WALconsole.log("We think we might have had a tab fail to load, so we're going to try reloading.");
             WALconsole.log(tabs);
             // we really prefer to only reload the very last tab, but since there's the possibility it might be earlier, we could be willing to go back further
@@ -1576,16 +1576,16 @@ var Controller = (function ControllerClosure() {
       this.record.startRecording();
 
       /* Update the UI */
-      chrome.browserAction.setBadgeBackgroundColor({color: [255, 0, 0, 64]});
-      // chrome.browserAction.setBadgeText({text: 'ON'});
+      chrome.action.setBadgeBackgroundColor({color: [255, 0, 0, 64]});
+      // chrome.action.setBadgeText({text: 'ON'});
     },
     stop: function() {
       ctlLog.log('stop');
       this.record.stopRecording();
 
       /* Update the UI */
-      chrome.browserAction.setBadgeBackgroundColor({color: [0, 0, 0, 0]});
-      // chrome.browserAction.setBadgeText({text: 'OFF'});
+      chrome.action.setBadgeBackgroundColor({color: [0, 0, 0, 0]});
+      // chrome.action.setBadgeText({text: 'OFF'});
     },
     reset: function() {
       ctlLog.log('reset');
@@ -1835,7 +1835,7 @@ var filter = {urls: ['http://*/*', 'https://*/*'],
 chrome.webRequest.onBeforeRequest.addListener(function(details) {
   bgLog.log('request start', details);
   addWebRequestEvent(details, 'start');
-}, filter, ['blocking']);
+}, filter);
 
 chrome.webRequest.onCompleted.addListener(function(details) {
   bgLog.log('completed', details);
